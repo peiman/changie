@@ -12,4 +12,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - This project.
 
-[Unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/0.0.0...HEAD
+[Unreleased]: https://github.com/peiman/changie/compare/0.0.0...HEAD
