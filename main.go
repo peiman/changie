@@ -33,11 +33,12 @@ import (
 
 var (
 	app                      = kingpin.New("changie", "A version and change log manager for releases. Made for projects using Git, semver v2.0.0 and Keep a Changelog v0.3.0.")
+	initCommand              = app.Command("init", "Initiate project directory for semver and Keep a Changelog.")
 	majorCommand             = app.Command("major", "Release a major version. Bump the first version number.")
 	minorCommand             = app.Command("minor", "Release a minor version. Bump the second version number.")
 	patchCommand             = app.Command("patch", "Release a patch version. Bump the third version number.")
 	remoteRepositoryProvider = app.Flag("rrp", "Remote repository provider, github or bitbucket.").Short('r').Default("github").Enum("github", "bitbucket")
-	changeLogFile            = app.Flag("changelog", "Change log file name.").Short('c').Default("CHANGELOG.md").ExistingFile()
+	changeLogFile            = app.Flag("changelog", "Change log file name.").Short('c').Default("CHANGELOG.md").File()
 )
 
 func main() {
@@ -52,11 +53,13 @@ func main() {
 
 	app.Version("0.0.0")
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	case "init":
+		log.Print("Initiate project for semver and Keep a Changelog.")
 	case "major":
-		log.Print("major release done")
+		log.Print("Major release done.")
 	case "minor":
-		log.Print("major release done")
+		log.Print("Minor release done.")
 	case "patch":
-		log.Print("major release done")
+		log.Print("Patch release done.")
 	}
 }
