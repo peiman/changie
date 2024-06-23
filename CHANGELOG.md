@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [0.2.0] - 2024-06-23
 ### Added
 - CHANGELOG.md
 - Updated README.md with improved documentation
@@ -19,3 +21,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Initial project setup
 
 [Unreleased]: https://github.com/peiman/changie/compare/0.0.0...HEAD
+
+[0.2.0]: https://github.com/username/repo/compare/v0.2.0...HEAD

@@ -2,9 +2,12 @@ package git
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 )
+
+var execCommand = exec.Command
 
 // IsInstalled checks if Git is installed
 func IsInstalled() bool {
@@ -14,10 +17,13 @@ func IsInstalled() bool {
 
 // GetProjectVersion gets the current project version from Git tags
 func GetProjectVersion() (string, error) {
-	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0", "--match", "[0-9]*.[0-9]*.[0-9]*")
-	output, err := cmd.Output()
+	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
+	log.Printf("Executing command: %v", cmd.Args)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("error getting project version: %w", err)
+		log.Printf("Command output: %s", string(output))
+		log.Printf("Error executing git command: %v", err)
+		return "", fmt.Errorf("error getting project version: %v", err)
 	}
 	return strings.TrimSpace(string(output)), nil
 }
@@ -34,9 +40,10 @@ func CommitChangelog(changelogFile, version string) error {
 
 // TagVersion creates a new Git tag for the given version
 func TagVersion(version string) error {
-	cmd := exec.Command("git", "tag", version)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error tagging version: %w", err)
+	cmd := execCommand("git", "tag", version)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error tagging version: %v\nCommand output: %s", err, string(out))
 	}
 	return nil
 }

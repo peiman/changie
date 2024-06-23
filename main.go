@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/peiman/changie/internal/changelog"
@@ -68,7 +70,7 @@ var (
 	patchCommand               = app.Command("patch", "Release a patch version. Bump the third version number.")
 	remoteRepositoryProvider   = app.Flag("rrp", "Remote repository provider, github or bitbucket.").Short('r').Default("github").Enum("github", "bitbucket")
 	changelogCommand           = app.Command("changelog", "Change log commands.")
-	changeLogFile              = changelogCommand.Flag("file", "Change log file name.").Short('f').Default("CHANGELOG.md").String()
+	changeLogFile              = app.Flag("file", "Change log file name.").Short('f').Default("CHANGELOG.md").String()
 	changelogAddCommand        = changelogCommand.Command("added", "Add an added section to changelog.")
 	changelogChangedCommand    = changelogCommand.Command("changed", "Add a changed section to changelog.")
 	changelogDeprecatedCommand = changelogCommand.Command("deprecated", "Add a deprecated section to changelog.")
@@ -102,11 +104,12 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 		return fmt.Errorf("Error bumping version: %v", err)
 	}
 
-	if err := changelogManager.UpdateChangelog(*changeLogFile, newVersion, *remoteRepositoryProvider); err != nil {
+	changelogFilePath := filepath.Join(".", *changeLogFile)
+	if err := changelogManager.UpdateChangelog(changelogFilePath, newVersion, *remoteRepositoryProvider); err != nil {
 		return fmt.Errorf("Error updating changelog: %v", err)
 	}
 
-	if err := gitManager.CommitChangelog(*changeLogFile, newVersion); err != nil {
+	if err := gitManager.CommitChangelog(changelogFilePath, newVersion); err != nil {
 		return fmt.Errorf("Error committing changelog: %v", err)
 	}
 
@@ -141,7 +144,9 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 
 	switch command {
 	case initCommand.FullCommand():
+		log.Printf("Initializing project with changelog file: %s", *changeLogFile)
 		if err := changelogManager.InitProject(*changeLogFile); err != nil {
+			log.Printf("Error initializing project: %v", err)
 			fmt.Fprintf(os.Stderr, "Error initializing project: %v\n", err)
 			return err
 		}
@@ -182,6 +187,9 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 }
 
 func main() {
+	// Enable verbose logging
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	changelogManager := DefaultChangelogManager{}
 	gitManager := DefaultGitManager{}
 	semverManager := DefaultSemverManager{}

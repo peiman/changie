@@ -7,6 +7,12 @@ import (
 	"testing"
 )
 
+var executedCmd []string
+
+func mockExecCommand(command string, args ...string) *exec.Cmd {
+	executedCmd = append([]string{command}, args...)
+	return exec.Command("echo", "mocked")
+}
 func TestIsInstalled(t *testing.T) {
 	if !IsInstalled() {
 		t.Error("Git is not installed, but it should be for running these tests")
@@ -99,5 +105,33 @@ func TestTagVersion(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "1.0.0") {
 		t.Error("Tag 1.0.0 not found in git tags")
+	}
+}
+func TestTagVersionWithoutPrefix(t *testing.T) {
+	// Mock exec.Command
+	oldExecCommand := execCommand
+	execCommand = mockExecCommand
+	defer func() { execCommand = oldExecCommand }()
+
+	// Reset executedCmd before the test
+	executedCmd = nil
+
+	// Test tagging version without 'v' prefix
+	err := TagVersion("1.0.0")
+	if err != nil {
+		t.Errorf("TagVersion failed: %v", err)
+	}
+
+	// Check if the correct command was executed
+	expectedCmd := []string{"git", "tag", "1.0.0"}
+	if len(executedCmd) != len(expectedCmd) {
+		t.Errorf("Expected command %v, got: %v", expectedCmd, executedCmd)
+	} else {
+		for i := range expectedCmd {
+			if executedCmd[i] != expectedCmd[i] {
+				t.Errorf("Expected command %v, got: %v", expectedCmd, executedCmd)
+				break
+			}
+		}
 	}
 }
