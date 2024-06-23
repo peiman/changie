@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2024-06-23
+### Fixed
+- Fixed issue with comparison URLs in changelog
+
 ## [0.2.0] - 2024-06-23
 ### Added
 - CHANGELOG.md
@@ -22,6 +26,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - Initial project setup
 
-[Unreleased]: https://github.com/peiman/changie/compare/0.2.0...HEAD
+
+[Unreleased]: https://github.com/peiman/changie/compare/0.2.1...HEAD
+[0.2.1]: https://github.com/peiman/changie/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/peiman/changie/compare/0.1.0...0.2.0
-[0.1.0]: https://github.com/peiman/changie/compare/0.0.0...0.1.0
+[0.1.0]: https://github.com/peiman/changie/releases/tag/0.1.0

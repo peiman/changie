@@ -119,8 +119,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/username/repo/compare/0.1.0...HEAD
-[0.1.0]: https://github.com/username/repo/releases/tag/0.1.0
+[Unreleased]: https://github.com/peiman/changie/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/peiman/changie/releases/tag/0.1.0
 `
 	if _, err := tmpfile.Write([]byte(initialContent)); err != nil {
 		t.Fatal(err)
@@ -149,9 +149,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/username/repo/compare/0.2.0...HEAD
-[0.2.0]: https://github.com/username/repo/compare/0.1.0...0.2.0
-[0.1.0]: https://github.com/username/repo/releases/tag/0.1.0
+[Unreleased]: https://github.com/peiman/changie/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/peiman/changie/compare/0.1.0...0.2.0
+[0.1.0]: https://github.com/peiman/changie/releases/tag/0.1.0
 `
 
 	if !compareIgnoreWhitespace(string(content), expected) {

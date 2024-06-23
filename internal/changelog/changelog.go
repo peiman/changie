@@ -96,17 +96,6 @@ func AddChangelogSection(changelogFile, section string) error {
 	return nil
 }
 
-func getDiffLink(repoProvider, newVersion string) string {
-	switch repoProvider {
-	case "github":
-		return fmt.Sprintf("[%s]: https://github.com/username/repo/compare/v%s...HEAD", newVersion, newVersion)
-	case "bitbucket":
-		return fmt.Sprintf("[%s]: https://bitbucket.org/username/repo/branches/compare/v%s%%0Dmaster", newVersion, newVersion)
-	default:
-		return fmt.Sprintf("[%s]: Link to diff for %s", newVersion, newVersion)
-	}
-}
-
 func updateDiffLinks(lines []string, newVersion, provider string) []string {
 	var updatedLines []string
 	var versions []string
@@ -137,9 +126,9 @@ func updateDiffLinks(lines []string, newVersion, provider string) []string {
 func getCompareURL(provider string) string {
 	switch provider {
 	case "github":
-		return "https://github.com/username/repo"
+		return "https://github.com/peiman/changie"
 	case "bitbucket":
-		return "https://bitbucket.org/username/repo"
+		return "https://bitbucket.org/peiman/changie"
 	default:
 		return ""
 	}
