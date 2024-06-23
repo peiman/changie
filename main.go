@@ -16,7 +16,7 @@ import (
 type ChangelogManager interface {
 	InitProject(string) error
 	UpdateChangelog(string, string, string) error
-	AddChangelogSection(string, string) error
+	AddChangelogSection(string, string, string) error
 }
 
 type GitManager interface {
@@ -38,8 +38,8 @@ func (m DefaultChangelogManager) InitProject(file string) error { return changel
 func (m DefaultChangelogManager) UpdateChangelog(file, version, provider string) error {
 	return changelog.UpdateChangelog(file, version, provider)
 }
-func (m DefaultChangelogManager) AddChangelogSection(file, section string) error {
-	return changelog.AddChangelogSection(file, section)
+func (m DefaultChangelogManager) AddChangelogSection(file, section, content string) error {
+	return changelog.AddChangelogSection(file, section, content)
 }
 
 type DefaultGitManager struct{}
@@ -71,7 +71,8 @@ var (
 	remoteRepositoryProvider   = app.Flag("rrp", "Remote repository provider, github or bitbucket.").Short('r').Default("github").Enum("github", "bitbucket")
 	changelogCommand           = app.Command("changelog", "Change log commands.")
 	changeLogFile              = app.Flag("file", "Change log file name.").Short('f').Default("CHANGELOG.md").String()
-	changelogAddCommand        = changelogCommand.Command("added", "Add an added section to changelog.")
+	changelogAddCommand        = changelogCommand.Command("added", "Add an added section to changelog")
+	changelogAddContent        = changelogAddCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogChangedCommand    = changelogCommand.Command("changed", "Add a changed section to changelog.")
 	changelogDeprecatedCommand = changelogCommand.Command("deprecated", "Add a deprecated section to changelog.")
 	changelogRemovedCommand    = changelogCommand.Command("removed", "Add a removed section to changelog.")
@@ -122,11 +123,11 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 	return nil
 }
 
-func handleChangelogUpdate(section string, changelogManager ChangelogManager) error {
-	if err := changelogManager.AddChangelogSection(*changeLogFile, section); err != nil {
+func handleChangelogUpdate(section, content string, changelogManager ChangelogManager) error {
+	if err := changelogManager.AddChangelogSection(*changeLogFile, section, content); err != nil {
 		return fmt.Errorf("Error adding changelog section: %v", err)
 	}
-	fmt.Printf("Added %s section to changelog.\n", section)
+	fmt.Printf("Added %s section to changelog: %s\n", section, content)
 	return nil
 }
 
@@ -162,22 +163,22 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 		return handleVersionBump("patch", changelogManager, gitManager, semverManager)
 
 	case changelogAddCommand.FullCommand():
-		return handleChangelogUpdate("Added", changelogManager)
+		return handleChangelogUpdate("Added", *changelogAddContent, changelogManager)
 
 	case changelogChangedCommand.FullCommand():
-		return handleChangelogUpdate("Changed", changelogManager)
+		return handleChangelogUpdate("Changed", "", changelogManager)
 
 	case changelogDeprecatedCommand.FullCommand():
-		return handleChangelogUpdate("Deprecated", changelogManager)
+		return handleChangelogUpdate("Deprecated", "", changelogManager)
 
 	case changelogRemovedCommand.FullCommand():
-		return handleChangelogUpdate("Removed", changelogManager)
+		return handleChangelogUpdate("Removed", "", changelogManager)
 
 	case changelogFixedCommand.FullCommand():
-		return handleChangelogUpdate("Fixed", changelogManager)
+		return handleChangelogUpdate("Fixed", "", changelogManager)
 
 	case changelogSecurityCommand.FullCommand():
-		return handleChangelogUpdate("Security", changelogManager)
+		return handleChangelogUpdate("Security", "", changelogManager)
 
 	default:
 		return fmt.Errorf("Unknown command: %s", command)

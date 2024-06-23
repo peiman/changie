@@ -24,7 +24,7 @@ func (m *MockChangelogManager) UpdateChangelog(string, string, string) error {
 	m.updateChangelogCalled++
 	return m.updateChangelogErr
 }
-func (m *MockChangelogManager) AddChangelogSection(string, string) error {
+func (m *MockChangelogManager) AddChangelogSection(string, string, string) error {
 	return m.addChangelogSectionErr
 }
 
@@ -144,9 +144,17 @@ func TestMainPackage(t *testing.T) {
 		},
 		{
 			name:             "Add Changelog Section",
-			args:             []string{"changie", "changelog", "added"},
-			expected:         "Added Added section to changelog.\n",
+			args:             []string{"changie", "changelog", "added", "New feature"},
+			expected:         "Added Added section to changelog: New feature\n",
 			changelogManager: &MockChangelogManager{},
+			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
+			semverManager:    &MockSemverManager{},
+		},
+		{
+			name:             "Error Adding Changelog Section",
+			args:             []string{"changie", "changelog", "added", "New feature"},
+			expected:         "Error adding changelog section: mock error\n",
+			changelogManager: &MockChangelogManager{addChangelogSectionErr: fmt.Errorf("mock error")},
 			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
 			semverManager:    &MockSemverManager{},
 		},
@@ -188,14 +196,6 @@ func TestMainPackage(t *testing.T) {
 			expected:         "Error tagging version: mock error\n",
 			changelogManager: &MockChangelogManager{},
 			gitManager:       &MockGitManager{projectVersion: "1.0.0", tagVersionErr: fmt.Errorf("mock error")},
-			semverManager:    &MockSemverManager{},
-		},
-		{
-			name:             "Error Adding Changelog Section",
-			args:             []string{"changie", "changelog", "added"},
-			expected:         "Error adding changelog section: mock error\n",
-			changelogManager: &MockChangelogManager{addChangelogSectionErr: fmt.Errorf("mock error")},
-			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
 			semverManager:    &MockSemverManager{},
 		},
 	}

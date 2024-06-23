@@ -57,42 +57,62 @@ func UpdateChangelog(file, version, provider string) error {
 }
 
 // AddChangelogSection adds a new section to the Unreleased part of the changelog
-func AddChangelogSection(changelogFile, section string) error {
+func AddChangelogSection(changelogFile, section, content string) error {
 	file, err := os.OpenFile(changelogFile, os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("error opening changelog: %w", err)
 	}
 	defer file.Close()
+
 	scanner := bufio.NewScanner(file)
 	var lines []string
 	unreleasedFound := false
+	sectionFound := false
 	sectionAdded := false
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		lines = append(lines, line)
 		if strings.HasPrefix(line, "## [Unreleased]") {
 			unreleasedFound = true
-		} else if unreleasedFound && !sectionAdded && line == "" {
-			lines = append(lines, fmt.Sprintf("### %s", section), "")
-			sectionAdded = true
+		} else if unreleasedFound && !sectionAdded {
+			if strings.HasPrefix(line, fmt.Sprintf("### %s", section)) {
+				sectionFound = true
+			} else if sectionFound && line == "" {
+				lines = append(lines, fmt.Sprintf("- %s", content))
+				sectionAdded = true
+			} else if !sectionFound && line == "" {
+				lines = append(lines, fmt.Sprintf("### %s", section), fmt.Sprintf("- %s", content), "")
+				sectionAdded = true
+			}
 		}
 	}
+
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("error scanning changelog: %w", err)
 	}
+
 	if !unreleasedFound {
 		return fmt.Errorf("couldn't find Unreleased section in changelog")
 	}
+
+	if !sectionAdded {
+		lines = append(lines, fmt.Sprintf("### %s", section), fmt.Sprintf("- %s", content), "")
+	}
+
 	if _, err := file.Seek(0, 0); err != nil {
 		return fmt.Errorf("error seeking to start of file: %w", err)
 	}
+
 	writer := bufio.NewWriter(file)
 	for _, line := range lines {
 		fmt.Fprintln(writer, line)
 	}
+
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("error writing to changelog: %w", err)
 	}
+
 	return nil
 }
 
