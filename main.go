@@ -71,13 +71,18 @@ var (
 	remoteRepositoryProvider   = app.Flag("rrp", "Remote repository provider, github or bitbucket.").Short('r').Default("github").Enum("github", "bitbucket")
 	changelogCommand           = app.Command("changelog", "Change log commands.")
 	changeLogFile              = app.Flag("file", "Change log file name.").Short('f').Default("CHANGELOG.md").String()
-	changelogAddCommand        = changelogCommand.Command("added", "Add an added section to changelog")
+	changelogAddCommand        = changelogCommand.Command("added", "Add an added section to changelog.")
 	changelogAddContent        = changelogAddCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogChangedCommand    = changelogCommand.Command("changed", "Add a changed section to changelog.")
+	changelogChangedContent    = changelogChangedCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogDeprecatedCommand = changelogCommand.Command("deprecated", "Add a deprecated section to changelog.")
+	changelogDeprecatedContent = changelogDeprecatedCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogRemovedCommand    = changelogCommand.Command("removed", "Add a removed section to changelog.")
+	changelogRemovedContent    = changelogRemovedCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogFixedCommand      = changelogCommand.Command("fixed", "Add a fixed section to changelog.")
+	changelogFixedContent      = changelogFixedCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogSecurityCommand   = changelogCommand.Command("security", "Add a security section to changelog.")
+	changelogSecurityContent   = changelogSecurityCommand.Arg("content", "Content to add to the changelog").Required().String()
 )
 
 var isGitInstalled = git.IsInstalled
@@ -164,21 +169,16 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 
 	case changelogAddCommand.FullCommand():
 		return handleChangelogUpdate("Added", *changelogAddContent, changelogManager)
-
 	case changelogChangedCommand.FullCommand():
-		return handleChangelogUpdate("Changed", "", changelogManager)
-
+		return handleChangelogUpdate("Changed", *changelogChangedContent, changelogManager)
 	case changelogDeprecatedCommand.FullCommand():
-		return handleChangelogUpdate("Deprecated", "", changelogManager)
-
+		return handleChangelogUpdate("Deprecated", *changelogDeprecatedContent, changelogManager)
 	case changelogRemovedCommand.FullCommand():
-		return handleChangelogUpdate("Removed", "", changelogManager)
-
+		return handleChangelogUpdate("Removed", *changelogRemovedContent, changelogManager)
 	case changelogFixedCommand.FullCommand():
-		return handleChangelogUpdate("Fixed", "", changelogManager)
-
+		return handleChangelogUpdate("Fixed", *changelogFixedContent, changelogManager)
 	case changelogSecurityCommand.FullCommand():
-		return handleChangelogUpdate("Security", "", changelogManager)
+		return handleChangelogUpdate("Security", *changelogSecurityContent, changelogManager)
 
 	default:
 		return fmt.Errorf("Unknown command: %s", command)

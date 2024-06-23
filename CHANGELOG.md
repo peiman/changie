@@ -5,6 +5,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Security
+- Patched SQL injection vulnerability
+
+### Fixed
+- Bug in error handling
+
+### Removed
+- Unused helper functions
+
+### Deprecated
+- Legacy API endpoints
+
+### Changed
+- Updated dependency versions
+
+### Added
+- added shit
+
 ## [0.2.2] - 2024-06-23
 ### Added
 - New feature: Improved changelog management

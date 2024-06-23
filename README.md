@@ -39,16 +39,24 @@ changie patch  # Bump patch version (e.g., 1.0.0 -> 1.0.1)
 
 ### Managing the changelog
 
-To add a new section to the changelog, use one of the following commands:
+To add a new entry to the changelog, use one of the following commands:
 
 ```bash
-changie changelog added      # Add an "Added" section
-changie changelog changed    # Add a "Changed" section
-changie changelog deprecated # Add a "Deprecated" section
-changie changelog removed    # Add a "Removed" section
-changie changelog fixed      # Add a "Fixed" section
-changie changelog security   # Add a "Security" section
+changie changelog added "Description of new feature"
+changie changelog changed "Description of changes in existing functionality"
+changie changelog deprecated "Description of soon-to-be removed features"
+changie changelog removed "Description of removed features"
+changie changelog fixed "Description of any bug fixes"
+changie changelog security "Description of security vulnerabilities fixed"
 ```
+
+For example:
+
+```bash
+changie changelog added "New feature: Improved changelog management"
+```
+
+This will add a new entry under the "Added" section in the [Unreleased] part of your CHANGELOG.md file.
 
 ### Specifying the remote repository provider
 
@@ -66,12 +74,6 @@ To run tests:
 
 ```bash
 go test ./...
-```
-
-To check test coverage:
-
-```bash
-go test ./... -cover
 ```
 
 ### Contributing
