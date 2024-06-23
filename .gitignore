@@ -84,3 +84,10 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+
+# Other
+combined.txt
+coverage.out
+test_output.txt
+

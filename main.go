@@ -1,166 +1,192 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
-	"regexp"
-	"strconv"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/alecthomas/kingpin/v2"
+	"github.com/peiman/changie/internal/changelog"
+	"github.com/peiman/changie/internal/git"
+	"github.com/peiman/changie/internal/semver"
 )
 
-// Changies prereqs
-// Project supports semver v2.0.0
-// Project supports "Keep a Changelog" v0.3.0
-// Git is installed in host environment
-//
-// Changies required input
-// Version bump: Major | Minor | Patch
-// Remote Repository Provider: Github, Bitbucket, default: Github
-// Change log file, default: CHANGELOG.md
-//
-// Changies algorithm
-// Check version git tag to determine current version, git describe --tags --abbrev=0 --match "[0-9]*.[0-9]*.[0-9]*"
-// Update CHANGELOG.md,
-// 	- Check that unreleased is not empty.
-// 	- Move everything in unreleased to the new version number.
-//	- Add diff link for github or bitbucket
-// Commit CHANGELOG.md
-// Git tag with the bumped version
-// Remind user not to forget to git push
+// Interfaces for dependency injection
+type ChangelogManager interface {
+	InitProject(string) error
+	UpdateChangelog(string, string, string) error
+	AddChangelogSection(string, string) error
+}
+
+type GitManager interface {
+	CommitChangelog(string, string) error
+	TagVersion(string) error
+	GetProjectVersion() (string, error)
+}
+
+type SemverManager interface {
+	BumpMajor(string) (string, error)
+	BumpMinor(string) (string, error)
+	BumpPatch(string) (string, error)
+}
+
+// Default implementations
+type DefaultChangelogManager struct{}
+
+func (m DefaultChangelogManager) InitProject(file string) error { return changelog.InitProject(file) }
+func (m DefaultChangelogManager) UpdateChangelog(file, version, provider string) error {
+	return changelog.UpdateChangelog(file, version, provider)
+}
+func (m DefaultChangelogManager) AddChangelogSection(file, section string) error {
+	return changelog.AddChangelogSection(file, section)
+}
+
+type DefaultGitManager struct{}
+
+func (m DefaultGitManager) CommitChangelog(file, version string) error {
+	return git.CommitChangelog(file, version)
+}
+func (m DefaultGitManager) TagVersion(version string) error    { return git.TagVersion(version) }
+func (m DefaultGitManager) GetProjectVersion() (string, error) { return git.GetProjectVersion() }
+
+type DefaultSemverManager struct{}
+
+func (m DefaultSemverManager) BumpMajor(version string) (string, error) {
+	return semver.BumpMajor(version)
+}
+func (m DefaultSemverManager) BumpMinor(version string) (string, error) {
+	return semver.BumpMinor(version)
+}
+func (m DefaultSemverManager) BumpPatch(version string) (string, error) {
+	return semver.BumpPatch(version)
+}
 
 var (
-	app                        = kingpin.New("changie", "A version and change log manager for releases. Made for projects using Git, semver v2.0.0 and Keep a Changelog v0.3.0.")
+	app                        = kingpin.New("changie", "A version and change log manager for releases. Made for projects using Git, SemVer v2.0.0 and Keep a Changelog v1.0.0.")
 	initCommand                = app.Command("init", "Initiate project directory for semver and Keep a Changelog.")
 	majorCommand               = app.Command("major", "Release a major version. Bump the first version number.")
 	minorCommand               = app.Command("minor", "Release a minor version. Bump the second version number.")
 	patchCommand               = app.Command("patch", "Release a patch version. Bump the third version number.")
 	remoteRepositoryProvider   = app.Flag("rrp", "Remote repository provider, github or bitbucket.").Short('r').Default("github").Enum("github", "bitbucket")
 	changelogCommand           = app.Command("changelog", "Change log commands.")
-	changeLogFile              = changelogCommand.Flag("file", "Change log file name.").Short('f').Default("CHANGELOG.md").File()
+	changeLogFile              = changelogCommand.Flag("file", "Change log file name.").Short('f').Default("CHANGELOG.md").String()
 	changelogAddCommand        = changelogCommand.Command("added", "Add an added section to changelog.")
-	changelogChangedCommand    = changelogCommand.Command("changed", "Add an changed section to changelog.")
-	changelogDeprecatedCommand = changelogCommand.Command("deprecated", "Add an deprecated section to changelog.")
-	changelogRemovedCommand    = changelogCommand.Command("removed", "Add an removed section to changelog.")
-	changelogFixedCommand      = changelogCommand.Command("fixed", "Add an fixed section to changelog.")
-	changelogSecurityCommand   = changelogCommand.Command("security", "Add an security section to changelog.")
+	changelogChangedCommand    = changelogCommand.Command("changed", "Add a changed section to changelog.")
+	changelogDeprecatedCommand = changelogCommand.Command("deprecated", "Add a deprecated section to changelog.")
+	changelogRemovedCommand    = changelogCommand.Command("removed", "Add a removed section to changelog.")
+	changelogFixedCommand      = changelogCommand.Command("fixed", "Add a fixed section to changelog.")
+	changelogSecurityCommand   = changelogCommand.Command("security", "Add a security section to changelog.")
 )
 
-type semverT struct {
-	str string
-}
+var isGitInstalled = git.IsInstalled
 
-func (s *semverT) explode() [3]int {
-	var re = regexp.MustCompile(`(\d+).(\d+).(\d+)`)
-	allMatches := re.FindAllStringSubmatch(s.str, -1)
-	major, err := strconv.Atoi(allMatches[0][1])
+func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
+	var bumpFunc func(string) (string, error)
+	switch bumpType {
+	case "major":
+		bumpFunc = semverManager.BumpMajor
+	case "minor":
+		bumpFunc = semverManager.BumpMinor
+	case "patch":
+		bumpFunc = semverManager.BumpPatch
+	default:
+		return fmt.Errorf("Invalid bump type: %s", bumpType)
+	}
+
+	currentVersion, err := gitManager.GetProjectVersion()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Error getting project version: %v", err)
 	}
-	minor, err := strconv.Atoi(allMatches[0][2])
+
+	newVersion, err := bumpFunc(currentVersion)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Error bumping version: %v", err)
 	}
-	patch, err := strconv.Atoi(allMatches[0][3])
+
+	if err := changelogManager.UpdateChangelog(*changeLogFile, newVersion, *remoteRepositoryProvider); err != nil {
+		return fmt.Errorf("Error updating changelog: %v", err)
+	}
+
+	if err := gitManager.CommitChangelog(*changeLogFile, newVersion); err != nil {
+		return fmt.Errorf("Error committing changelog: %v", err)
+	}
+
+	if err := gitManager.TagVersion(newVersion); err != nil {
+		return fmt.Errorf("Error tagging version: %v", err)
+	}
+
+	fmt.Printf("%s release %s done.\n", bumpType, newVersion)
+	fmt.Println("Don't forget to git push and git push --tags.")
+	return nil
+}
+
+func handleChangelogUpdate(section string, changelogManager ChangelogManager) error {
+	if err := changelogManager.AddChangelogSection(*changeLogFile, section); err != nil {
+		return fmt.Errorf("Error adding changelog section: %v", err)
+	}
+	fmt.Printf("Added %s section to changelog.\n", section)
+	return nil
+}
+
+func run(changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
+	app.Version("0.1.0")
+
+	if !isGitInstalled() {
+		return fmt.Errorf("Error: Git is not installed.")
+	}
+
+	command, err := app.Parse(os.Args[1:])
 	if err != nil {
-		log.Fatal(err)
+		return err // Return the error from kingpin
 	}
-	return [3]int{major, minor, patch}
-}
 
-func (s *semverT) bumpMajor() string {
-	exploded := s.explode()
-	var buffer bytes.Buffer
-	buffer.WriteString(strconv.Itoa(exploded[0] + 1))
-	buffer.WriteString(".0.0")
-	s.str = buffer.String()
-	return s.str
-}
+	switch command {
+	case initCommand.FullCommand():
+		if err := changelogManager.InitProject(*changeLogFile); err != nil {
+			fmt.Fprintf(os.Stderr, "Error initializing project: %v\n", err)
+			return err
+		}
+		fmt.Println("Project initialized for semver and Keep a Changelog.")
 
-func (s *semverT) bumpMinor() string {
-	exploded := s.explode()
-	var buffer bytes.Buffer
-	buffer.WriteString(strconv.Itoa(exploded[0]))
-	buffer.WriteString(".")
-	buffer.WriteString(strconv.Itoa(exploded[1] + 1))
-	buffer.WriteString(".0")
-	s.str = buffer.String()
-	return s.str
-}
+	case majorCommand.FullCommand():
+		return handleVersionBump("major", changelogManager, gitManager, semverManager)
 
-func (s *semverT) bumpPatch() string {
-	exploded := s.explode()
-	var buffer bytes.Buffer
-	buffer.WriteString(strconv.Itoa(exploded[0]))
-	buffer.WriteString(".")
-	buffer.WriteString(strconv.Itoa(exploded[1]))
-	buffer.WriteString(".")
-	buffer.WriteString(strconv.Itoa(exploded[2] + 1))
-	s.str = buffer.String()
-	return s.str
-}
+	case minorCommand.FullCommand():
+		return handleVersionBump("minor", changelogManager, gitManager, semverManager)
 
-func getProjectVersion() string {
-	var (
-		cmdOut []byte
-		err    error
-	)
-	cmdName := "git"
-	cmdArgs := []string{"describe", "--tags", "--abbrev=0", "--match", "[[:digit:]]*.[[:digit:]]*.[[:digit:]]*"}
-	if cmdOut, err = exec.Command(cmdName, cmdArgs...).CombinedOutput(); err != nil {
-		fmt.Print(string(cmdOut[:]))
-		fmt.Fprintln(os.Stderr, "There was an error running git describe command ", err)
-		os.Exit(1)
+	case patchCommand.FullCommand():
+		return handleVersionBump("patch", changelogManager, gitManager, semverManager)
+
+	case changelogAddCommand.FullCommand():
+		return handleChangelogUpdate("Added", changelogManager)
+
+	case changelogChangedCommand.FullCommand():
+		return handleChangelogUpdate("Changed", changelogManager)
+
+	case changelogDeprecatedCommand.FullCommand():
+		return handleChangelogUpdate("Deprecated", changelogManager)
+
+	case changelogRemovedCommand.FullCommand():
+		return handleChangelogUpdate("Removed", changelogManager)
+
+	case changelogFixedCommand.FullCommand():
+		return handleChangelogUpdate("Fixed", changelogManager)
+
+	case changelogSecurityCommand.FullCommand():
+		return handleChangelogUpdate("Security", changelogManager)
+
+	default:
+		return fmt.Errorf("Unknown command: %s", command)
 	}
-	return string(cmdOut)
-}
 
-func gitTag(semver string) {
-	var (
-		cmdOut []byte
-		err    error
-	)
-	cmdName := "git"
-	cmdArgs := []string{"tag", semver}
-	if cmdOut, err = exec.Command(cmdName, cmdArgs...).CombinedOutput(); err != nil {
-		fmt.Print(string(cmdOut[:]))
-		fmt.Fprintln(os.Stderr, "There was an error running git describe command ", err)
-		os.Exit(1)
-	}
+	return nil
 }
 
 func main() {
-	out, err := exec.Command("git", "--version").CombinedOutput()
-	gitExists := regexp.MustCompile(`git version`)
-	s := string(out[:])
-	if err != nil {
-		log.Fatal(err)
-	} else if !gitExists.MatchString(s) {
-		log.Fatal("Git is not installed.")
+	changelogManager := DefaultChangelogManager{}
+	gitManager := DefaultGitManager{}
+	semverManager := DefaultSemverManager{}
+	if err := run(changelogManager, gitManager, semverManager); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-
-	app.Version("0.0.0")
-	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-	case "init":
-		log.Print("Initiate project for semver and Keep a Changelog.")
-	case "major":
-		semver := semverT{getProjectVersion()}
-		semver.bumpMajor()
-		//gitTag(semver)
-		log.Print("Major release " + semver.str + " done.")
-	case "minor":
-		semver := semverT{getProjectVersion()}
-		semver.bumpMinor()
-		//gitTag(semver)
-		log.Print("Minor release " + semver.str + " done.")
-	case "patch":
-		semver := semverT{getProjectVersion()}
-		semver.bumpPatch()
-		//gitTag(semver)
-		log.Print("Patch release " + semver.str + " done.")
-	}
-	log.Print("Don't forget to git push.")
 }
