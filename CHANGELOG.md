@@ -1,35 +1,60 @@
 # Change Log
+
 All notable changes to this project will be documented in this file.
-The format is based on [Keep a Changelog](http://keepachangelog.com/)
-and this project adheres to [Semantic Versioning](http://semver.org/).
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.2.2] - 2024-06-23
 ### Added
+
+- New feature: Implemented automatic changelog formatting
+
+### Changed
+
+- Improved error handling in version bumping process
+
+### Fixed
+
+- Resolved issue with newline handling in changelog entries
+
+## [0.2.2] - 2024-06-23
+
+### Added
+
 - New feature: Improved changelog management
 
 ## [0.2.1] - 2024-06-23
+
 ### Fixed
+
 - Fixed issue with comparison URLs in changelog
 
 ## [0.2.0] - 2024-06-23
+
 ### Added
+
 - CHANGELOG.md
 - Updated README.md with improved documentation
 - Added CI/CD configuration with ci.yml
 - Implemented unit tests and improved test coverage
+
 ### Changed
+
 - Modified main.go to improve functionality and error handling
 
 ## [0.1.0] - 2024-06-23
+
 ### Added
+
 - Initial release with basic functionality
 
 ## 0.0.0 - 2016-09-07
-### Added
-- Initial project setup
 
+### Added
+
+- Initial project setup
 
 [Unreleased]: https://github.com/peiman/changie/compare/0.2.2...HEAD
 [0.2.2]: https://github.com/peiman/changie/compare/0.2.1...0.2.2

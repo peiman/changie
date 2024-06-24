@@ -15,6 +15,7 @@ type MockChangelogManager struct {
 	updateChangelogErr     error
 	addChangelogSectionErr error
 	updateChangelogCalled  int
+	isDuplicate            bool
 }
 
 func (m *MockChangelogManager) InitProject(string) error {
@@ -24,8 +25,8 @@ func (m *MockChangelogManager) UpdateChangelog(string, string, string) error {
 	m.updateChangelogCalled++
 	return m.updateChangelogErr
 }
-func (m *MockChangelogManager) AddChangelogSection(string, string, string) error {
-	return m.addChangelogSectionErr
+func (m *MockChangelogManager) AddChangelogSection(string, string, string) (bool, error) {
+	return m.isDuplicate, m.addChangelogSectionErr
 }
 
 type MockGitManager struct {
@@ -80,6 +81,7 @@ func (m *MockSemverManager) BumpPatch(string) (string, error) {
 	}
 	return "1.0.1", nil
 }
+
 func captureOutput(f func() error) (string, error) {
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
@@ -145,8 +147,56 @@ func TestMainPackage(t *testing.T) {
 		{
 			name:             "Add Changelog Section",
 			args:             []string{"changie", "changelog", "added", "New feature"},
-			expected:         "Added Added section to changelog: New feature\n",
-			changelogManager: &MockChangelogManager{},
+			expected:         "Added section: New feature\n",
+			changelogManager: &MockChangelogManager{isDuplicate: false},
+			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
+			semverManager:    &MockSemverManager{},
+		},
+		{
+			name:             "Add Duplicate Changelog Section",
+			args:             []string{"changie", "changelog", "added", "New feature"},
+			expected:         "Added section: New feature (duplicate entry, not added)\n",
+			changelogManager: &MockChangelogManager{isDuplicate: true},
+			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
+			semverManager:    &MockSemverManager{},
+		},
+		{
+			name:             "Add Changelog Changed Section",
+			args:             []string{"changie", "changelog", "changed", "Updated feature"},
+			expected:         "Changed section: Updated feature\n",
+			changelogManager: &MockChangelogManager{isDuplicate: false},
+			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
+			semverManager:    &MockSemverManager{},
+		},
+		{
+			name:             "Add Changelog Deprecated Section",
+			args:             []string{"changie", "changelog", "deprecated", "Old feature"},
+			expected:         "Deprecated section: Old feature\n",
+			changelogManager: &MockChangelogManager{isDuplicate: false},
+			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
+			semverManager:    &MockSemverManager{},
+		},
+		{
+			name:             "Add Changelog Removed Section",
+			args:             []string{"changie", "changelog", "removed", "Obsolete feature"},
+			expected:         "Removed section: Obsolete feature\n",
+			changelogManager: &MockChangelogManager{isDuplicate: false},
+			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
+			semverManager:    &MockSemverManager{},
+		},
+		{
+			name:             "Add Changelog Fixed Section",
+			args:             []string{"changie", "changelog", "fixed", "Bug fix"},
+			expected:         "Fixed section: Bug fix\n",
+			changelogManager: &MockChangelogManager{isDuplicate: false},
+			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
+			semverManager:    &MockSemverManager{},
+		},
+		{
+			name:             "Add Changelog Security Section",
+			args:             []string{"changie", "changelog", "security", "Security patch"},
+			expected:         "Security section: Security patch\n",
+			changelogManager: &MockChangelogManager{isDuplicate: false},
 			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
 			semverManager:    &MockSemverManager{},
 		},
@@ -267,35 +317,19 @@ func TestInvalidCommand(t *testing.T) {
 }
 
 func TestMinorVersionBump(t *testing.T) {
-	// Set up test environment
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
 
 	os.Args = []string{"changie", "minor"}
 
-	// Mock dependencies
 	mockChangelogManager := &MockChangelogManager{}
 	mockGitManager := &MockGitManager{projectVersion: "0.1.0"}
 	mockSemverManager := &MockSemverManager{}
 
-	// Capture output
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	output, err := captureOutput(func() error {
+		return run(mockChangelogManager, mockGitManager, mockSemverManager)
+	})
 
-	// Run the command
-	err := run(mockChangelogManager, mockGitManager, mockSemverManager)
-
-	// Restore stdout
-	w.Close()
-	os.Stdout = old
-
-	// Read captured output
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	output := buf.String()
-
-	// Check results
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -305,7 +339,6 @@ func TestMinorVersionBump(t *testing.T) {
 		t.Errorf("Expected output '%s', got: '%s'", expectedOutput, output)
 	}
 
-	// Check if the correct methods were called
 	if mockGitManager.getProjectVersionCalled != 1 {
 		t.Errorf("Expected GetProjectVersion to be called once")
 	}

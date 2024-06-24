@@ -16,7 +16,7 @@ import (
 type ChangelogManager interface {
 	InitProject(string) error
 	UpdateChangelog(string, string, string) error
-	AddChangelogSection(string, string, string) error
+	AddChangelogSection(string, string, string) (bool, error)
 }
 
 type GitManager interface {
@@ -38,7 +38,7 @@ func (m DefaultChangelogManager) InitProject(file string) error { return changel
 func (m DefaultChangelogManager) UpdateChangelog(file, version, provider string) error {
 	return changelog.UpdateChangelog(file, version, provider)
 }
-func (m DefaultChangelogManager) AddChangelogSection(file, section, content string) error {
+func (m DefaultChangelogManager) AddChangelogSection(file, section, content string) (bool, error) {
 	return changelog.AddChangelogSection(file, section, content)
 }
 
@@ -129,10 +129,17 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 }
 
 func handleChangelogUpdate(section, content string, changelogManager ChangelogManager) error {
-	if err := changelogManager.AddChangelogSection(*changeLogFile, section, content); err != nil {
+	isDuplicate, err := changelogManager.AddChangelogSection(*changeLogFile, section, content)
+	if err != nil {
 		return fmt.Errorf("Error adding changelog section: %v", err)
 	}
-	fmt.Printf("Added %s section to changelog: %s\n", section, content)
+
+	if isDuplicate {
+		fmt.Printf("%s section: %s (duplicate entry, not added)\n", section, content)
+	} else {
+		fmt.Printf("%s section: %s\n", section, content)
+	}
+
 	return nil
 }
 

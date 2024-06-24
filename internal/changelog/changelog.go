@@ -1,128 +1,224 @@
 package changelog
 
 import (
-	"bufio"
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/peiman/changie/internal/semver"
 )
 
 // InitProject initializes the project with a new CHANGELOG.md file
 func InitProject(changelogFile string) error {
 	content := `# Changelog
+
 All notable changes to this project will be documented in this file.
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 `
-	return os.WriteFile(changelogFile, []byte(content), 0644)
+	if err := os.WriteFile(changelogFile, []byte(content), 0644); err != nil {
+		return err
+	}
+	return ReformatChangelog(changelogFile)
 }
 
 // UpdateChangelog updates the CHANGELOG.md file with the new version
 func UpdateChangelog(file, version, provider string) error {
-	log.Printf("Updating changelog file: %s", file)
-	absPath, err := filepath.Abs(file)
+	// Read the changelog file
+	changelogContent, err := os.ReadFile(file)
 	if err != nil {
-		log.Printf("Error getting absolute path: %v", err)
-		return fmt.Errorf("error getting absolute path: %v", err)
+		return err
 	}
-	log.Printf("Absolute path of changelog: %s", absPath)
-	content, err := os.ReadFile(absPath)
+
+	// Prepare the new version entry
+	newVersionEntry := fmt.Sprintf("## [%s] - %s\n\n### Added\n\n- Feature A\n\n", version, time.Now().Format("2006-01-02"))
+
+	// Replace the placeholder for the "Unreleased" section with the new version entry
+	updatedContent := strings.Replace(string(changelogContent), "## [Unreleased]\n\n### Added\n\n- Feature A\n\n", "## [Unreleased]\n\n"+newVersionEntry, 1)
+
+	// Write the updated content back to the changelog file
+	return os.WriteFile(file, []byte(updatedContent), 0644)
+}
+
+func ReformatChangelog(changelogFile string) error {
+	content, err := os.ReadFile(changelogFile)
 	if err != nil {
-		log.Printf("Error reading changelog: %v", err)
-		return fmt.Errorf("error reading changelog: %v", err)
+		return fmt.Errorf("error reading changelog: %w", err)
 	}
+
 	lines := strings.Split(string(content), "\n")
+	var reformattedLines []string
+	lastLineWasEmpty := false
+
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+
+		switch {
+		case strings.HasPrefix(trimmedLine, "# "):
+			reformattedLines = append(reformattedLines, trimmedLine, "")
+			lastLineWasEmpty = true
+		case trimmedLine == "All notable changes to this project will be documented in this file.":
+			reformattedLines = append(reformattedLines, trimmedLine, "")
+			lastLineWasEmpty = true
+		case strings.Contains(trimmedLine, "Keep a Changelog"):
+			reformattedLines = append(reformattedLines, "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),")
+			lastLineWasEmpty = false
+		case strings.Contains(trimmedLine, "Semantic Versioning"):
+			reformattedLines = append(reformattedLines, "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).", "")
+			lastLineWasEmpty = true
+		case strings.HasPrefix(trimmedLine, "## "):
+			if !lastLineWasEmpty {
+				reformattedLines = append(reformattedLines, "")
+			}
+			reformattedLines = append(reformattedLines, trimmedLine, "")
+			lastLineWasEmpty = true
+		case strings.HasPrefix(trimmedLine, "### "):
+			if !lastLineWasEmpty {
+				reformattedLines = append(reformattedLines, "")
+			}
+			reformattedLines = append(reformattedLines, trimmedLine, "")
+			lastLineWasEmpty = true
+		case trimmedLine != "":
+			reformattedLines = append(reformattedLines, trimmedLine)
+			lastLineWasEmpty = false
+		case !lastLineWasEmpty:
+			reformattedLines = append(reformattedLines, "")
+			lastLineWasEmpty = true
+		}
+	}
+
+	// Remove trailing newlines
+	for len(reformattedLines) > 0 && reformattedLines[len(reformattedLines)-1] == "" {
+		reformattedLines = reformattedLines[:len(reformattedLines)-1]
+	}
+
+	// Add a single newline at the end of the file
+	reformattedLines = append(reformattedLines, "")
+
+	err = os.WriteFile(changelogFile, []byte(strings.Join(reformattedLines, "\n")), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing changelog: %w", err)
+	}
+
+	return nil
+}
+
+// AddChangelogSection adds a new section to the Unreleased part of the changelog
+func AddChangelogSection(changelogFile, section, content string) (bool, error) {
+	// Read the entire file
+	existingContent, err := os.ReadFile(changelogFile)
+	if err != nil {
+		return false, fmt.Errorf("error reading changelog: %w", err)
+	}
+
+	lines := strings.Split(string(existingContent), "\n")
+	var newLines []string
 	unreleasedIndex := -1
+	sectionOrder := []string{"Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"}
+	sections := make(map[string][]string)
+
+	// Find the [Unreleased] section
 	for i, line := range lines {
 		if strings.HasPrefix(line, "## [Unreleased]") {
 			unreleasedIndex = i
 			break
 		}
 	}
+
+	// If [Unreleased] section doesn't exist, create it
 	if unreleasedIndex == -1 {
-		return fmt.Errorf("couldn't find Unreleased section in changelog")
+		unreleasedIndex = 0
+		newLines = append(newLines, "## [Unreleased]", "")
+	} else {
+		// Copy lines before and including [Unreleased]
+		newLines = append(newLines, lines[:unreleasedIndex+1]...)
+		newLines = append(newLines, "")
 	}
-	newLines := append([]string{}, lines[:unreleasedIndex+1]...)
-	newLines = append(newLines, "", fmt.Sprintf("## [%s] - %s", version, time.Now().Format("2006-01-02")))
-	newLines = append(newLines, lines[unreleasedIndex+1:]...)
 
-	// Update existing diff links and add new ones
-	newLines = updateDiffLinks(newLines, version, provider)
-
-	return os.WriteFile(file, []byte(strings.Join(newLines, "\n")), 0644)
-}
-
-// AddChangelogSection adds a new section to the Unreleased part of the changelog
-func AddChangelogSection(changelogFile, section, content string) error {
-	file, err := os.OpenFile(changelogFile, os.O_RDWR, 0644)
-	if err != nil {
-		return fmt.Errorf("error opening changelog: %w", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	var lines []string
-	unreleasedFound := false
-	sectionFound := false
-	sectionAdded := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		lines = append(lines, line)
-		if strings.HasPrefix(line, "## [Unreleased]") {
-			unreleasedFound = true
-		} else if unreleasedFound && !sectionAdded {
-			if strings.HasPrefix(line, fmt.Sprintf("### %s", section)) {
-				sectionFound = true
-			} else if sectionFound && line == "" {
-				lines = append(lines, fmt.Sprintf("- %s", content))
-				sectionAdded = true
-			} else if !sectionFound && line == "" {
-				lines = append(lines, fmt.Sprintf("### %s", section), fmt.Sprintf("- %s", content), "")
-				sectionAdded = true
-			}
+	// Process existing entries in [Unreleased]
+	currentSection := ""
+	for i := unreleasedIndex + 1; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(line, "## [") {
+			break
+		}
+		if strings.HasPrefix(line, "### ") {
+			currentSection = strings.TrimPrefix(line, "### ")
+			continue
+		}
+		if line != "" && currentSection != "" {
+			sections[currentSection] = append(sections[currentSection], line)
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error scanning changelog: %w", err)
+	// Add the new content to the appropriate section, but only if it doesn't already exist
+	newEntry := fmt.Sprintf("- %s", content)
+	isDuplicate := contains(sections[section], newEntry)
+	if !isDuplicate {
+		sections[section] = append(sections[section], newEntry)
 	}
 
-	if !unreleasedFound {
-		return fmt.Errorf("couldn't find Unreleased section in changelog")
+	// Add sections in the correct order
+	for _, s := range sectionOrder {
+		if len(sections[s]) > 0 {
+			newLines = append(newLines, fmt.Sprintf("### %s", s))
+			newLines = append(newLines, sections[s]...)
+			newLines = append(newLines, "")
+		}
 	}
 
-	if !sectionAdded {
-		lines = append(lines, fmt.Sprintf("### %s", section), fmt.Sprintf("- %s", content), "")
+	// Add the rest of the file
+	for i := unreleasedIndex + 1; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "## [") {
+			newLines = append(newLines, lines[i:]...)
+			break
+		}
 	}
 
-	if _, err := file.Seek(0, 0); err != nil {
-		return fmt.Errorf("error seeking to start of file: %w", err)
+	// Remove any trailing empty lines
+	for len(newLines) > 0 && strings.TrimSpace(newLines[len(newLines)-1]) == "" {
+		newLines = newLines[:len(newLines)-1]
 	}
 
-	writer := bufio.NewWriter(file)
-	for _, line := range lines {
-		fmt.Fprintln(writer, line)
+	// Write the updated content back to the file
+	err = os.WriteFile(changelogFile, []byte(strings.Join(newLines, "\n")), 0644)
+	if err != nil {
+		return false, fmt.Errorf("error writing changelog: %w", err)
+	}
+	// Reformat the entire changelog after adding the new section
+	err = ReformatChangelog(changelogFile)
+	if err != nil {
+		return false, fmt.Errorf("error reformatting changelog: %w", err)
 	}
 
-	if err := writer.Flush(); err != nil {
-		return fmt.Errorf("error writing to changelog: %w", err)
-	}
+	return isDuplicate, nil
+}
 
-	return nil
+// Helper function to check if a slice contains a string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 func updateDiffLinks(lines []string, newVersion, provider string) []string {
 	var updatedLines []string
 	var versions []string
+	linkLines := map[string]string{}
+
 	for _, line := range lines {
 		if strings.HasPrefix(line, "[") && strings.Contains(line, "]: ") {
-			parts := strings.Split(line, "]:")
+			parts := strings.SplitN(line, "]: ", 2)
 			version := strings.Trim(parts[0], "[]")
+			linkLines[version] = parts[1]
 			if version != "Unreleased" {
 				versions = append(versions, version)
 			}
@@ -131,14 +227,24 @@ func updateDiffLinks(lines []string, newVersion, provider string) []string {
 		}
 	}
 
+	// Sort versions in descending order
+	sort.Slice(versions, func(i, j int) bool {
+		result, _ := semver.Compare(versions[i], versions[j])
+		return result > 0
+	})
+
+	// Insert new version
 	versions = append([]string{newVersion}, versions...)
+
 	baseURL := getCompareURL(provider)
 
-	updatedLines = append(updatedLines, fmt.Sprintf("[Unreleased]: %s/compare/%s...HEAD", baseURL, versions[0]))
+	// Update comparison links
+	updatedLines = append(updatedLines, fmt.Sprintf("[Unreleased]: %s/compare/%s...HEAD", baseURL, newVersion))
 	for i := 0; i < len(versions)-1; i++ {
 		updatedLines = append(updatedLines, fmt.Sprintf("[%s]: %s/compare/%s...%s", versions[i], baseURL, versions[i+1], versions[i]))
 	}
-	updatedLines = append(updatedLines, fmt.Sprintf("[%s]: %s/releases/tag/%s", versions[len(versions)-1], baseURL, versions[len(versions)-1]))
+	lastVersion := versions[len(versions)-1]
+	updatedLines = append(updatedLines, fmt.Sprintf("[%s]: %s/releases/tag/%s", lastVersion, baseURL, lastVersion))
 
 	return updatedLines
 }

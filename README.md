@@ -27,16 +27,6 @@ changie init
 
 This command creates a new CHANGELOG.md file in your project directory.
 
-### Bumping versions
-
-To bump the version, use one of the following commands:
-
-```bash
-changie major  # Bump major version (e.g., 1.0.0 -> 2.0.0)
-changie minor  # Bump minor version (e.g., 1.0.0 -> 1.1.0)
-changie patch  # Bump patch version (e.g., 1.0.0 -> 1.0.1)
-```
-
 ### Managing the changelog
 
 To add a new entry to the changelog, use one of the following commands:
@@ -57,6 +47,19 @@ changie changelog added "New feature: Improved changelog management"
 ```
 
 This will add a new entry under the "Added" section in the [Unreleased] part of your CHANGELOG.md file.
+
+### Bumping versions
+
+To bump the version, use one of the following commands:
+
+```bash
+changie major  # Bump major version (e.g., 1.0.0 -> 2.0.0)
+changie minor  # Bump minor version (e.g., 1.0.0 -> 1.1.0)
+changie patch  # Bump patch version (e.g., 1.0.0 -> 1.0.1)
+```
+
+When you bump the version, all entries added using the `changie changelog` commands will be moved from the [Unreleased] section to the new version section in the CHANGELOG.md file.
+Also a comparison link (the actual version number is the link) will be created in the new version section.
 
 ### Specifying the remote repository provider
 
