@@ -29,21 +29,43 @@ func GetProjectVersion() (string, error) {
 }
 
 // CommitChangelog commits the updated changelog
-func CommitChangelog(changelogFile, version string) error {
-	commitMsg := fmt.Sprintf("Update changelog for version %s", version)
-	cmd := exec.Command("git", "commit", "-am", commitMsg)
-	if err := cmd.Run(); err != nil {
+func CommitChangelog(file, version string) error {
+	log.Printf("Attempting to commit changelog for version %s", version)
+
+	// Add the file
+	addCmd := exec.Command("git", "add", file)
+	log.Printf("Executing command: %v", addCmd.Args)
+	output, err := addCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error adding file: %v. Output: %s", err, output)
+		return fmt.Errorf("error adding changelog: %w", err)
+	}
+
+	// Commit the changes
+	commitCmd := exec.Command("git", "commit", "-m", fmt.Sprintf("Update changelog for version %s", version))
+	log.Printf("Executing command: %v", commitCmd.Args)
+	output, err = commitCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error committing changes: %v. Output: %s", err, output)
 		return fmt.Errorf("error committing changelog: %w", err)
 	}
+
+	log.Printf("Successfully committed changelog for version %s", version)
 	return nil
 }
 
 // TagVersion creates a new Git tag for the given version
 func TagVersion(version string) error {
-	cmd := execCommand("git", "tag", version)
-	out, err := cmd.CombinedOutput()
+	log.Printf("Attempting to tag version %s", version)
+
+	cmd := exec.Command("git", "tag", version)
+	log.Printf("Executing command: %v", cmd.Args)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error tagging version: %v\nCommand output: %s", err, string(out))
+		log.Printf("Error tagging version: %v. Output: %s", err, output)
+		return fmt.Errorf("error tagging version: %w", err)
 	}
+
+	log.Printf("Successfully tagged version %s", version)
 	return nil
 }

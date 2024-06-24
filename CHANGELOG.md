@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Resolved issue with newline handling in changelog entries
+- Fixed the bumping
 
 ## [0.2.2] - 2024-06-23
 
