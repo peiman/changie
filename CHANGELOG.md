@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New feature: Implemented automatic changelog formatting
+- Improved changie to automatically add 0.0.0 tag during initialization
 
 ### Changed
 
