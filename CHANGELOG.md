@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-06-26
+
+
 ### Added
 
 - New feature: Implemented automatic changelog formatting
