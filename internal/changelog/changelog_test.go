@@ -4,8 +4,46 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
+func TestInitProject(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "changie-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Change to the temporary directory
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+	os.Chdir(tempDir)
+
+	changelogFile := "CHANGELOG.md"
+
+	// Test case 1: No existing CHANGELOG.md
+	err = InitProject(changelogFile)
+	if err != nil {
+		t.Errorf("InitProject failed when no CHANGELOG.md existed: %v", err)
+	}
+	if _, err := os.Stat(changelogFile); os.IsNotExist(err) {
+		t.Errorf("CHANGELOG.md was not created")
+	}
+
+	// Test case 2: Existing CHANGELOG.md
+	err = InitProject(changelogFile)
+	if err == nil {
+		t.Errorf("InitProject did not return an error when CHANGELOG.md already existed")
+	}
+	// Note: Update this check based on the actual error message your current implementation returns
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+}
 func TestAddChangelogSection(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -173,7 +211,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.0] - 2024-06-24
+## [1.1.0] - ` + time.Now().Format("2006-01-02") + `
 
 ### Added
 

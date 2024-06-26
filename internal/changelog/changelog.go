@@ -12,6 +12,13 @@ import (
 
 // InitProject initializes the project with a new CHANGELOG.md file
 func InitProject(changelogFile string) error {
+	// Check if CHANGELOG.md already exists
+	if _, err := os.Stat(changelogFile); err == nil {
+		return fmt.Errorf("CHANGELOG.md already exists. Please rename or remove the existing file before running changie init.\n\n" +
+			"After initializing with changie, you can manually transfer the content from your old changelog to the new one, " +
+			"following the Keep a Changelog format: https://keepachangelog.com/")
+	}
+
 	content := `# Changelog
 
 All notable changes to this project will be documented in this file.
