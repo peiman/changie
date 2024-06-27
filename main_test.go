@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/peiman/changie/internal/changelog"
 )
 
 // Mock implementations
@@ -16,6 +19,21 @@ type MockChangelogManager struct {
 	addChangelogSectionErr error
 	updateChangelogCalled  int
 	isDuplicate            bool
+	changelogContent       string
+}
+
+func (m *MockChangelogManager) GetChangelogContent() (string, error) {
+	if m.changelogContent == "" {
+		m.changelogContent = `# Changelog
+
+## [Unreleased]
+
+## [1.0.0] - 2023-01-01
+
+[Unreleased]: https://github.com/peiman/changie/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/peiman/changie/releases/tag/1.0.0`
+	}
+	return m.changelogContent, nil
 }
 
 func (m *MockChangelogManager) InitProject(string) error {
@@ -62,24 +80,35 @@ type MockSemverManager struct {
 	bumpMinorCalled int
 }
 
-func (m *MockSemverManager) BumpMajor(string) (string, error) {
+func (m *MockSemverManager) BumpMajor(version string) (string, error) {
 	if m.bumpMajorErr != nil {
 		return "", m.bumpMajorErr
 	}
-	return "2.0.0", nil
+	parts := strings.Split(version, ".")
+	major, _ := strconv.Atoi(parts[0])
+	return fmt.Sprintf("%d.0.0", major+1), nil
 }
-func (m *MockSemverManager) BumpMinor(string) (string, error) {
+
+func (m *MockSemverManager) BumpMinor(version string) (string, error) {
 	m.bumpMinorCalled++
 	if m.bumpMinorErr != nil {
 		return "", m.bumpMinorErr
 	}
-	return "1.1.0", nil
+	parts := strings.Split(version, ".")
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	return fmt.Sprintf("%d.%d.0", major, minor+1), nil
 }
-func (m *MockSemverManager) BumpPatch(string) (string, error) {
+
+func (m *MockSemverManager) BumpPatch(version string) (string, error) {
 	if m.bumpPatchErr != nil {
 		return "", m.bumpPatchErr
 	}
-	return "1.0.1", nil
+	parts := strings.Split(version, ".")
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	patch, _ := strconv.Atoi(parts[2])
+	return fmt.Sprintf("%d.%d.%d", major, minor, patch+1), nil
 }
 
 func captureOutput(f func() error) (string, error) {
@@ -101,6 +130,8 @@ func captureOutput(f func() error) (string, error) {
 }
 
 func TestMainPackage(t *testing.T) {
+	isTestMode = true
+	defer func() { isTestMode = false }()
 	originalArgs := os.Args
 	defer func() { os.Args = originalArgs }()
 
@@ -317,13 +348,28 @@ func TestInvalidCommand(t *testing.T) {
 }
 
 func TestMinorVersionBump(t *testing.T) {
+	isTestMode = true
+	defer func() { isTestMode = false }()
+
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
 
 	os.Args = []string{"changie", "minor"}
 
-	mockChangelogManager := &MockChangelogManager{}
-	mockGitManager := &MockGitManager{projectVersion: "0.1.0"}
+	initialVersion := "0.1.0"
+	expectedNewVersion := "0.2.0" // Minor bump from 0.1.0
+
+	mockChangelogManager := &MockChangelogManager{
+		changelogContent: fmt.Sprintf(`# Changelog
+
+## [Unreleased]
+
+## [%s] - 2023-01-01
+
+[Unreleased]: https://github.com/peiman/changie/compare/%s...HEAD
+[%s]: https://github.com/peiman/changie/releases/tag/%s`, initialVersion, initialVersion, initialVersion, initialVersion),
+	}
+	mockGitManager := &MockGitManager{projectVersion: initialVersion}
 	mockSemverManager := &MockSemverManager{}
 
 	output, err := captureOutput(func() error {
@@ -334,24 +380,66 @@ func TestMinorVersionBump(t *testing.T) {
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
-	expectedOutput := "minor release 1.1.0 done.\nDon't forget to git push and git push --tags.\n"
-	if output != expectedOutput {
-		t.Errorf("Expected output '%s', got: '%s'", expectedOutput, output)
+	expectedOutput := fmt.Sprintf("minor release %s done.\nDon't forget to git push and git push --tags.\n", expectedNewVersion)
+	if !strings.Contains(output, expectedOutput) {
+		t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
 	}
 
 	if mockGitManager.getProjectVersionCalled != 1 {
-		t.Errorf("Expected GetProjectVersion to be called once")
+		t.Errorf("Expected GetProjectVersion to be called once, got: %d", mockGitManager.getProjectVersionCalled)
 	}
 	if mockSemverManager.bumpMinorCalled != 1 {
-		t.Errorf("Expected BumpMinor to be called once")
+		t.Errorf("Expected BumpMinor to be called once, got: %d", mockSemverManager.bumpMinorCalled)
 	}
 	if mockChangelogManager.updateChangelogCalled != 1 {
-		t.Errorf("Expected UpdateChangelog to be called once")
+		t.Errorf("Expected UpdateChangelog to be called once, got: %d", mockChangelogManager.updateChangelogCalled)
 	}
 	if mockGitManager.commitChangelogCalled != 1 {
-		t.Errorf("Expected CommitChangelog to be called once")
+		t.Errorf("Expected CommitChangelog to be called once, got: %d", mockGitManager.commitChangelogCalled)
 	}
 	if mockGitManager.tagVersionCalled != 1 {
-		t.Errorf("Expected TagVersion to be called once")
+		t.Errorf("Expected TagVersion to be called once, got: %d", mockGitManager.tagVersionCalled)
+	}
+}
+
+func TestVersionMatchBetweenChangelogAndGitTags(t *testing.T) {
+	mockGitManager := &MockGitManager{projectVersion: "0.4.0"}
+	mockChangelogManager := &MockChangelogManager{
+		changelogContent: `## [Unreleased]
+
+## [0.4.0] - 2024-06-26`,
+	}
+
+	changelogContent, _ := mockChangelogManager.GetChangelogContent()
+	latestChangelogVersion, err := changelog.GetLatestChangelogVersion(changelogContent)
+	if err != nil {
+		t.Fatalf("Failed to get latest changelog version: %v", err)
+	}
+
+	gitVersion, err := mockGitManager.GetProjectVersion()
+	if err != nil {
+		t.Fatalf("Failed to get git version: %v", err)
+	}
+
+	if latestChangelogVersion != gitVersion {
+		t.Errorf("Version mismatch: Changelog version %s does not match git tag version %s", latestChangelogVersion, gitVersion)
+	}
+}
+
+func TestPreventChangelogUpdateOnVersionMismatch(t *testing.T) {
+	mockGitManager := &MockGitManager{projectVersion: "0.3.0"}
+	mockChangelogManager := &MockChangelogManager{}
+	mockSemverManager := &MockSemverManager{}
+
+	os.Args = []string{"changie", "minor"}
+
+	err := run(mockChangelogManager, mockGitManager, mockSemverManager)
+
+	if err == nil {
+		t.Error("Expected an error due to version mismatch, but got none")
+	}
+
+	if mockChangelogManager.updateChangelogCalled > 0 {
+		t.Error("Changelog was updated despite version mismatch")
 	}
 }

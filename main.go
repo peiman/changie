@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/peiman/changie/internal/changelog"
@@ -17,6 +18,7 @@ type ChangelogManager interface {
 	InitProject(string) error
 	UpdateChangelog(string, string, string) error
 	AddChangelogSection(string, string, string) (bool, error)
+	GetChangelogContent() (string, error)
 }
 
 type GitManager interface {
@@ -40,6 +42,14 @@ func (m DefaultChangelogManager) UpdateChangelog(file, version, provider string)
 }
 func (m DefaultChangelogManager) AddChangelogSection(file, section, content string) (bool, error) {
 	return changelog.AddChangelogSection(file, section, content)
+}
+
+func (m DefaultChangelogManager) GetChangelogContent() (string, error) {
+	content, err := os.ReadFile(*changeLogFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read changelog: %v", err)
+	}
+	return string(content), nil
 }
 
 type DefaultGitManager struct{}
@@ -86,8 +96,33 @@ var (
 )
 
 var isGitInstalled = git.IsInstalled
+var isTestMode bool
 
 func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
+	gitVersion, err := gitManager.GetProjectVersion()
+	if err != nil {
+		return fmt.Errorf("Error getting project version: %v", err)
+	}
+
+	changelogContent, err := changelogManager.GetChangelogContent()
+	if err != nil {
+		return fmt.Errorf("Error reading changelog: %v", err)
+	}
+
+	changelogVersion, err := changelog.GetLatestChangelogVersion(changelogContent)
+	if err != nil {
+		return fmt.Errorf("Error getting changelog version: %v", err)
+	}
+
+	if gitVersion != changelogVersion {
+		if !isTestMode {
+			fmt.Printf("Warning: Git tag version %s does not match changelog version %s.\n", gitVersion, changelogVersion)
+		}
+		return fmt.Errorf("Version mismatch: Git tag version %s does not match changelog version %s", gitVersion, changelogVersion)
+	}
+
+	fmt.Printf("Current version from git tags: %s\n", gitVersion)
+
 	var bumpFunc func(string) (string, error)
 	switch bumpType {
 	case "major":
@@ -100,17 +135,16 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 		return fmt.Errorf("Invalid bump type: %s", bumpType)
 	}
 
-	currentVersion, err := gitManager.GetProjectVersion()
-	if err != nil {
-		return fmt.Errorf("Error getting project version: %v", err)
-	}
-
-	newVersion, err := bumpFunc(currentVersion)
+	newVersion, err := bumpFunc(gitVersion)
 	if err != nil {
 		return fmt.Errorf("Error bumping version: %v", err)
 	}
 
+	fmt.Printf("New version: %s\n", newVersion)
+
 	changelogFilePath := filepath.Join(".", *changeLogFile)
+	fmt.Printf("Updating changelog file: %s\n", changelogFilePath)
+
 	if err := changelogManager.UpdateChangelog(changelogFilePath, newVersion, *remoteRepositoryProvider); err != nil {
 		return fmt.Errorf("Error updating changelog: %v", err)
 	}
@@ -141,6 +175,37 @@ func handleChangelogUpdate(section, content string, changelogManager ChangelogMa
 	}
 
 	return nil
+}
+
+func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManager) error {
+	gitVersion, err := gitManager.GetProjectVersion()
+	if err != nil {
+		return fmt.Errorf("Error getting project version: %v", err) // Updated this line
+	}
+
+	changelogContent, err := changelogManager.GetChangelogContent()
+	if err != nil {
+		return fmt.Errorf("Error reading changelog: %v", err)
+	}
+
+	changelogVersion, err := changelog.GetLatestChangelogVersion(changelogContent)
+	if err != nil {
+		return fmt.Errorf("Error getting changelog version: %v", err)
+	}
+
+	if gitVersion != changelogVersion {
+		return fmt.Errorf("Version mismatch: Git tag version %s does not match changelog version %s", gitVersion, changelogVersion)
+	}
+
+	return nil
+}
+func getLatestChangelogVersion(content string) (string, error) {
+	re := regexp.MustCompile(`## \[(\d+\.\d+\.\d+)\]`)
+	matches := re.FindStringSubmatch(content)
+	if len(matches) < 2 {
+		return "", fmt.Errorf("no version found in changelog")
+	}
+	return matches[1], nil
 }
 
 func run(changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {

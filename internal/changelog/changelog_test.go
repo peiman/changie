@@ -2,11 +2,31 @@ package changelog
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
 )
 
+var execCommand = exec.Command
+
+// Use this function to mock exec.Command in tests
+func mockExecCommand(command string, args ...string) *exec.Cmd {
+	cs := []string{"-test.run=TestHelperProcess", "--", command}
+	cs = append(cs, args...)
+	cmd := exec.Command(os.Args[0], cs...)
+	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+	return cmd
+}
+
+// TestHelperProcess isn't a real test. It's used to mock exec.Command
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	// mock behavior here
+	os.Exit(0)
+}
 func TestInitProject(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "changie-test")
@@ -198,8 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release
 
-[Unreleased]: https://github.com/peiman/changie/compare/1.1.0...HEAD
-[1.1.0]: https://github.com/peiman/changie/compare/1.0.0...1.1.0
+[Unreleased]: https://github.com/peiman/changie/compare/1.0.0...HEAD
 [1.0.0]: https://github.com/peiman/changie/releases/tag/1.0.0`
 
 	expectedChangelog := `# Changelog
@@ -255,6 +274,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 		t.Errorf("Updated changelog does not match expected.\nGot:\n%s\nExpected:\n%s", string(updatedChangelog), expectedChangelog)
 	}
 }
+
 func TestReformatChangelog2(t *testing.T) {
 	tmpfile, err := os.CreateTemp("", "CHANGELOG.md")
 	if err != nil {
@@ -346,5 +366,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 				t.Errorf("Line %d mismatch:\nGot     : %q\nExpected: %q", i+1, gotLine, expectedLine)
 			}
 		}
+	}
+}
+
+func TestNoExtraLineInChangelog(t *testing.T) {
+	changelogContent := `## [Unreleased]
+## [0.4.0] - 2024-06-26`
+
+	if strings.Contains(changelogContent, "---THIS NEW LINE SHOULD NOT BE HERE ---") {
+		t.Error("Changelog contains an unexpected extra line")
+	}
+}
+
+func TestUpdateChangelogFormatting(t *testing.T) {
+	initialContent := `# Changelog
+
+## [Unreleased]
+### Added
+- New feature
+
+## [1.0.0] - 2023-01-01
+### Added
+- Initial release
+
+[Unreleased]: https://github.com/user/repo/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/user/repo/releases/tag/v1.0.0`
+
+	expectedContent := `# Changelog
+
+## [Unreleased]
+
+## [1.1.0] - ` + time.Now().Format("2006-01-02") + `
+### Added
+- New feature
+
+## [1.0.0] - 2023-01-01
+### Added
+- Initial release
+
+[Unreleased]: https://github.com/peiman/changie/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/peiman/changie/compare/1.0.0...1.1.0
+[1.0.0]: https://github.com/peiman/changie/releases/tag/1.0.0`
+
+	// Create a temporary file
+	tmpfile, err := os.CreateTemp("", "CHANGELOG.*.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	// Write initial content
+	if _, err := tmpfile.Write([]byte(initialContent)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Mock git command to return "1.0.0"
+	execCommand = func(name string, arg ...string) *exec.Cmd {
+		return exec.Command("echo", "1.0.0")
+	}
+	defer func() { execCommand = exec.Command }()
+
+	// Update changelog
+	err = UpdateChangelog(tmpfile.Name(), "1.1.0", "github")
+	if err != nil {
+		t.Fatalf("UpdateChangelog failed: %v", err)
+	}
+
+	// Read updated content
+	updatedContent, err := os.ReadFile(tmpfile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Compare updated content with expected content
+	if string(updatedContent) != expectedContent {
+		t.Errorf("UpdateChangelog produced incorrect output.\nExpected:\n%s\n\nGot:\n%s", expectedContent, string(updatedContent))
 	}
 }

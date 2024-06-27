@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] - 2024-06-27
+## [0.4.0] - 2024-06-27
 
 ### Added
 
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated handleVersionBump to check for version mismatches before proceeding
 - Refactored mock implementations in tests for better version handling
 
-## [0.4.0] - 2024-06-26
+## [0.3.0] - 2024-06-26
 
 ### Added
 

@@ -3,6 +3,7 @@ package changelog
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -34,22 +35,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	return ReformatChangelog(changelogFile)
 }
 
+func GetLatestChangelogVersion(content string) (string, error) {
+	re := regexp.MustCompile(`## \[(\d+\.\d+\.\d+)\]`)
+	matches := re.FindStringSubmatch(content)
+	if len(matches) < 2 {
+		return "", fmt.Errorf("no version found in changelog")
+	}
+	return matches[1], nil
+}
+
 // UpdateChangelog updates the CHANGELOG.md file with the new version
-func UpdateChangelog(file, version, provider string) error {
-	// Read the changelog file
-	changelogContent, err := os.ReadFile(file)
+func UpdateChangelog(file string, version string, provider string) error {
+	content, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
 
-	// Prepare the new version entry
-	newVersionEntry := fmt.Sprintf("## [%s] - %s\n\n### Added\n\n- Feature A\n\n", version, time.Now().Format("2006-01-02"))
+	lines := strings.Split(string(content), "\n")
+	var newLines []string
+	unreleasedAdded := false
+	versionAdded := false
 
-	// Replace the placeholder for the "Unreleased" section with the new version entry
-	updatedContent := strings.Replace(string(changelogContent), "## [Unreleased]\n\n### Added\n\n- Feature A\n\n", "## [Unreleased]\n\n"+newVersionEntry, 1)
+	for _, line := range lines {
+		if strings.HasPrefix(line, "## [Unreleased]") && !unreleasedAdded {
+			newLines = append(newLines, "## [Unreleased]", "")
+			newLines = append(newLines, fmt.Sprintf("## [%s] - %s", version, time.Now().Format("2006-01-02")))
+			unreleasedAdded = true
+			versionAdded = true
+		} else if strings.HasPrefix(line, "## [") && !versionAdded {
+			newLines = append(newLines, fmt.Sprintf("## [%s] - %s", version, time.Now().Format("2006-01-02")))
+			newLines = append(newLines, line)
+			versionAdded = true
+		} else {
+			newLines = append(newLines, line)
+		}
+	}
 
-	// Write the updated content back to the changelog file
-	return os.WriteFile(file, []byte(updatedContent), 0644)
+	// Update comparison links
+	updatedLines := updateDiffLinks(newLines, version, provider)
+
+	return os.WriteFile(file, []byte(strings.Join(updatedLines, "\n")), 0644)
 }
 
 func ReformatChangelog(changelogFile string) error {
@@ -221,6 +246,7 @@ func updateDiffLinks(lines []string, newVersion, provider string) []string {
 	var versions []string
 	linkLines := map[string]string{}
 
+	// Preserve existing lines and collect version information
 	for _, line := range lines {
 		if strings.HasPrefix(line, "[") && strings.Contains(line, "]: ") {
 			parts := strings.SplitN(line, "]: ", 2)
@@ -234,24 +260,29 @@ func updateDiffLinks(lines []string, newVersion, provider string) []string {
 		}
 	}
 
+	// Add new version if it doesn't exist
+	if !contains(versions, newVersion) {
+		versions = append(versions, newVersion)
+	}
+
 	// Sort versions in descending order
 	sort.Slice(versions, func(i, j int) bool {
 		result, _ := semver.Compare(versions[i], versions[j])
 		return result > 0
 	})
 
-	// Insert new version
-	versions = append([]string{newVersion}, versions...)
-
 	baseURL := getCompareURL(provider)
 
 	// Update comparison links
-	updatedLines = append(updatedLines, fmt.Sprintf("[Unreleased]: %s/compare/%s...HEAD", baseURL, newVersion))
+	newLinkLines := []string{fmt.Sprintf("[Unreleased]: %s/compare/%s...HEAD", baseURL, versions[0])}
 	for i := 0; i < len(versions)-1; i++ {
-		updatedLines = append(updatedLines, fmt.Sprintf("[%s]: %s/compare/%s...%s", versions[i], baseURL, versions[i+1], versions[i]))
+		newLinkLines = append(newLinkLines, fmt.Sprintf("[%s]: %s/compare/%s...%s", versions[i], baseURL, versions[i+1], versions[i]))
 	}
 	lastVersion := versions[len(versions)-1]
-	updatedLines = append(updatedLines, fmt.Sprintf("[%s]: %s/releases/tag/%s", lastVersion, baseURL, lastVersion))
+	newLinkLines = append(newLinkLines, fmt.Sprintf("[%s]: %s/releases/tag/%s", lastVersion, baseURL, lastVersion))
+
+	// Append updated link lines
+	updatedLines = append(updatedLines, newLinkLines...)
 
 	return updatedLines
 }
@@ -263,6 +294,6 @@ func getCompareURL(provider string) string {
 	case "bitbucket":
 		return "https://bitbucket.org/peiman/changie"
 	default:
-		return ""
+		return "https://github.com/peiman/changie" // Default to GitHub
 	}
 }
