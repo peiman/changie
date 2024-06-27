@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2024-06-28
+
 ### Added
 
 - Reject version bumps when there are uncommitted git changes
@@ -92,7 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial project setup
 
-[Unreleased]: https://github.com/peiman/changie/compare/0.5.0...HEAD
+
+[Unreleased]: https://github.com/peiman/changie/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/peiman/changie/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/peiman/changie/compare/0.4.1...0.5.0
 [0.4.1]: https://github.com/peiman/changie/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/peiman/changie/compare/0.3.0...0.4.0
