@@ -53,9 +53,9 @@ This will add a new entry under the "Added" section in the [Unreleased] part of 
 To bump the version, use one of the following commands:
 
 ```bash
-changie major  # Bump major version (e.g., 1.0.0 -> 2.0.0)
-changie minor  # Bump minor version (e.g., 1.0.0 -> 1.1.0)
-changie patch  # Bump patch version (e.g., 1.0.0 -> 1.0.1)
+changie major  # Bump major version (e.g., 1.3.2 -> 2.0.0)
+changie minor  # Bump minor version (e.g., 1.3.2 -> 1.4.0)
+changie patch  # Bump patch version (e.g., 1.3.2 -> 1.3.3)
 ```
 
 When you bump the version, all entries added using the `changie changelog` commands will be moved from the [Unreleased] section to the new version section in the CHANGELOG.md file.
