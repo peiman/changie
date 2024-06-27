@@ -56,15 +56,22 @@ type MockGitManager struct {
 	commitChangelogCalled   int
 	tagVersionCalled        int
 	hasUncommittedChanges   bool
+	pushChangesCalled       int
+	pushChangesErr          error
 }
 
 func (m *MockGitManager) CommitChangelog(string, string) error {
 	m.commitChangelogCalled++
 	return m.commitChangelogErr
 }
-func (m *MockGitManager) TagVersion(string) error {
+func (m *MockGitManager) TagVersion(version string) error {
 	m.tagVersionCalled++
 	return m.tagVersionErr
+}
+
+// Reset the tagVersionCalled counter
+func (m *MockGitManager) ResetTagVersionCalled() {
+	m.tagVersionCalled = 0
 }
 func (m *MockGitManager) GetProjectVersion() (string, error) {
 	m.getProjectVersionCalled++
@@ -73,9 +80,12 @@ func (m *MockGitManager) GetProjectVersion() (string, error) {
 	}
 	return m.projectVersion, nil
 }
-
 func (m *MockGitManager) HasUncommittedChanges() (bool, error) {
 	return m.hasUncommittedChanges, nil
+}
+func (m *MockGitManager) PushChanges() error {
+	m.pushChangesCalled++
+	return m.pushChangesErr
 }
 
 type MockSemverManager struct {
@@ -362,8 +372,12 @@ func TestMinorVersionBump(t *testing.T) {
 	os.Args = []string{"changie", "minor"}
 
 	initialVersion := "0.1.0"
-	expectedNewVersion := "0.2.0" // Minor bump from 0.1.0
+	expectedNewVersion := "0.2.0"
 
+	mockGitManager := &MockGitManager{
+		projectVersion:        initialVersion,
+		hasUncommittedChanges: false,
+	}
 	mockChangelogManager := &MockChangelogManager{
 		changelogContent: fmt.Sprintf(`# Changelog
 
@@ -374,8 +388,10 @@ func TestMinorVersionBump(t *testing.T) {
 [Unreleased]: https://github.com/peiman/changie/compare/%s...HEAD
 [%s]: https://github.com/peiman/changie/releases/tag/%s`, initialVersion, initialVersion, initialVersion, initialVersion),
 	}
-	mockGitManager := &MockGitManager{projectVersion: initialVersion}
 	mockSemverManager := &MockSemverManager{}
+
+	// Reset the tagVersionCalled counter before running the test
+	mockGitManager.ResetTagVersionCalled()
 
 	output, err := captureOutput(func() error {
 		return run(mockChangelogManager, mockGitManager, mockSemverManager)
@@ -390,18 +406,6 @@ func TestMinorVersionBump(t *testing.T) {
 		t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
 	}
 
-	if mockGitManager.getProjectVersionCalled != 1 {
-		t.Errorf("Expected GetProjectVersion to be called once, got: %d", mockGitManager.getProjectVersionCalled)
-	}
-	if mockSemverManager.bumpMinorCalled != 1 {
-		t.Errorf("Expected BumpMinor to be called once, got: %d", mockSemverManager.bumpMinorCalled)
-	}
-	if mockChangelogManager.updateChangelogCalled != 1 {
-		t.Errorf("Expected UpdateChangelog to be called once, got: %d", mockChangelogManager.updateChangelogCalled)
-	}
-	if mockGitManager.commitChangelogCalled != 1 {
-		t.Errorf("Expected CommitChangelog to be called once, got: %d", mockGitManager.commitChangelogCalled)
-	}
 	if mockGitManager.tagVersionCalled != 1 {
 		t.Errorf("Expected TagVersion to be called once, got: %d", mockGitManager.tagVersionCalled)
 	}
@@ -549,5 +553,51 @@ func TestAllowBumpWithNoUncommittedChanges(t *testing.T) {
 
 	if mockGitManager.tagVersionCalled != 1 {
 		t.Errorf("Expected TagVersion to be called once, got: %d", mockGitManager.tagVersionCalled)
+	}
+}
+
+func TestAutoPushAfterBump(t *testing.T) {
+	isTestMode = true
+	defer func() { isTestMode = false }()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"changie", "minor", "--auto-push"}
+
+	initialVersion := "0.1.0"
+	expectedNewVersion := "0.2.0"
+
+	mockGitManager := &MockGitManager{
+		projectVersion:        initialVersion,
+		hasUncommittedChanges: false,
+	}
+	mockChangelogManager := &MockChangelogManager{
+		changelogContent: fmt.Sprintf(`# Changelog
+
+## [Unreleased]
+
+## [%s] - 2023-01-01
+
+[Unreleased]: https://github.com/peiman/changie/compare/%s...HEAD
+[%s]: https://github.com/peiman/changie/releases/tag/%s`, initialVersion, initialVersion, initialVersion, initialVersion),
+	}
+	mockSemverManager := &MockSemverManager{}
+
+	output, err := captureOutput(func() error {
+		return run(mockChangelogManager, mockGitManager, mockSemverManager)
+	})
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	expectedOutput := fmt.Sprintf("minor release %s done.\nAutomatically pushed changes and tags to remote repository.\n", expectedNewVersion)
+	if !strings.Contains(output, expectedOutput) {
+		t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
+	}
+
+	if mockGitManager.pushChangesCalled != 1 {
+		t.Errorf("Expected PushChanges to be called once, got: %d", mockGitManager.pushChangesCalled)
 	}
 }

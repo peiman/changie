@@ -61,3 +61,12 @@ func TagVersion(version string) error {
 	}
 	return nil
 }
+
+func PushChanges() error {
+	cmd := exec.Command("git", "push", "--follow-tags")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to push changes: %v\n%s", err, string(output))
+	}
+	return nil
+}

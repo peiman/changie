@@ -61,6 +61,15 @@ changie patch  # Bump patch version (e.g., 1.3.2 -> 1.3.3)
 When you bump the version, all entries added using the `changie changelog` commands will be moved from the [Unreleased] section to the new version section in the CHANGELOG.md file.
 Also a comparison link (the actual version number is the link) will be created in the new version section.
 
+### Bumping versions with automatic push
+
+To bump the version and automatically push changes and tags, use the `--auto-push` flag:
+
+```bash
+changie major --auto-push
+changie minor --auto-push
+changie patch --auto-push
+
 ### Specifying the remote repository provider
 
 By default, changie assumes you're using GitHub. To specify a different provider, use the `--rrp` flag:

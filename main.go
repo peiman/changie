@@ -27,6 +27,7 @@ type GitManager interface {
 	TagVersion(string) error
 	GetProjectVersion() (string, error)
 	HasUncommittedChanges() (bool, error)
+	PushChanges() error
 }
 
 type SemverManager interface {
@@ -69,6 +70,9 @@ func (m DefaultGitManager) HasUncommittedChanges() (bool, error) {
 	}
 	return len(output) > 0, nil
 }
+func (m DefaultGitManager) PushChanges() error {
+	return git.PushChanges()
+}
 
 type DefaultSemverManager struct{}
 
@@ -89,6 +93,7 @@ var (
 	minorCommand               = app.Command("minor", "Release a minor version. Bump the second version number.")
 	patchCommand               = app.Command("patch", "Release a patch version. Bump the third version number.")
 	remoteRepositoryProvider   = app.Flag("rrp", "Remote repository provider, github or bitbucket.").Short('r').Default("github").Enum("github", "bitbucket")
+	autoPush                   = app.Flag("auto-push", "Automatically push changes and tags after version bump").Bool()
 	changelogCommand           = app.Command("changelog", "Change log commands.")
 	changeLogFile              = app.Flag("file", "Change log file name.").Short('f').Default("CHANGELOG.md").String()
 	changelogAddCommand        = changelogCommand.Command("added", "Add an added section to changelog.")
@@ -175,7 +180,16 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 	}
 
 	fmt.Printf("%s release %s done.\n", bumpType, newVersion)
-	fmt.Println("Don't forget to git push and git push --tags.")
+
+	if *autoPush {
+		if err := gitManager.PushChanges(); err != nil {
+			return fmt.Errorf("Error pushing changes: %v", err)
+		}
+		fmt.Println("Automatically pushed changes and tags to remote repository.")
+	} else {
+		fmt.Println("Don't forget to git push and git push --tags.")
+	}
+
 	return nil
 }
 
