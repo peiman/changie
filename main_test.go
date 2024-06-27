@@ -55,6 +55,7 @@ type MockGitManager struct {
 	getProjectVersionCalled int
 	commitChangelogCalled   int
 	tagVersionCalled        int
+	hasUncommittedChanges   bool
 }
 
 func (m *MockGitManager) CommitChangelog(string, string) error {
@@ -71,6 +72,10 @@ func (m *MockGitManager) GetProjectVersion() (string, error) {
 		return "", m.getProjectVersionErr
 	}
 	return m.projectVersion, nil
+}
+
+func (m *MockGitManager) HasUncommittedChanges() (bool, error) {
+	return m.hasUncommittedChanges, nil
 }
 
 type MockSemverManager struct {
@@ -441,5 +446,108 @@ func TestPreventChangelogUpdateOnVersionMismatch(t *testing.T) {
 
 	if mockChangelogManager.updateChangelogCalled > 0 {
 		t.Error("Changelog was updated despite version mismatch")
+	}
+}
+
+func TestRejectBumpWithUncommittedChanges(t *testing.T) {
+	isTestMode = true
+	defer func() { isTestMode = false }()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"changie", "minor"}
+
+	initialVersion := "0.1.0"
+
+	mockGitManager := &MockGitManager{
+		projectVersion:        initialVersion,
+		hasUncommittedChanges: true,
+	}
+	mockChangelogManager := &MockChangelogManager{
+		changelogContent: fmt.Sprintf(`# Changelog
+
+## [Unreleased]
+
+## [%s] - 2023-01-01
+
+[Unreleased]: https://github.com/peiman/changie/compare/%s...HEAD
+[%s]: https://github.com/peiman/changie/releases/tag/%s`, initialVersion, initialVersion, initialVersion, initialVersion),
+	}
+	mockSemverManager := &MockSemverManager{}
+
+	output, err := captureOutput(func() error {
+		return run(mockChangelogManager, mockGitManager, mockSemverManager)
+	})
+
+	if err == nil {
+		t.Error("Expected an error due to uncommitted changes, but got none")
+	}
+
+	expectedError := "Error: Uncommitted changes found. Please commit or stash your changes before bumping the version."
+	if err == nil || !strings.Contains(err.Error(), expectedError) {
+		t.Errorf("Expected error message '%s', got: '%v'", expectedError, err)
+	}
+
+	if strings.Contains(output, "release") {
+		t.Errorf("Unexpected output indicating version bump: %s", output)
+	}
+
+	if mockChangelogManager.updateChangelogCalled > 0 {
+		t.Error("Changelog was updated despite uncommitted changes")
+	}
+
+	if mockGitManager.tagVersionCalled > 0 {
+		t.Error("Version was tagged despite uncommitted changes")
+	}
+}
+
+func TestAllowBumpWithNoUncommittedChanges(t *testing.T) {
+	isTestMode = true
+	defer func() { isTestMode = false }()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"changie", "minor"}
+
+	initialVersion := "0.1.0"
+	expectedNewVersion := "0.2.0"
+
+	mockGitManager := &MockGitManager{
+		projectVersion:        initialVersion,
+		hasUncommittedChanges: false,
+	}
+	mockChangelogManager := &MockChangelogManager{
+		changelogContent: fmt.Sprintf(`# Changelog
+
+## [Unreleased]
+
+## [%s] - 2023-01-01
+
+[Unreleased]: https://github.com/peiman/changie/compare/%s...HEAD
+[%s]: https://github.com/peiman/changie/releases/tag/%s`, initialVersion, initialVersion, initialVersion, initialVersion),
+	}
+	mockSemverManager := &MockSemverManager{}
+
+	output, err := captureOutput(func() error {
+		return run(mockChangelogManager, mockGitManager, mockSemverManager)
+	})
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	expectedOutput := fmt.Sprintf("minor release %s done.\nDon't forget to git push and git push --tags.\n", expectedNewVersion)
+	if !strings.Contains(output, expectedOutput) {
+		t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
+	}
+
+	if mockChangelogManager.updateChangelogCalled != 1 {
+		t.Errorf("Expected UpdateChangelog to be called once, got: %d", mockChangelogManager.updateChangelogCalled)
+	}
+
+	if mockGitManager.tagVersionCalled != 1 {
+		t.Errorf("Expected TagVersion to be called once, got: %d", mockGitManager.tagVersionCalled)
 	}
 }

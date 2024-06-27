@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 
@@ -25,6 +26,7 @@ type GitManager interface {
 	CommitChangelog(string, string) error
 	TagVersion(string) error
 	GetProjectVersion() (string, error)
+	HasUncommittedChanges() (bool, error)
 }
 
 type SemverManager interface {
@@ -59,6 +61,14 @@ func (m DefaultGitManager) CommitChangelog(file, version string) error {
 }
 func (m DefaultGitManager) TagVersion(version string) error    { return git.TagVersion(version) }
 func (m DefaultGitManager) GetProjectVersion() (string, error) { return git.GetProjectVersion() }
+func (m DefaultGitManager) HasUncommittedChanges() (bool, error) {
+	cmd := exec.Command("git", "status", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to check git status: %v", err)
+	}
+	return len(output) > 0, nil
+}
 
 type DefaultSemverManager struct{}
 
@@ -99,6 +109,13 @@ var isGitInstalled = git.IsInstalled
 var isTestMode bool
 
 func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
+	hasUncommittedChanges, err := gitManager.HasUncommittedChanges()
+	if err != nil {
+		return fmt.Errorf("Error checking for uncommitted changes: %v", err)
+	}
+	if hasUncommittedChanges {
+		return fmt.Errorf("Error: Uncommitted changes found. Please commit or stash your changes before bumping the version.")
+	}
 	gitVersion, err := gitManager.GetProjectVersion()
 	if err != nil {
 		return fmt.Errorf("Error getting project version: %v", err)
@@ -231,13 +248,23 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 		fmt.Println("Project initialized for semver and Keep a Changelog.")
 
 	case majorCommand.FullCommand():
-		return handleVersionBump("major", changelogManager, gitManager, semverManager)
-
+		err := handleVersionBump("major", changelogManager, gitManager, semverManager)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return err
+		}
 	case minorCommand.FullCommand():
-		return handleVersionBump("minor", changelogManager, gitManager, semverManager)
-
+		err := handleVersionBump("minor", changelogManager, gitManager, semverManager)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return err
+		}
 	case patchCommand.FullCommand():
-		return handleVersionBump("patch", changelogManager, gitManager, semverManager)
+		err := handleVersionBump("patch", changelogManager, gitManager, semverManager)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return err
+		}
 
 	case changelogAddCommand.FullCommand():
 		return handleChangelogUpdate("Added", *changelogAddContent, changelogManager)
