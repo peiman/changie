@@ -28,7 +28,7 @@ func GetProjectVersion() (string, error) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(output), "No names found, cannot describe anything") {
-			return "0.0.0", nil // Return 0.0.0 as the initial version
+			return "0.1.0", nil // Return 0.1.0 as the initial version as recommended by Semantic Versioning
 		}
 		return "", fmt.Errorf("error getting project version: %v: %s", err, string(output))
 	}

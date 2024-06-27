@@ -241,30 +241,18 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 	case initCommand.FullCommand():
 		log.Printf("Initializing project with changelog file: %s", *changeLogFile)
 		if err := changelogManager.InitProject(*changeLogFile); err != nil {
-			log.Printf("Error initializing project: %v", err)
-			fmt.Fprintf(os.Stderr, "Error initializing project: %v\n", err)
-			return err
+			return fmt.Errorf("Error initializing project: %v", err)
 		}
 		fmt.Println("Project initialized for semver and Keep a Changelog.")
 
 	case majorCommand.FullCommand():
-		err := handleVersionBump("major", changelogManager, gitManager, semverManager)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return err
-		}
+		return handleVersionBump("major", changelogManager, gitManager, semverManager)
+
 	case minorCommand.FullCommand():
-		err := handleVersionBump("minor", changelogManager, gitManager, semverManager)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return err
-		}
+		return handleVersionBump("minor", changelogManager, gitManager, semverManager)
+
 	case patchCommand.FullCommand():
-		err := handleVersionBump("patch", changelogManager, gitManager, semverManager)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return err
-		}
+		return handleVersionBump("patch", changelogManager, gitManager, semverManager)
 
 	case changelogAddCommand.FullCommand():
 		return handleChangelogUpdate("Added", *changelogAddContent, changelogManager)

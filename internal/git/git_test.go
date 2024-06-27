@@ -39,7 +39,7 @@ func TestGetProjectVersion(t *testing.T) {
 			name:           "No tags found",
 			mockOutput:     "fatal: No names found, cannot describe anything.",
 			mockError:      fmt.Errorf("exit status 128"),
-			expectedResult: "0.0.0",
+			expectedResult: "0.1.0",
 			expectedError:  false,
 		},
 		{
