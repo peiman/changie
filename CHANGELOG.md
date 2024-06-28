@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added --auto-push flag to automatically push changes and tags after version bump
+
 ## [0.7.0] - 2024-06-28
 
 ### Added
@@ -99,7 +103,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial project setup
-
 
 [Unreleased]: https://github.com/peiman/changie/compare/0.7.0...HEAD
 [0.7.0]: https://github.com/peiman/changie/compare/0.6.0...0.7.0

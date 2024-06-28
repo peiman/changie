@@ -108,6 +108,7 @@ var (
 	changelogFixedContent      = changelogFixedCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogSecurityCommand   = changelogCommand.Command("security", "Add a security section to changelog.")
 	changelogSecurityContent   = changelogSecurityCommand.Arg("content", "Content to add to the changelog").Required().String()
+	version                    = "dev" // default version if not set during build
 )
 
 var isGitInstalled = git.IsInstalled
@@ -175,6 +176,7 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 		return fmt.Errorf("Error committing changelog: %v", err)
 	}
 
+	fmt.Printf("Tagging version: %s\n", newVersion)
 	if err := gitManager.TagVersion(newVersion); err != nil {
 		return fmt.Errorf("Error tagging version: %v", err)
 	}
@@ -182,6 +184,7 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 	fmt.Printf("%s release %s done.\n", bumpType, newVersion)
 
 	if *autoPush {
+		fmt.Println("Pushing changes and tags...")
 		if err := gitManager.PushChanges(); err != nil {
 			return fmt.Errorf("Error pushing changes: %v", err)
 		}
@@ -261,13 +264,12 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 
 	case majorCommand.FullCommand():
 		return handleVersionBump("major", changelogManager, gitManager, semverManager)
-
 	case minorCommand.FullCommand():
 		return handleVersionBump("minor", changelogManager, gitManager, semverManager)
-
 	case patchCommand.FullCommand():
 		return handleVersionBump("patch", changelogManager, gitManager, semverManager)
 
+		//
 	case changelogAddCommand.FullCommand():
 		return handleChangelogUpdate("Added", *changelogAddContent, changelogManager)
 	case changelogChangedCommand.FullCommand():

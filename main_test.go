@@ -592,12 +592,75 @@ func TestAutoPushAfterBump(t *testing.T) {
 		t.Errorf("Expected no error, got: %v", err)
 	}
 
-	expectedOutput := fmt.Sprintf("minor release %s done.\nAutomatically pushed changes and tags to remote repository.\n", expectedNewVersion)
-	if !strings.Contains(output, expectedOutput) {
-		t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
+	expectedOutputs := []string{
+		fmt.Sprintf("Current version from git tags: %s", initialVersion),
+		fmt.Sprintf("New version: %s", expectedNewVersion),
+		"Updating changelog file: CHANGELOG.md",
+		fmt.Sprintf("Tagging version: %s", expectedNewVersion),
+		fmt.Sprintf("minor release %s done.", expectedNewVersion),
+		"Pushing changes and tags...",
+		"Automatically pushed changes and tags to remote repository.",
+	}
+
+	for _, expectedOutput := range expectedOutputs {
+		if !strings.Contains(output, expectedOutput) {
+			t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
+		}
 	}
 
 	if mockGitManager.pushChangesCalled != 1 {
 		t.Errorf("Expected PushChanges to be called once, got: %d", mockGitManager.pushChangesCalled)
+	}
+}
+func TestVersionBumpWithExistingTag(t *testing.T) {
+	isTestMode = true
+	defer func() { isTestMode = false }()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	os.Args = []string{"changie", "minor"}
+
+	initialVersion := "0.3.0"
+	expectedNewVersion := "0.4.0"
+
+	mockGitManager := &MockGitManager{
+		projectVersion:        initialVersion,
+		hasUncommittedChanges: false,
+		tagVersionErr:         fmt.Errorf("tag %s already exists", expectedNewVersion),
+	}
+	mockChangelogManager := &MockChangelogManager{
+		changelogContent: fmt.Sprintf(`# Changelog
+
+## [Unreleased]
+
+## [%s] - 2023-01-01
+
+[Unreleased]: https://github.com/peiman/changie/compare/%s...HEAD
+[%s]: https://github.com/peiman/changie/releases/tag/%s`, initialVersion, initialVersion, initialVersion, initialVersion),
+	}
+	mockSemverManager := &MockSemverManager{}
+
+	output, err := captureOutput(func() error {
+		return run(mockChangelogManager, mockGitManager, mockSemverManager)
+	})
+
+	if err == nil {
+		t.Errorf("Expected an error, got nil")
+	} else if !strings.Contains(err.Error(), fmt.Sprintf("Error tagging version: tag %s already exists", expectedNewVersion)) {
+		t.Errorf("Expected error to contain 'Error tagging version: tag %s already exists', got: %v", expectedNewVersion, err)
+	}
+
+	expectedOutputs := []string{
+		fmt.Sprintf("Current version from git tags: %s", initialVersion),
+		fmt.Sprintf("New version: %s", expectedNewVersion),
+		"Updating changelog file: CHANGELOG.md",
+		fmt.Sprintf("Tagging version: %s", expectedNewVersion),
+	}
+
+	for _, expectedOutput := range expectedOutputs {
+		if !strings.Contains(output, expectedOutput) {
+			t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
+		}
 	}
 }

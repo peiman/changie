@@ -66,7 +66,7 @@ func PushChanges() error {
 	cmd := exec.Command("git", "push", "--follow-tags")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to push changes: %v\n%s", err, string(output))
+		return fmt.Errorf("failed to push changes: %v\nCommand output: %s", err, string(output))
 	}
 	return nil
 }
