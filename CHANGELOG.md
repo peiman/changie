@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.0] - 2024-06-28
 
-### Added
+### Fixed
 
-- Added --auto-push flag to automatically push changes and tags after version bump
+- Fixed --auto-push flag
 
 ## [0.7.0] - 2024-06-28
 
