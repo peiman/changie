@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/peiman/changie/internal/changelog"
@@ -243,7 +244,13 @@ func getLatestChangelogVersion(content string) (string, error) {
 }
 
 func run(changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
-	app.Version("0.1.0")
+	// Get the git tag
+	version, err := getLatestGitTag()
+	if err != nil {
+		fmt.Printf("Error getting git tag: %v\n", err)
+		version = "dev" // fallback version
+	}
+	app.Version(version)
 
 	if !isGitInstalled() {
 		return fmt.Errorf("Error: Git is not installed.")
@@ -288,6 +295,16 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 	}
 
 	return nil
+}
+
+// Function to get the latest git tag
+func getLatestGitTag() (string, error) {
+	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func main() {
