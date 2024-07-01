@@ -362,11 +362,9 @@ func TestGetVersion(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Change to the temporary directory
-	defer func() {
-		if err := os.Chdir(pwd); err != nil {
-			t.Errorf("Failed to change directory back: %v", err)
-		}
-	}()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
 
 	// Initialize a git repository
 	if err := exec.Command("git", "init").Run(); err != nil {
@@ -413,8 +411,8 @@ func TestGetVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get version: %v", err)
 	}
-	if len(version) <= 7 || version[:7] != "v1.0.0-" {
-		t.Errorf("Expected version starting with 'v1.0.0-', got '%s'", version)
+	if !strings.HasPrefix(version, "v1.0.0-dev.") {
+		t.Errorf("Expected version starting with 'v1.0.0-dev.', got '%s'", version)
 	}
 }
 

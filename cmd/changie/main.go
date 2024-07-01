@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -165,7 +164,7 @@ func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManag
 		return fmt.Errorf("Error reading changelog: %v", err)
 	}
 
-	changelogVersion, err := GetLatestChangelogVersion(changelogContent)
+	changelogVersion, err := changelog.GetLatestChangelogVersion(changelogContent)
 	if err != nil {
 		return fmt.Errorf("Error getting changelog version: %v", err)
 	}
@@ -261,15 +260,6 @@ func handleChangelogUpdate(section, content string, changelogManager ChangelogMa
 	}
 
 	return nil
-}
-
-func GetLatestChangelogVersion(content string) (string, error) {
-	re := regexp.MustCompile(`## \[(\d+\.\d+\.\d+)\]`)
-	matches := re.FindStringSubmatch(content)
-	if len(matches) < 2 {
-		return "", fmt.Errorf("no version found in changelog")
-	}
-	return matches[1], nil
 }
 
 func run(changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
