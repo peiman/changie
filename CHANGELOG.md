@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Implemented dynamic version determination based on git tags and commits
+
+### Changed
+
+- Enhanced testing infrastructure, particularly for git command mocking and output capturing
+
 ## [0.9.0] - 2024-06-30
 
 ### Changed
@@ -111,7 +119,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial project setup
-
 
 [Unreleased]: https://github.com/peiman/changie/compare/0.9.0...HEAD
 [0.9.0]: https://github.com/peiman/changie/compare/0.8.0...0.9.0
