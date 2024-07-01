@@ -1,6 +1,6 @@
 # changie
 
-Changie is a version and change log manager for releases. It's designed for projects using Git, [Semantic Versioning 2.0.0](https://semver.org), and [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.0.0/).
+Changie is a version and change log manager for releases. It's designed for projects using Git, [Semantic Versioning](https://semver.org), and [Keep a Changelog](https://keepachangelog.com/).
 
 ## Features
 

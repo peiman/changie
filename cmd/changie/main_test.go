@@ -164,7 +164,7 @@ func TestMainPackage(t *testing.T) {
 		{
 			name:             "Init Command",
 			args:             []string{"changie", "init"},
-			expected:         "Project initialized for semver and Keep a Changelog.\n",
+			expected:         "Project initialized for SemVer and Keep a Changelog.\n",
 			changelogManager: &MockChangelogManager{},
 			gitManager:       &MockGitManager{projectVersion: "1.0.0"},
 			semverManager:    &MockSemverManager{},

@@ -87,8 +87,8 @@ func (m DefaultSemverManager) BumpPatch(version string) (string, error) {
 }
 
 var (
-	app                        = kingpin.New("changie", "A version and change log manager for releases. Made for projects using Git, SemVer v2.0.0 and Keep a Changelog v1.0.0.")
-	initCommand                = app.Command("init", "Initiate project directory for semver and Keep a Changelog.")
+	app                        = kingpin.New("changie", "A version and change log manager for releases. Made for projects using Git, SemVer and Keep a Changelog.")
+	initCommand                = app.Command("init", "Initiate project directory for SemVer and Keep a Changelog.")
 	majorCommand               = app.Command("major", "Release a major version. Bump the first version number.")
 	minorCommand               = app.Command("minor", "Release a minor version. Bump the second version number.")
 	patchCommand               = app.Command("patch", "Release a patch version. Bump the third version number.")
@@ -286,7 +286,7 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 	case initCommand.FullCommand():
 		log.Printf("Initializing project with changelog file: %s", *changeLogFile)
 		handleError(changelogManager.InitProject(*changeLogFile))
-		fmt.Println("Project initialized for semver and Keep a Changelog.")
+		fmt.Println("Project initialized for SemVer and Keep a Changelog.")
 
 	case majorCommand.FullCommand():
 		return handleVersionBump("major", changelogManager, gitManager, semverManager)

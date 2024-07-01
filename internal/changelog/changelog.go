@@ -25,8 +25,8 @@ func InitProject(changelogFile string) error {
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com),
+and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 `
@@ -101,10 +101,10 @@ func ReformatChangelog(changelogFile string) error {
 			reformattedLines = append(reformattedLines, trimmedLine, "")
 			lastLineWasEmpty = true
 		case strings.Contains(trimmedLine, "Keep a Changelog"):
-			reformattedLines = append(reformattedLines, "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),")
+			reformattedLines = append(reformattedLines, "The format is based on [Keep a Changelog](https://keepachangelog.com),")
 			lastLineWasEmpty = false
 		case strings.Contains(trimmedLine, "Semantic Versioning"):
-			reformattedLines = append(reformattedLines, "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).", "")
+			reformattedLines = append(reformattedLines, "and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).", "")
 			lastLineWasEmpty = true
 		case strings.HasPrefix(trimmedLine, "## "):
 			if !lastLineWasEmpty {
