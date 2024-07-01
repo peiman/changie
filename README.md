@@ -100,6 +100,66 @@ Contributions to changie are welcome! Please feel free to submit a Pull Request.
 
 Please make sure to update tests as appropriate.
 
+## Developer Guide
+
+### Setting Up
+
+To contribute to changie or modify it for your own needs, you'll need to clone the repository and set up your development environment. Ensure you have Go installed on your system.
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/peiman/changie.git
+cd changie
+```
+
+2. Install dependencies:
+
+```bash
+go mod tidy
+```
+
+### Using the Makefile
+
+The Makefile provides several commands to streamline common development tasks.
+
+- **Lint the code**:
+  ```bash
+  make lint
+  ```
+  This command runs `golangci-lint` to check for linting issues.
+
+- **Run tests**:
+  ```bash
+  make test
+  ```
+  This command runs all tests to ensure everything is working correctly.
+
+- **Install the binary**:
+  ```bash
+  make install
+  ```
+  This command installs the binary into your `GOBIN` directory, making it available for use system-wide.
+
+- **Build the project**:
+  ```bash
+  make build
+  ```
+  This command compiles the project.
+
+- **Clean the build cache**:
+  ```bash
+  make clean
+  ```
+  This command cleans the build cache, test cache, and module cache.
+
+- **Development mode (lint and test)**:
+  ```bash
+  make dev
+  ```
+  This command runs both the lint and test commands to ensure your code is clean and functioning before you commit.
+
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
