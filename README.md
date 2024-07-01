@@ -9,7 +9,9 @@ Changie is a version and change log manager for releases. It's designed for proj
 - Git integration for version tagging
 - Support for different remote repository providers (GitHub, Bitbucket)
 
-## Installation
+## Quick Start
+
+### Installation
 
 To install changie, use the following command:
 
@@ -17,15 +19,27 @@ To install changie, use the following command:
 go get -u github.com/peiman/changie
 ```
 
-## Usage
+### Basic Usage
 
-### Initializing a project
+1. Initialize your project:
 
 ```bash
 changie init
 ```
 
-This command creates a new CHANGELOG.md file in your project directory.
+2. Add a changelog entry:
+
+```bash
+changie changelog added "New feature: Improved error handling"
+```
+
+3. Bump the version:
+
+```bash
+changie minor
+```
+
+## Detailed Usage
 
 ### Managing the changelog
 
@@ -40,14 +54,6 @@ changie changelog fixed "Description of any bug fixes"
 changie changelog security "Description of security vulnerabilities fixed"
 ```
 
-For example:
-
-```bash
-changie changelog added "New feature: Improved changelog management"
-```
-
-This will add a new entry under the "Added" section in the [Unreleased] part of your CHANGELOG.md file.
-
 ### Bumping versions
 
 To bump the version, use one of the following commands:
@@ -58,17 +64,13 @@ changie minor  # Bump minor version (e.g., 1.3.2 -> 1.4.0)
 changie patch  # Bump patch version (e.g., 1.3.2 -> 1.3.3)
 ```
 
-When you bump the version, all entries added using the `changie changelog` commands will be moved from the [Unreleased] section to the new version section in the CHANGELOG.md file.
-Also a comparison link (the actual version number is the link) will be created in the new version section.
-
-### Bumping versions with automatic push
+### Automatic pushing
 
 To bump the version and automatically push changes and tags, use the `--auto-push` flag:
 
 ```bash
-changie major --auto-push
 changie minor --auto-push
-changie patch --auto-push
+```
 
 ### Specifying the remote repository provider
 
@@ -78,19 +80,25 @@ By default, changie assumes you're using GitHub. To specify a different provider
 changie --rrp bitbucket major
 ```
 
-## Development
+## Configuration
 
-### Running Tests
+Changie doesn't require any configuration files. It uses command-line flags for customization.
 
-To run tests:
+## Troubleshooting
 
-```bash
-go test ./...
-```
+### Version mismatch between Git tag and Changelog
 
-### Contributing
+If you encounter a warning about version mismatch, ensure that your Git tags and CHANGELOG.md are in sync. You may need to manually edit the changelog or create a new Git tag.
 
-Contributions to changie are welcome! Please feel free to submit a Pull Request.
+### Git is not installed
+
+Changie requires Git to be installed and available in your system's PATH. Ensure Git is properly installed and accessible from the command line.
+
+## Contributing
+
+Contributions to changie are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
 
 ## License
 
