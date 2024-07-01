@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Removed duplicate GetLatestChangelogVersion function from main.go
+
+### Changed
+
+- Improved version testing in TestGetVersion function
+
 ## [0.9.1] - 2024-07-01
 
 ### Added
@@ -121,7 +129,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial project setup
-
 
 [Unreleased]: https://github.com/peiman/changie/compare/0.9.1...HEAD
 [0.9.1]: https://github.com/peiman/changie/compare/0.9.0...0.9.1
