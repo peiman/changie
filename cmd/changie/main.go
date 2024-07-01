@@ -112,6 +112,14 @@ var (
 
 var isGitInstalled = git.IsInstalled
 var isTestMode bool
+var exitFunction = os.Exit
+
+func handleError(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		exitFunction(1)
+	}
+}
 
 // getVersion returns the current version of changie based on git tags and commits
 func getVersion() (string, error) {
@@ -153,7 +161,7 @@ func getVersion() (string, error) {
 	return fmt.Sprintf("%s-dev.%s+%s", tag, commitCount, strings.TrimSpace(string(commitHash))), nil
 }
 
-func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManager, isTestMode bool) error {
+func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManager, printWarning bool) error {
 	gitVersion, err := gitManager.GetProjectVersion()
 	if err != nil {
 		return fmt.Errorf("Error getting project version: %v", err)
@@ -170,10 +178,11 @@ func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManag
 	}
 
 	if gitVersion != changelogVersion {
-		if !isTestMode {
-			fmt.Printf("Warning: Git tag version %s does not match changelog version %s.\n", gitVersion, changelogVersion)
+		err := fmt.Errorf("Version mismatch: Git tag version %s does not match changelog version %s", gitVersion, changelogVersion)
+		if printWarning {
+			fmt.Println("Warning:", err)
 		}
-		return fmt.Errorf("Version mismatch: Git tag version %s does not match changelog version %s", gitVersion, changelogVersion)
+		return err
 	}
 
 	return nil
@@ -188,13 +197,11 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 		return fmt.Errorf("Error: Uncommitted changes found. Please commit or stash your changes before bumping the version.")
 	}
 
-	if err := checkVersionMismatch(gitManager, changelogManager, isTestMode); err != nil {
+	if err := checkVersionMismatch(gitManager, changelogManager, !isTestMode); err != nil {
 		return err
 	}
 
 	gitVersion, _ := gitManager.GetProjectVersion() // We can ignore the error here as it's already checked in checkVersionMismatch
-	fmt.Printf("Current version from git tags: %s\n", gitVersion)
-
 	fmt.Printf("Current version from git tags: %s\n", gitVersion)
 
 	var bumpFunc func(string) (string, error)
@@ -265,10 +272,7 @@ func handleChangelogUpdate(section, content string, changelogManager ChangelogMa
 func run(changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
 	// Get the git tag
 	version, err := getVersion()
-	if err != nil {
-		fmt.Printf("Error getting git tag: %v\n", err)
-		version = "dev" // fallback version
-	}
+	handleError(err)
 	app.Version(version)
 
 	if !isGitInstalled() {
@@ -276,16 +280,12 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 	}
 
 	command, err := app.Parse(os.Args[1:])
-	if err != nil {
-		return err // Return the error from kingpin
-	}
+	handleError(err)
 
 	switch command {
 	case initCommand.FullCommand():
 		log.Printf("Initializing project with changelog file: %s", *changeLogFile)
-		if err := changelogManager.InitProject(*changeLogFile); err != nil {
-			return fmt.Errorf("Error initializing project: %v", err)
-		}
+		handleError(changelogManager.InitProject(*changeLogFile))
 		fmt.Println("Project initialized for semver and Keep a Changelog.")
 
 	case majorCommand.FullCommand():
@@ -295,7 +295,6 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 	case patchCommand.FullCommand():
 		return handleVersionBump("patch", changelogManager, gitManager, semverManager)
 
-		//
 	case changelogAddCommand.FullCommand():
 		return handleChangelogUpdate("Added", *changelogAddContent, changelogManager)
 	case changelogChangedCommand.FullCommand():
@@ -320,14 +319,8 @@ func main() {
 	// Enable verbose logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	// The version is dynamically set based on git tags and commits.
-	// See the 'version' variable declaration for details on the versioning scheme.
-
 	changelogManager := DefaultChangelogManager{}
 	gitManager := DefaultGitManager{}
 	semverManager := DefaultSemverManager{}
-	if err := run(changelogManager, gitManager, semverManager); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	handleError(run(changelogManager, gitManager, semverManager))
 }

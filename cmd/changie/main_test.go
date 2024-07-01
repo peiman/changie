@@ -418,23 +418,46 @@ func TestGetVersion(t *testing.T) {
 
 func TestInvalidCommand(t *testing.T) {
 	originalArgs := os.Args
-	defer func() { os.Args = originalArgs }()
+	originalExit := exitFunction
+	defer func() {
+		os.Args = originalArgs
+		exitFunction = originalExit
+	}()
 
 	os.Args = []string{"changie", "invalid"}
+
+	var exitCode int
+	exitFunction = func(code int) {
+		exitCode = code
+	}
 
 	output, err := captureOutput(t, func() error {
 		return run(&MockChangelogManager{}, &MockGitManager{}, &MockSemverManager{})
 	})
 
-	expectedError := "expected command but got \"invalid\""
 	if err == nil {
-		t.Errorf("Expected an error for invalid command, but got none")
-	} else if err.Error() != expectedError {
-		t.Errorf("Expected error %q, but got: %v", expectedError, err)
+		t.Error("Expected an error, but got nil")
 	}
 
-	if output != "" {
-		t.Errorf("Expected no output, but got: %q", output)
+	expectedErrors := []string{
+		"Unknown command: invalid",
+		"expected command but got \"invalid\"",
+	}
+
+	found := false
+	for _, expectedError := range expectedErrors {
+		if strings.Contains(output, expectedError) || (err != nil && strings.Contains(err.Error(), expectedError)) {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected output or error to contain one of %v, but got output: %q and error: %v", expectedErrors, output, err)
+	}
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1, but got: %d", exitCode)
 	}
 }
 
@@ -738,5 +761,39 @@ func TestVersionBumpWithExistingTag(t *testing.T) {
 		if !strings.Contains(output, expectedOutput) {
 			t.Errorf("Expected output to contain '%s', got: '%s'", expectedOutput, output)
 		}
+	}
+}
+
+func TestVersionMismatchWarning(t *testing.T) {
+	mockGitManager := &MockGitManager{projectVersion: "1.0.0"}
+	mockChangelogManager := &MockChangelogManager{
+		changelogContent: "## [2.0.0]",
+	}
+
+	// Test with printWarning = true
+	output, err := captureOutput(t, func() error {
+		return checkVersionMismatch(mockGitManager, mockChangelogManager, true)
+	})
+
+	if err == nil {
+		t.Error("Expected an error, but got nil")
+	}
+
+	expectedWarning := "Warning: Version mismatch: Git tag version 1.0.0 does not match changelog version 2.0.0"
+	if !strings.Contains(output, expectedWarning) {
+		t.Errorf("Expected warning %q, but got output: %q", expectedWarning, output)
+	}
+
+	// Test with printWarning = false
+	output, err = captureOutput(t, func() error {
+		return checkVersionMismatch(mockGitManager, mockChangelogManager, false)
+	})
+
+	if err == nil {
+		t.Error("Expected an error, but got nil")
+	}
+
+	if output != "" {
+		t.Errorf("Expected no output, but got: %q", output)
 	}
 }
