@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -126,7 +127,7 @@ func (m *MockSemverManager) BumpPatch(version string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d", major, minor, patch+1), nil
 }
 
-func captureOutput(f func() error) (string, error) {
+func captureOutput(t *testing.T, f func() error) (string, error) {
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
@@ -140,7 +141,9 @@ func captureOutput(f func() error) (string, error) {
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("Failed to copy output: %v", err)
+	}
 	return buf.String(), err
 }
 
@@ -300,7 +303,7 @@ func TestMainPackage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Args = tt.args
 
-			output, err := captureOutput(func() error {
+			output, err := captureOutput(t, func() error {
 				return run(tt.changelogManager, tt.gitManager, tt.semverManager)
 			})
 
@@ -327,7 +330,7 @@ func TestGitNotInstalled(t *testing.T) {
 
 	os.Args = []string{"changie", "major"}
 
-	output, err := captureOutput(func() error {
+	output, err := captureOutput(t, func() error {
 		return run(&MockChangelogManager{}, &MockGitManager{}, &MockSemverManager{})
 	})
 
@@ -340,13 +343,88 @@ func TestGitNotInstalled(t *testing.T) {
 	}
 }
 
+func TestGetVersion(t *testing.T) {
+	// Save the current working directory
+	pwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(pwd); err != nil {
+			t.Errorf("Failed to change directory back: %v", err)
+		}
+	}()
+	// Create a temporary directory for the test
+	tmpDir, err := os.MkdirTemp("", "changie-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Change to the temporary directory
+	defer func() {
+		if err := os.Chdir(pwd); err != nil {
+			t.Errorf("Failed to change directory back: %v", err)
+		}
+	}()
+
+	// Initialize a git repository
+	if err := exec.Command("git", "init").Run(); err != nil {
+		t.Fatalf("Failed to initialize git repo: %v", err)
+	}
+	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
+		t.Fatalf("Failed to configure git user.email: %v", err)
+	}
+	if err := exec.Command("git", "config", "user.name", "Test User").Run(); err != nil {
+		t.Fatalf("Failed to configure git user.name: %v", err)
+	}
+
+	// Test case 1: No tags
+	version, err := getVersion()
+	if err != nil {
+		t.Fatalf("Failed to get version: %v", err)
+	}
+	if version != "dev" {
+		t.Errorf("Expected 'dev', got '%s'", version)
+	}
+
+	// Create a commit
+	if err := exec.Command("git", "commit", "--allow-empty", "-m", "Initial commit").Run(); err != nil {
+		t.Fatalf("Failed to create initial commit: %v", err)
+	}
+
+	// Test case 2: With a tag
+	if err := exec.Command("git", "tag", "v1.0.0").Run(); err != nil {
+		t.Fatalf("Failed to create tag: %v", err)
+	}
+	version, err = getVersion()
+	if err != nil {
+		t.Fatalf("Failed to get version: %v", err)
+	}
+	if version != "v1.0.0" {
+		t.Errorf("Expected 'v1.0.0', got '%s'", version)
+	}
+
+	// Test case 3: Commit after tag
+	if err := exec.Command("git", "commit", "--allow-empty", "-m", "Another commit").Run(); err != nil {
+		t.Fatalf("Failed to create another commit: %v", err)
+	}
+	version, err = getVersion()
+	if err != nil {
+		t.Fatalf("Failed to get version: %v", err)
+	}
+	if len(version) <= 7 || version[:7] != "v1.0.0-" {
+		t.Errorf("Expected version starting with 'v1.0.0-', got '%s'", version)
+	}
+}
+
 func TestInvalidCommand(t *testing.T) {
 	originalArgs := os.Args
 	defer func() { os.Args = originalArgs }()
 
 	os.Args = []string{"changie", "invalid"}
 
-	output, err := captureOutput(func() error {
+	output, err := captureOutput(t, func() error {
 		return run(&MockChangelogManager{}, &MockGitManager{}, &MockSemverManager{})
 	})
 
@@ -393,7 +471,7 @@ func TestMinorVersionBump(t *testing.T) {
 	// Reset the tagVersionCalled counter before running the test
 	mockGitManager.ResetTagVersionCalled()
 
-	output, err := captureOutput(func() error {
+	output, err := captureOutput(t, func() error {
 		return run(mockChangelogManager, mockGitManager, mockSemverManager)
 	})
 
@@ -480,7 +558,7 @@ func TestRejectBumpWithUncommittedChanges(t *testing.T) {
 	}
 	mockSemverManager := &MockSemverManager{}
 
-	output, err := captureOutput(func() error {
+	output, err := captureOutput(t, func() error {
 		return run(mockChangelogManager, mockGitManager, mockSemverManager)
 	})
 
@@ -534,7 +612,7 @@ func TestAllowBumpWithNoUncommittedChanges(t *testing.T) {
 	}
 	mockSemverManager := &MockSemverManager{}
 
-	output, err := captureOutput(func() error {
+	output, err := captureOutput(t, func() error {
 		return run(mockChangelogManager, mockGitManager, mockSemverManager)
 	})
 
@@ -584,7 +662,7 @@ func TestAutoPushAfterBump(t *testing.T) {
 	}
 	mockSemverManager := &MockSemverManager{}
 
-	output, err := captureOutput(func() error {
+	output, err := captureOutput(t, func() error {
 		return run(mockChangelogManager, mockGitManager, mockSemverManager)
 	})
 
@@ -641,7 +719,7 @@ func TestVersionBumpWithExistingTag(t *testing.T) {
 	}
 	mockSemverManager := &MockSemverManager{}
 
-	output, err := captureOutput(func() error {
+	output, err := captureOutput(t, func() error {
 		return run(mockChangelogManager, mockGitManager, mockSemverManager)
 	})
 

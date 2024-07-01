@@ -22,6 +22,15 @@ func IsInstalled() bool {
 	return err == nil
 }
 
+func GetLastTag() (string, error) {
+	cmd := ExecCommand("git", "describe", "--tags", "--abbrev=0")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 // GetProjectVersion retrieves the current project version from Git tags
 func GetProjectVersion() (string, error) {
 	cmd := ExecCommand("git", "describe", "--tags", "--abbrev=0")

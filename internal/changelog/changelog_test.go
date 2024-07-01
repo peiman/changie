@@ -1,6 +1,7 @@
 package changelog
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -8,9 +9,9 @@ import (
 	"time"
 )
 
-var execCommand = exec.Command
-
 // Use this function to mock exec.Command in tests
+//
+//nolint:unused // This function is intended for future use in mocking exec.Command
 func mockExecCommand(command string, args ...string) *exec.Cmd {
 	cs := []string{"-test.run=TestHelperProcess", "--", command}
 	cs = append(cs, args...)
@@ -24,9 +25,36 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
-	// mock behavior here
-	os.Exit(0)
+	defer os.Exit(0)
+
+	args := os.Args
+	for len(args) > 0 {
+		if args[0] == "--" {
+			args = args[1:]
+			break
+		}
+		args = args[1:]
+	}
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "No command\n")
+		os.Exit(2)
+	}
+
+	cmd, args := args[0], args[1:]
+	switch cmd {
+	case "git":
+		if len(args) > 0 && args[0] == "describe" {
+			fmt.Fprintf(os.Stdout, "1.0.0\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "unknown git command\n")
+			os.Exit(1)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown command %q\n", cmd)
+		os.Exit(2)
+	}
 }
+
 func TestInitProject(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "changie-test")
@@ -40,8 +68,14 @@ func TestInitProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current working directory: %v", err)
 	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tempDir)
+	defer func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Errorf("Failed to change directory back: %v", err)
+		}
+	}()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
 
 	changelogFile := "CHANGELOG.md"
 
@@ -64,6 +98,7 @@ func TestInitProject(t *testing.T) {
 		t.Errorf("Unexpected error message: %v", err)
 	}
 }
+
 func TestAddChangelogSection(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -379,6 +414,10 @@ func TestNoExtraLineInChangelog(t *testing.T) {
 }
 
 func TestUpdateChangelogFormatting(t *testing.T) {
+	// Save the original execCommand and defer its restoration
+	oldExecCommand := execCommand
+	defer func() { execCommand = oldExecCommand }()
+
 	initialContent := `# Changelog
 
 ## [Unreleased]
@@ -423,11 +462,10 @@ func TestUpdateChangelogFormatting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Mock git command to return "1.0.0"
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("echo", "1.0.0")
+	// Mock execCommand to use mockExecCommand
+	execCommand = func(command string, args ...string) *exec.Cmd {
+		return mockExecCommand(command, args...)
 	}
-	defer func() { execCommand = exec.Command }()
 
 	// Update changelog
 	err = UpdateChangelog(tmpfile.Name(), "1.1.0", "github")

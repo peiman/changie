@@ -109,20 +109,52 @@ var (
 	changelogFixedContent      = changelogFixedCommand.Arg("content", "Content to add to the changelog").Required().String()
 	changelogSecurityCommand   = changelogCommand.Command("security", "Add a security section to changelog.")
 	changelogSecurityContent   = changelogSecurityCommand.Arg("content", "Content to add to the changelog").Required().String()
-	version                    = "dev" // default version if not set during build
 )
 
 var isGitInstalled = git.IsInstalled
 var isTestMode bool
 
-func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
-	hasUncommittedChanges, err := gitManager.HasUncommittedChanges()
+// getVersion returns the current version of changie based on git tags and commits
+func getVersion() (string, error) {
+	// version represents the current version of changie.
+	// It's dynamically set based on git tags and commits:
+	// - If on a tagged commit: "<tag>" (e.g., "1.2.3")
+	// - If ahead of the latest tag: "<tag>-dev.<commits-ahead>+<commit-sha>" (e.g., "1.2.3-dev.5+a1b2c3d")
+	// - If no tags found: "dev"
+	// Get the latest tag
+	latestTag, err := exec.Command("git", "describe", "--tags", "--abbrev=0").Output()
 	if err != nil {
-		return fmt.Errorf("Error checking for uncommitted changes: %v", err)
+		if exitError, ok := err.(*exec.ExitError); ok && exitError.ExitCode() == 128 {
+			// Exit code 128 typically means no tags found
+			return "dev", nil
+		}
+		return "", fmt.Errorf("error getting latest tag: %w", err)
 	}
-	if hasUncommittedChanges {
-		return fmt.Errorf("Error: Uncommitted changes found. Please commit or stash your changes before bumping the version.")
+	tag := strings.TrimSpace(string(latestTag))
+
+	// Get the current commit hash
+	commitHash, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
+	if err != nil {
+		return "", fmt.Errorf("error getting commit hash: %w", err)
 	}
+
+	// Check if the current commit is tagged
+	if _, err := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD").Output(); err == nil {
+		// Current commit is tagged, return the tag
+		return tag, nil
+	}
+
+	// Count commits since the latest tag
+	revList, err := exec.Command("git", "rev-list", tag+"..HEAD", "--count").Output()
+	if err != nil {
+		return "", fmt.Errorf("error counting commits since last tag: %w", err)
+	}
+
+	commitCount := strings.TrimSpace(string(revList))
+	return fmt.Sprintf("%s-dev.%s+%s", tag, commitCount, strings.TrimSpace(string(commitHash))), nil
+}
+
+func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManager, isTestMode bool) error {
 	gitVersion, err := gitManager.GetProjectVersion()
 	if err != nil {
 		return fmt.Errorf("Error getting project version: %v", err)
@@ -133,7 +165,7 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 		return fmt.Errorf("Error reading changelog: %v", err)
 	}
 
-	changelogVersion, err := changelog.GetLatestChangelogVersion(changelogContent)
+	changelogVersion, err := GetLatestChangelogVersion(changelogContent)
 	if err != nil {
 		return fmt.Errorf("Error getting changelog version: %v", err)
 	}
@@ -144,6 +176,25 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 		}
 		return fmt.Errorf("Version mismatch: Git tag version %s does not match changelog version %s", gitVersion, changelogVersion)
 	}
+
+	return nil
+}
+
+func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
+	hasUncommittedChanges, err := gitManager.HasUncommittedChanges()
+	if err != nil {
+		return fmt.Errorf("Error checking for uncommitted changes: %v", err)
+	}
+	if hasUncommittedChanges {
+		return fmt.Errorf("Error: Uncommitted changes found. Please commit or stash your changes before bumping the version.")
+	}
+
+	if err := checkVersionMismatch(gitManager, changelogManager, isTestMode); err != nil {
+		return err
+	}
+
+	gitVersion, _ := gitManager.GetProjectVersion() // We can ignore the error here as it's already checked in checkVersionMismatch
+	fmt.Printf("Current version from git tags: %s\n", gitVersion)
 
 	fmt.Printf("Current version from git tags: %s\n", gitVersion)
 
@@ -212,29 +263,7 @@ func handleChangelogUpdate(section, content string, changelogManager ChangelogMa
 	return nil
 }
 
-func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManager) error {
-	gitVersion, err := gitManager.GetProjectVersion()
-	if err != nil {
-		return fmt.Errorf("Error getting project version: %v", err) // Updated this line
-	}
-
-	changelogContent, err := changelogManager.GetChangelogContent()
-	if err != nil {
-		return fmt.Errorf("Error reading changelog: %v", err)
-	}
-
-	changelogVersion, err := changelog.GetLatestChangelogVersion(changelogContent)
-	if err != nil {
-		return fmt.Errorf("Error getting changelog version: %v", err)
-	}
-
-	if gitVersion != changelogVersion {
-		return fmt.Errorf("Version mismatch: Git tag version %s does not match changelog version %s", gitVersion, changelogVersion)
-	}
-
-	return nil
-}
-func getLatestChangelogVersion(content string) (string, error) {
+func GetLatestChangelogVersion(content string) (string, error) {
 	re := regexp.MustCompile(`## \[(\d+\.\d+\.\d+)\]`)
 	matches := re.FindStringSubmatch(content)
 	if len(matches) < 2 {
@@ -245,7 +274,7 @@ func getLatestChangelogVersion(content string) (string, error) {
 
 func run(changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
 	// Get the git tag
-	version, err := getLatestGitTag()
+	version, err := getVersion()
 	if err != nil {
 		fmt.Printf("Error getting git tag: %v\n", err)
 		version = "dev" // fallback version
@@ -297,19 +326,12 @@ func run(changelogManager ChangelogManager, gitManager GitManager, semverManager
 	return nil
 }
 
-// Function to get the latest git tag
-func getLatestGitTag() (string, error) {
-	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 func main() {
 	// Enable verbose logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	// The version is dynamically set based on git tags and commits.
+	// See the 'version' variable declaration for details on the versioning scheme.
 
 	changelogManager := DefaultChangelogManager{}
 	gitManager := DefaultGitManager{}

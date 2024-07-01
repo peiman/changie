@@ -3,6 +3,7 @@ package changelog
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"sort"
 	"strings"
@@ -43,6 +44,8 @@ func GetLatestChangelogVersion(content string) (string, error) {
 	}
 	return matches[1], nil
 }
+
+var execCommand = exec.Command
 
 // UpdateChangelog updates the CHANGELOG.md file with the new version
 func UpdateChangelog(file string, version string, provider string) error {
