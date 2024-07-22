@@ -18,30 +18,47 @@ var ExecCommand = func(command string, args ...string) Commander {
 
 // IsInstalled checks if Git is installed
 func IsInstalled() bool {
-	_, err := exec.LookPath("git")
+	cmd := ExecCommand("git", "--version")
+	_, err := cmd.CombinedOutput()
 	return err == nil
 }
 
-func GetLastTag() (string, error) {
+// GetVersion retrieves the current version based on git tags and commits
+func GetVersion() (string, error) {
 	cmd := ExecCommand("git", "describe", "--tags", "--abbrev=0")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-// GetProjectVersion retrieves the current project version from Git tags
-func GetProjectVersion() (string, error) {
-	cmd := ExecCommand("git", "describe", "--tags", "--abbrev=0")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		if strings.Contains(string(output), "No names found, cannot describe anything") {
-			return "0.1.0", nil // Return 0.1.0 as the initial version as recommended by Semantic Versioning
+		if strings.Contains(string(output), "No names found") {
+			return "dev", nil // Return "dev" without an error when no tags are found
 		}
-		return "", fmt.Errorf("error getting project version: %v: %s", err, string(output))
+		return "", fmt.Errorf("error getting latest tag: %w", err)
 	}
-	return strings.TrimSpace(string(output)), nil
+	tag := strings.TrimSpace(string(output))
+
+	// Check if the current commit is tagged
+	cmd = ExecCommand("git", "describe", "--exact-match", "--tags", "HEAD")
+	if _, err := cmd.CombinedOutput(); err == nil {
+		// Current commit is tagged, return the tag
+		return tag, nil
+	}
+
+	// Get the current commit hash
+	cmd = ExecCommand("git", "rev-parse", "--short", "HEAD")
+	commitHashOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("error getting commit hash: %w", err)
+	}
+	commitHash := strings.TrimSpace(string(commitHashOutput))
+
+	// Count commits since the latest tag
+	cmd = ExecCommand("git", "rev-list", tag+"..HEAD", "--count")
+	revListOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("error counting commits since last tag: %w", err)
+	}
+	commitCount := strings.TrimSpace(string(revListOutput))
+
+	return fmt.Sprintf("%s-dev.%s+%s", tag, commitCount, commitHash), nil
 }
 
 // CommitChangelog commits the changelog file
@@ -49,13 +66,13 @@ func CommitChangelog(file, version string) error {
 	addCmd := ExecCommand("git", "add", file)
 	_, err := addCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error adding changelog to git: %v", err)
+		return fmt.Errorf("error adding changelog to git: %w", err)
 	}
 
 	commitCmd := ExecCommand("git", "commit", "-m", fmt.Sprintf("Update changelog for version %s", version))
 	_, err = commitCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error committing changelog: %v", err)
+		return fmt.Errorf("error committing changelog: %w", err)
 	}
 
 	return nil
@@ -66,16 +83,27 @@ func TagVersion(version string) error {
 	cmd := ExecCommand("git", "tag", version)
 	_, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error tagging version: %v", err)
+		return fmt.Errorf("error tagging version: %w", err)
 	}
 	return nil
 }
 
-func PushChanges() error {
-	cmd := exec.Command("git", "push", "--follow-tags")
+// HasUncommittedChanges checks if there are any uncommitted changes in the repository
+func HasUncommittedChanges() (bool, error) {
+	cmd := ExecCommand("git", "status", "--porcelain")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to push changes: %v\nCommand output: %s", err, string(output))
+		return false, fmt.Errorf("failed to check git status: %w", err)
+	}
+	return len(output) > 0, nil
+}
+
+// PushChanges pushes the changes and tags to the remote repository
+func PushChanges() error {
+	cmd := ExecCommand("git", "push", "--follow-tags")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to push changes: %w\nCommand output: %s", err, string(output))
 	}
 	return nil
 }

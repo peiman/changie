@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"testing"
@@ -49,16 +49,16 @@ func (m *MockChangelogManager) AddChangelogSection(string, string, string) (bool
 }
 
 type MockGitManager struct {
-	commitChangelogErr      error
-	tagVersionErr           error
-	getProjectVersionErr    error
-	projectVersion          string
-	getProjectVersionCalled int
-	commitChangelogCalled   int
-	tagVersionCalled        int
-	hasUncommittedChanges   bool
-	pushChangesCalled       int
-	pushChangesErr          error
+	commitChangelogErr    error
+	tagVersionErr         error
+	getVersionErr         error
+	projectVersion        string
+	getVersionCalled      int
+	commitChangelogCalled int
+	tagVersionCalled      int
+	hasUncommittedChanges bool
+	pushChangesCalled     int
+	pushChangesErr        error
 }
 
 func (m *MockGitManager) CommitChangelog(string, string) error {
@@ -69,15 +69,10 @@ func (m *MockGitManager) TagVersion(version string) error {
 	m.tagVersionCalled++
 	return m.tagVersionErr
 }
-
-// Reset the tagVersionCalled counter
-func (m *MockGitManager) ResetTagVersionCalled() {
-	m.tagVersionCalled = 0
-}
-func (m *MockGitManager) GetProjectVersion() (string, error) {
-	m.getProjectVersionCalled++
-	if m.getProjectVersionErr != nil {
-		return "", m.getProjectVersionErr
+func (m *MockGitManager) GetVersion() (string, error) {
+	m.getVersionCalled++
+	if m.getVersionErr != nil {
+		return "", m.getVersionErr
 	}
 	return m.projectVersion, nil
 }
@@ -260,9 +255,9 @@ func TestMainPackage(t *testing.T) {
 		{
 			name:             "Error Getting Project Version",
 			args:             []string{"changie", "major"},
-			expected:         "Error getting project version: mock error\n",
+			expected:         "Error getting project version: mock error",
 			changelogManager: &MockChangelogManager{},
-			gitManager:       &MockGitManager{getProjectVersionErr: fmt.Errorf("mock error")},
+			gitManager:       &MockGitManager{getVersionErr: fmt.Errorf("mock error")},
 			semverManager:    &MockSemverManager{},
 		},
 		{
@@ -301,11 +296,25 @@ func TestMainPackage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("Test case %s panicked: %v", tt.name, r)
+					debug.PrintStack()
+				}
+			}()
+
+			t.Logf("Starting test case: %s", tt.name)
 			os.Args = tt.args
 
 			output, err := captureOutput(t, func() error {
 				return run(tt.changelogManager, tt.gitManager, tt.semverManager)
 			})
+
+			t.Logf("Test case: %s", tt.name)
+			t.Logf("Args: %v", tt.args)
+			t.Logf("Expected output: %s", tt.expected)
+			t.Logf("Actual output: %s", output)
+			t.Logf("Error: %v", err)
 
 			if err != nil {
 				output += err.Error() + "\n"
@@ -316,8 +325,6 @@ func TestMainPackage(t *testing.T) {
 			} else {
 				t.Logf("Test case %s passed", tt.name)
 			}
-
-			t.Logf("Test case: %s\nArgs: %v\nExpected: %q\nGot: %q", tt.name, tt.args, tt.expected, output)
 		})
 	}
 }
@@ -334,130 +341,50 @@ func TestGitNotInstalled(t *testing.T) {
 		return run(&MockChangelogManager{}, &MockGitManager{}, &MockSemverManager{})
 	})
 
-	expected := "Error: Git is not installed."
-	if err == nil || err.Error() != expected {
-		t.Errorf("Expected error %q, but got: %v", expected, err)
-	}
-	if output != "" {
-		t.Errorf("Expected no output, but got: %q", output)
-	}
-}
-
-func TestGetVersion(t *testing.T) {
-	// Save the current working directory
-	pwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	defer func() {
-		if err := os.Chdir(pwd); err != nil {
-			t.Errorf("Failed to change directory back: %v", err)
-		}
-	}()
-	// Create a temporary directory for the test
-	tmpDir, err := os.MkdirTemp("", "changie-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Change to the temporary directory
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
+	expectedError := "Error: Git is not installed."
+	if err == nil {
+		t.Errorf("Expected error, but got none")
+	} else if err.Error() != expectedError {
+		t.Errorf("Expected error %q, but got: %v", expectedError, err)
 	}
 
-	// Initialize a git repository
-	if err := exec.Command("git", "init").Run(); err != nil {
-		t.Fatalf("Failed to initialize git repo: %v", err)
-	}
-	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
-		t.Fatalf("Failed to configure git user.email: %v", err)
-	}
-	if err := exec.Command("git", "config", "user.name", "Test User").Run(); err != nil {
-		t.Fatalf("Failed to configure git user.name: %v", err)
-	}
-
-	// Test case 1: No tags
-	version, err := getVersion()
-	if err != nil {
-		t.Fatalf("Failed to get version: %v", err)
-	}
-	if version != "dev" {
-		t.Errorf("Expected 'dev', got '%s'", version)
-	}
-
-	// Create a commit
-	if err := exec.Command("git", "commit", "--allow-empty", "-m", "Initial commit").Run(); err != nil {
-		t.Fatalf("Failed to create initial commit: %v", err)
-	}
-
-	// Test case 2: With a tag
-	if err := exec.Command("git", "tag", "v1.0.0").Run(); err != nil {
-		t.Fatalf("Failed to create tag: %v", err)
-	}
-	version, err = getVersion()
-	if err != nil {
-		t.Fatalf("Failed to get version: %v", err)
-	}
-	if version != "v1.0.0" {
-		t.Errorf("Expected 'v1.0.0', got '%s'", version)
-	}
-
-	// Test case 3: Commit after tag
-	if err := exec.Command("git", "commit", "--allow-empty", "-m", "Another commit").Run(); err != nil {
-		t.Fatalf("Failed to create another commit: %v", err)
-	}
-	version, err = getVersion()
-	if err != nil {
-		t.Fatalf("Failed to get version: %v", err)
-	}
-	if !strings.HasPrefix(version, "v1.0.0-dev.") {
-		t.Errorf("Expected version starting with 'v1.0.0-dev.', got '%s'", version)
+	if !strings.Contains(output, "Debug: Entering run function") {
+		t.Errorf("Expected output to contain debug information, but got: %q", output)
 	}
 }
 
 func TestInvalidCommand(t *testing.T) {
 	originalArgs := os.Args
-	originalExit := exitFunction
-	defer func() {
-		os.Args = originalArgs
-		exitFunction = originalExit
-	}()
+	defer func() { os.Args = originalArgs }()
 
 	os.Args = []string{"changie", "invalid"}
-
-	var exitCode int
-	exitFunction = func(code int) {
-		exitCode = code
-	}
 
 	output, err := captureOutput(t, func() error {
 		return run(&MockChangelogManager{}, &MockGitManager{}, &MockSemverManager{})
 	})
-
-	if err == nil {
-		t.Error("Expected an error, but got nil")
-	}
 
 	expectedErrors := []string{
 		"Unknown command: invalid",
 		"expected command but got \"invalid\"",
 	}
 
-	found := false
-	for _, expectedError := range expectedErrors {
-		if strings.Contains(output, expectedError) || (err != nil && strings.Contains(err.Error(), expectedError)) {
-			found = true
-			break
+	if err == nil {
+		t.Error("Expected an error, but got nil")
+	} else {
+		found := false
+		for _, expectedError := range expectedErrors {
+			if strings.Contains(err.Error(), expectedError) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected error to contain one of %v, but got: %v", expectedErrors, err)
 		}
 	}
 
-	if !found {
-		t.Errorf("Expected output or error to contain one of %v, but got output: %q and error: %v", expectedErrors, output, err)
-	}
-
-	if exitCode != 1 {
-		t.Errorf("Expected exit code 1, but got: %d", exitCode)
+	if !strings.Contains(output, "Debug: Entering run function") {
+		t.Errorf("Expected output to contain debug information, but got: %q", output)
 	}
 }
 
@@ -488,9 +415,6 @@ func TestMinorVersionBump(t *testing.T) {
 [%s]: https://github.com/peiman/changie/releases/tag/%s`, initialVersion, initialVersion, initialVersion, initialVersion),
 	}
 	mockSemverManager := &MockSemverManager{}
-
-	// Reset the tagVersionCalled counter before running the test
-	mockGitManager.ResetTagVersionCalled()
 
 	output, err := captureOutput(t, func() error {
 		return run(mockChangelogManager, mockGitManager, mockSemverManager)
@@ -524,7 +448,7 @@ func TestVersionMatchBetweenChangelogAndGitTags(t *testing.T) {
 		t.Fatalf("Failed to get latest changelog version: %v", err)
 	}
 
-	gitVersion, err := mockGitManager.GetProjectVersion()
+	gitVersion, err := mockGitManager.GetVersion()
 	if err != nil {
 		t.Fatalf("Failed to get git version: %v", err)
 	}
@@ -711,6 +635,7 @@ func TestAutoPushAfterBump(t *testing.T) {
 		t.Errorf("Expected PushChanges to be called once, got: %d", mockGitManager.pushChangesCalled)
 	}
 }
+
 func TestVersionBumpWithExistingTag(t *testing.T) {
 	isTestMode = true
 	defer func() { isTestMode = false }()

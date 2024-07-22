@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/peiman/changie/internal/changelog"
@@ -25,9 +23,9 @@ type ChangelogManager interface {
 type GitManager interface {
 	CommitChangelog(string, string) error
 	TagVersion(string) error
-	GetProjectVersion() (string, error)
 	HasUncommittedChanges() (bool, error)
 	PushChanges() error
+	GetVersion() (string, error)
 }
 
 type SemverManager interface {
@@ -60,15 +58,10 @@ type DefaultGitManager struct{}
 func (m DefaultGitManager) CommitChangelog(file, version string) error {
 	return git.CommitChangelog(file, version)
 }
-func (m DefaultGitManager) TagVersion(version string) error    { return git.TagVersion(version) }
-func (m DefaultGitManager) GetProjectVersion() (string, error) { return git.GetProjectVersion() }
+func (m DefaultGitManager) TagVersion(version string) error { return git.TagVersion(version) }
+func (m DefaultGitManager) GetVersion() (string, error)     { return git.GetVersion() }
 func (m DefaultGitManager) HasUncommittedChanges() (bool, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	output, err := cmd.Output()
-	if err != nil {
-		return false, fmt.Errorf("failed to check git status: %v", err)
-	}
-	return len(output) > 0, nil
+	return git.HasUncommittedChanges()
 }
 func (m DefaultGitManager) PushChanges() error {
 	return git.PushChanges()
@@ -116,53 +109,14 @@ var exitFunction = os.Exit
 
 func handleError(err error) {
 	if err != nil {
+		fmt.Printf("Debug: handleError called with error: %v\n", err)
 		fmt.Fprintln(os.Stderr, err)
 		exitFunction(1)
 	}
 }
 
-// getVersion returns the current version of changie based on git tags and commits
-func getVersion() (string, error) {
-	// version represents the current version of changie.
-	// It's dynamically set based on git tags and commits:
-	// - If on a tagged commit: "<tag>" (e.g., "1.2.3")
-	// - If ahead of the latest tag: "<tag>-dev.<commits-ahead>+<commit-sha>" (e.g., "1.2.3-dev.5+a1b2c3d")
-	// - If no tags found: "dev"
-	// Get the latest tag
-	latestTag, err := exec.Command("git", "describe", "--tags", "--abbrev=0").Output()
-	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok && exitError.ExitCode() == 128 {
-			// Exit code 128 typically means no tags found
-			return "dev", nil
-		}
-		return "", fmt.Errorf("error getting latest tag: %w", err)
-	}
-	tag := strings.TrimSpace(string(latestTag))
-
-	// Get the current commit hash
-	commitHash, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
-	if err != nil {
-		return "", fmt.Errorf("error getting commit hash: %w", err)
-	}
-
-	// Check if the current commit is tagged
-	if _, err := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD").Output(); err == nil {
-		// Current commit is tagged, return the tag
-		return tag, nil
-	}
-
-	// Count commits since the latest tag
-	revList, err := exec.Command("git", "rev-list", tag+"..HEAD", "--count").Output()
-	if err != nil {
-		return "", fmt.Errorf("error counting commits since last tag: %w", err)
-	}
-
-	commitCount := strings.TrimSpace(string(revList))
-	return fmt.Sprintf("%s-dev.%s+%s", tag, commitCount, strings.TrimSpace(string(commitHash))), nil
-}
-
 func checkVersionMismatch(gitManager GitManager, changelogManager ChangelogManager, printWarning bool) error {
-	gitVersion, err := gitManager.GetProjectVersion()
+	gitVersion, err := gitManager.GetVersion()
 	if err != nil {
 		return fmt.Errorf("Error getting project version: %v", err)
 	}
@@ -201,7 +155,10 @@ func handleVersionBump(bumpType string, changelogManager ChangelogManager, gitMa
 		return err
 	}
 
-	gitVersion, _ := gitManager.GetProjectVersion() // We can ignore the error here as it's already checked in checkVersionMismatch
+	gitVersion, err := gitManager.GetVersion()
+	if err != nil {
+		return fmt.Errorf("Error getting project version: %v", err)
+	}
 	fmt.Printf("Current version from git tags: %s\n", gitVersion)
 
 	var bumpFunc func(string) (string, error)
@@ -270,17 +227,24 @@ func handleChangelogUpdate(section, content string, changelogManager ChangelogMa
 }
 
 func run(changelogManager ChangelogManager, gitManager GitManager, semverManager SemverManager) error {
-	// Get the git tag
-	version, err := getVersion()
-	handleError(err)
-	app.Version(version)
+	fmt.Println("Debug: Entering run function")
 
 	if !isGitInstalled() {
 		return fmt.Errorf("Error: Git is not installed.")
 	}
 
+	// Get the git tag
+	version, err := gitManager.GetVersion()
+	fmt.Printf("Debug: GetVersion result: version=%s, err=%v\n", version, err)
+	if err != nil {
+		return fmt.Errorf("Error getting project version: %w", err)
+	}
+	app.Version(version)
+
 	command, err := app.Parse(os.Args[1:])
-	handleError(err)
+	if err != nil {
+		return fmt.Errorf("Error parsing command: %w", err)
+	}
 
 	switch command {
 	case initCommand.FullCommand():
