@@ -7,10 +7,32 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// LogLevel is our custom enum for log levels
+type LogLevel int
+
+const (
+	DEBUG LogLevel = iota
+	INFO
+	WARN
+	ERROR
+)
+
 var logger *zap.Logger
 
 // Init initializes the logger
-func Init(level zapcore.Level, output io.Writer) {
+func Init(level LogLevel, output io.Writer) {
+	zapLevel := zapcore.InfoLevel
+	switch level {
+	case DEBUG:
+		zapLevel = zapcore.DebugLevel
+	case INFO:
+		zapLevel = zapcore.InfoLevel
+	case WARN:
+		zapLevel = zapcore.WarnLevel
+	case ERROR:
+		zapLevel = zapcore.ErrorLevel
+	}
+
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
@@ -19,7 +41,7 @@ func Init(level zapcore.Level, output io.Writer) {
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(encoderConfig),
 		zapcore.AddSync(output),
-		zap.NewAtomicLevelAt(level),
+		zapLevel,
 	)
 
 	logger = zap.New(core, zap.AddStacktrace(zapcore.ErrorLevel))
