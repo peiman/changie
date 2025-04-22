@@ -27,19 +27,19 @@ import (
 var (
 	// cfgFile holds the path to the configuration file
 	cfgFile string
-	
+
 	// Version contains the current version of the application.
 	// This is populated at build time via ldflags.
 	Version = "dev"
-	
+
 	// Commit contains the Git commit hash of the build.
 	// This is populated at build time via ldflags.
 	Commit = ""
-	
+
 	// Date contains the build timestamp.
 	// This is populated at build time via ldflags.
 	Date = ""
-	
+
 	// binaryName is the name of the binary.
 	// This is populated at build time via ldflags from Taskfile.yml.
 	binaryName = "changie"
@@ -114,7 +114,7 @@ func initConfig() error {
 	// app.log_level becomes APP_LOG_LEVEL
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
-	
+
 	// Set default values
 	viper.SetDefault("app.log_level", "info")
 

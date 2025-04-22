@@ -140,7 +140,7 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 
 	// Check if git is installed
 	if !git.IsInstalled() {
-		err := fmt.Errorf("git is not installed or not available in PATH")
+		err := fmt.Errorf("git is not installed or not available in PATH - please install Git (https://git-scm.com/downloads) and ensure it's in your system PATH")
 		log.Error().Err(err).Msg("Failed to run git")
 		return err
 	}
@@ -153,7 +153,7 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	}
 
 	if hasUncommittedChanges {
-		err := fmt.Errorf("uncommitted changes found, please commit or stash your changes before bumping version")
+		err := fmt.Errorf("uncommitted changes found - run 'git status' to see changed files, then either commit changes with 'git commit' or stash them with 'git stash' before bumping version")
 		log.Error().Err(err).Msg("Failed to bump version")
 		return err
 	}
@@ -162,7 +162,7 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	currentVersion, err := git.GetVersion()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get current version from git")
-		return fmt.Errorf("failed to get current version: %w", err)
+		return fmt.Errorf("failed to get current version: %w - ensure you're in a git repository with at least one tag, or initialize with 'git tag v0.0.0'", err)
 	}
 
 	// Log current version
@@ -183,12 +183,12 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	case "patch":
 		newVersion, err = semver.BumpPatch(currentVersion)
 	default:
-		err = fmt.Errorf("invalid bump type: %s", bumpType)
+		err = fmt.Errorf("invalid bump type: %s - must be one of: major, minor, patch", bumpType)
 	}
 
 	if err != nil {
 		log.Error().Err(err).Str("type", bumpType).Str("current_version", currentVersion).Msg("Failed to bump version")
-		return fmt.Errorf("failed to bump version: %w", err)
+		return fmt.Errorf("failed to bump version: %w - check if the current version (%s) is a valid semantic version in the format X.Y.Z", err, currentVersion)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "New version: %s\n", newVersion)
@@ -214,14 +214,14 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	err = changelog.UpdateChangelog(file, newVersion, repositoryProvider)
 	if err != nil {
 		log.Error().Err(err).Str("file", file).Str("version", newVersion).Msg("Failed to update changelog")
-		return fmt.Errorf("failed to update changelog: %w", err)
+		return fmt.Errorf("failed to update changelog: %w - verify that '%s' exists and follows the Keep a Changelog format", err, file)
 	}
 
 	// Commit changes
 	err = git.CommitChangelog(file, newVersion)
 	if err != nil {
 		log.Error().Err(err).Str("file", file).Str("version", newVersion).Msg("Failed to commit changelog")
-		return fmt.Errorf("failed to commit changelog: %w", err)
+		return fmt.Errorf("failed to commit changelog: %w - ensure git is properly configured and you have permissions to commit changes", err)
 	}
 
 	// Tag version
@@ -229,7 +229,7 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	err = git.TagVersion(newVersion)
 	if err != nil {
 		log.Error().Err(err).Str("version", newVersion).Msg("Failed to tag version")
-		return fmt.Errorf("failed to tag version: %w", err)
+		return fmt.Errorf("failed to tag version: %w - check if the tag already exists (use 'git tag' to list existing tags)", err)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "%s release %s done.\n", bumpType, newVersion)
@@ -240,7 +240,7 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 		err = git.PushChanges()
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to push changes")
-			return fmt.Errorf("failed to push changes: %w", err)
+			return fmt.Errorf("failed to push changes: %w - check network connection and remote repository permissions", err)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Automatically pushed changes and tags to remote repository.\n")
 	} else {

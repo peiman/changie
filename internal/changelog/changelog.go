@@ -61,18 +61,18 @@ func InitProject(filePath string) error {
 	// Check if the file already exists
 	_, err := os.Stat(filePath)
 	if err == nil {
-		return fmt.Errorf("changelog file already exists: %s", filePath)
+		return fmt.Errorf("changelog file already exists: %s (use an alternative filename or delete the existing file if you want to recreate it)", filePath)
 	}
 
 	// Only proceed if the error is because the file doesn't exist
 	if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to check if changelog file exists: %w", err)
+		return fmt.Errorf("failed to check if changelog file exists: %w (verify you have read permissions for the directory)", err)
 	}
 
 	// Create the file with the template content
 	err = os.WriteFile(filePath, []byte(changelogTemplate), 0644)
 	if err != nil {
-		return fmt.Errorf("failed to create changelog file: %w", err)
+		return fmt.Errorf("failed to create changelog file: %w (verify you have write permissions for the directory and sufficient disk space)", err)
 	}
 
 	return nil
@@ -98,13 +98,14 @@ func InitProject(filePath string) error {
 func AddChangelogSection(filePath, section, content string) (bool, error) {
 	// Validate section
 	if !ValidSections[section] {
-		return false, fmt.Errorf("invalid section: %s, must be one of: Added, Changed, Deprecated, Removed, Fixed, Security", section)
+		validSectionsList := "Added, Changed, Deprecated, Removed, Fixed, Security"
+		return false, fmt.Errorf("invalid section: %s, must be one of: %s (section names are case-sensitive)", section, validSectionsList)
 	}
 
 	// Read the current changelog file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return false, fmt.Errorf("failed to read changelog file: %w", err)
+		return false, fmt.Errorf("failed to read changelog file: %w (check if '%s' exists and you have read permissions)", err, filePath)
 	}
 
 	fileContent := string(data)
@@ -124,7 +125,7 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 	}
 
 	if unreleasedIndex == -1 {
-		return false, fmt.Errorf("unreleased section not found in changelog")
+		return false, fmt.Errorf("unreleased section not found in changelog (ensure the file follows the Keep a Changelog format with an '## [Unreleased]' section)")
 	}
 
 	// Find the appropriate section header
@@ -205,7 +206,7 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 		// Write the updated content back to the file
 		err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0644)
 		if err != nil {
-			return false, fmt.Errorf("failed to write updated changelog: %w", err)
+			return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 		}
 
 		return false, nil
@@ -283,7 +284,7 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 	// Write the updated content back to the file
 	err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0644)
 	if err != nil {
-		return false, fmt.Errorf("failed to write updated changelog: %w", err)
+		return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 	}
 
 	return false, nil
@@ -310,7 +311,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	// Read the current changelog file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read changelog file: %w", err)
+		return fmt.Errorf("failed to read changelog file: %w (verify that '%s' exists and you have read permissions)", err, filePath)
 	}
 
 	content := string(data)
@@ -318,7 +319,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	// Check if Unreleased section exists
 	unreleasedRegex := regexp.MustCompile(`## \[Unreleased\]`)
 	if !unreleasedRegex.MatchString(content) {
-		return fmt.Errorf("unreleased section not found in changelog")
+		return fmt.Errorf("unreleased section not found in changelog (ensure your changelog follows the Keep a Changelog format with an '## [Unreleased]' section)")
 	}
 
 	// Get current date
@@ -360,7 +361,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	// Write the updated content back to the file
 	err = os.WriteFile(filePath, []byte(content), 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write updated changelog: %w", err)
+		return fmt.Errorf("failed to write updated changelog: %w (check if you have write permissions for the file and sufficient disk space)", err)
 	}
 
 	return nil

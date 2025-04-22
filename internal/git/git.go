@@ -50,7 +50,7 @@ func GetVersion() (string, error) {
 		if strings.Contains(string(output), "No names found") || strings.Contains(string(output), "fatal: No names found") {
 			return "", nil
 		}
-		return "", fmt.Errorf("failed to get latest tag: %w", err)
+		return "", fmt.Errorf("failed to get latest tag: %w (verify that you are in a git repository and have sufficient permissions)", err)
 	}
 
 	// Trim and return the version string
@@ -71,7 +71,7 @@ func HasUncommittedChanges() (bool, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return false, fmt.Errorf("failed to check for uncommitted changes: %w", err)
+		return false, fmt.Errorf("failed to check for uncommitted changes: %w (verify you're in a git repository with proper permissions)", err)
 	}
 
 	// If there is any output, there are uncommitted changes
@@ -95,7 +95,7 @@ func CommitChangelog(file, version string) error {
 	cmd := exec.Command("git", "add", file)
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to add changelog to staging area: %w", err)
+		return fmt.Errorf("failed to add changelog to staging area: %w (check if the file '%s' exists and you have write permissions)", err, file)
 	}
 
 	// Commit the changes
@@ -103,7 +103,7 @@ func CommitChangelog(file, version string) error {
 	cmd = exec.Command("git", "commit", "-m", commitMsg)
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to commit changelog: %w", err)
+		return fmt.Errorf("failed to commit changelog: %w (ensure git user.name and user.email are configured correctly with 'git config')", err)
 	}
 
 	return nil
@@ -132,7 +132,7 @@ func TagVersion(version string) error {
 	cmd := exec.Command("git", "tag", "-a", tagName, "-m", tagMsg)
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to create tag: %w", err)
+		return fmt.Errorf("failed to create tag: %w (check if tag '%s' already exists, you can delete it with 'git tag -d %s')", err, tagName, tagName)
 	}
 
 	return nil
@@ -151,14 +151,14 @@ func PushChanges() error {
 	cmd := exec.Command("git", "push")
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to push commits: %w", err)
+		return fmt.Errorf("failed to push commits: %w (check network connection and remote repository access permissions)", err)
 	}
 
 	// Push tags
 	cmd = exec.Command("git", "push", "--tags")
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to push tags: %w", err)
+		return fmt.Errorf("failed to push tags: %w (check if you have permission to create tags on the remote repository)", err)
 	}
 
 	return nil

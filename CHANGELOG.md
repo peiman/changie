@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - Enhanced code documentation across all packages for better maintainability
 - Added comprehensive package-level documentation to improve developer onboarding
 - Improved function documentation with detailed parameter and return value descriptions
+- Enhanced error messages with specific troubleshooting suggestions and resolution steps
 
 ## [0.9.1] - 2024-07-01
 
