@@ -1,5 +1,12 @@
-// cmd/version.go
-
+// Package cmd implements command line interface commands for the application.
+//
+// This file contains the implementation of the version-related commands:
+// - major: Bump the major version number (X.y.z -> X+1.0.0)
+// - minor: Bump the minor version number (x.Y.z -> x.Y+1.0)
+// - patch: Bump the patch version number (x.y.Z -> x.y.Z+1)
+//
+// These commands manage semantic versioning operations including checking for
+// uncommitted changes, changelog updates, and git tagging.
 package cmd
 
 import (
@@ -15,6 +22,7 @@ import (
 )
 
 var (
+	// majorCmd represents the command to bump the major version number
 	majorCmd = &cobra.Command{
 		Use:   "major",
 		Short: "Bump the major version number",
@@ -33,6 +41,7 @@ This command will:
 		},
 	}
 
+	// minorCmd represents the command to bump the minor version number
 	minorCmd = &cobra.Command{
 		Use:   "minor",
 		Short: "Bump the minor version number",
@@ -51,6 +60,7 @@ This command will:
 		},
 	}
 
+	// patchCmd represents the command to bump the patch version number
 	patchCmd = &cobra.Command{
 		Use:   "patch",
 		Short: "Bump the patch version number",
@@ -70,6 +80,8 @@ This command will:
 	}
 )
 
+// init registers the version commands with the root command and
+// defines and binds their flags to viper configuration values.
 func init() {
 	// Add common flags to all version commands
 	for _, cmd := range []*cobra.Command{majorCmd, minorCmd, patchCmd} {
@@ -93,6 +105,8 @@ func init() {
 	}
 }
 
+// initVersionConfig sets up the version-related configuration with
+// environment variables and default values.
 func initVersionConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
@@ -102,6 +116,24 @@ func initVersionConfig() {
 	viper.SetDefault("app.changelog.auto_push", false)
 }
 
+// runVersionBump implements the core logic for version bumping commands.
+// This is shared by all three version commands (major, minor, patch) with
+// the bump type specified as a parameter.
+//
+// The function performs several steps:
+// 1. Verifies git is installed and the repository has no uncommitted changes
+// 2. Gets the current version from git
+// 3. Calculates the new version based on the bump type
+// 4. Updates the changelog file
+// 5. Commits the changes and creates a git tag
+// 6. Optionally pushes changes and tags to remote
+//
+// Parameters:
+//   - cmd: The cobra command being executed
+//   - bumpType: Type of version bump ("major", "minor", or "patch")
+//
+// Returns:
+//   - error: Any error that occurred during execution
 func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	log.Debug().Str("type", bumpType).Msg("Starting version bump")
 	initVersionConfig()

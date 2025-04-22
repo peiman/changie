@@ -1,4 +1,14 @@
 // Package git provides functionality for working with Git repositories.
+//
+// This package encapsulates Git operations used by the changie tool, including:
+// - Version detection from Git tags
+// - Checking for uncommitted changes
+// - Managing commits and tags for changelog updates
+// - Pushing changes to remote repositories
+//
+// All functions in this package use the git command-line tool and require it to be
+// installed and available in the PATH. Functions will return appropriate errors if
+// Git operations fail.
 package git
 
 import (
@@ -7,7 +17,13 @@ import (
 	"strings"
 )
 
-// IsInstalled checks if git is installed and available.
+// IsInstalled checks if git is installed and available in the PATH.
+//
+// This function attempts to run "git --version" and returns true only if
+// the command executes successfully, indicating that Git is properly installed.
+//
+// Returns:
+//   - bool: true if git is installed and available, false otherwise
 func IsInstalled() bool {
 	cmd := exec.Command("git", "--version")
 	err := cmd.Run()
@@ -15,7 +31,14 @@ func IsInstalled() bool {
 }
 
 // GetVersion returns the current version from git tags.
-// If no tags exist, returns an empty string.
+//
+// This function uses "git describe --tags --abbrev=0" to retrieve the most recent tag.
+// If no tags exist in the repository, it returns an empty string, which the caller
+// should interpret as version 0.0.0.
+//
+// Returns:
+//   - string: The version string (without 'v' prefix) or empty string if no tags exist
+//   - error: Any error encountered during the git operation (except for "no tags" errors)
 func GetVersion() (string, error) {
 	// Use git describe to get the latest tag
 	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
@@ -36,6 +59,14 @@ func GetVersion() (string, error) {
 }
 
 // HasUncommittedChanges checks if there are any uncommitted changes in the repository.
+//
+// This function uses "git status --porcelain" to determine if there are any staged
+// or unstaged changes that haven't been committed. The porcelain format ensures
+// machine-readable output that's stable across git versions.
+//
+// Returns:
+//   - bool: true if there are uncommitted changes, false otherwise
+//   - error: Any error encountered during the git operation
 func HasUncommittedChanges() (bool, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	output, err := cmd.CombinedOutput()
@@ -48,6 +79,17 @@ func HasUncommittedChanges() (bool, error) {
 }
 
 // CommitChangelog commits changes to the changelog file.
+//
+// This function:
+// 1. Adds the specified changelog file to the staging area using "git add"
+// 2. Commits the changes with a standardized message that includes the version
+//
+// Parameters:
+//   - file: Path to the changelog file to commit
+//   - version: Version number to include in the commit message
+//
+// Returns:
+//   - error: Any error encountered during the git operations
 func CommitChangelog(file, version string) error {
 	// Add the file to the staging area
 	cmd := exec.Command("git", "add", file)
@@ -68,6 +110,16 @@ func CommitChangelog(file, version string) error {
 }
 
 // TagVersion creates a new git tag for the given version.
+//
+// This function creates an annotated tag (-a) with a standardized message
+// that includes the version number. It automatically adds the "v" prefix
+// to the tag name if not already present.
+//
+// Parameters:
+//   - version: Version number to tag (with or without "v" prefix)
+//
+// Returns:
+//   - error: Any error encountered during the git operation
 func TagVersion(version string) error {
 	// Ensure version has v prefix
 	tagName := version
@@ -87,6 +139,13 @@ func TagVersion(version string) error {
 }
 
 // PushChanges pushes commits and tags to the remote repository.
+//
+// This function performs two git operations:
+// 1. "git push" to push commits to the remote repository
+// 2. "git push --tags" to push tags to the remote repository
+//
+// Returns:
+//   - error: Any error encountered during the git operations
 func PushChanges() error {
 	// Push commits
 	cmd := exec.Command("git", "push")

@@ -1,5 +1,17 @@
 // Package changelog provides functionality for managing CHANGELOG.md files
 // following the Keep a Changelog format.
+//
+// This package handles all aspects of changelog management according to the
+// Keep a Changelog (https://keepachangelog.com) specification, including:
+//
+// - Initializing new changelog files with proper formatting
+// - Adding entries to different changelog sections (Added, Changed, Fixed, etc.)
+// - Updating changelogs during version releases
+// - Managing comparison links between versions
+// - Extracting version information from changelog content
+//
+// The package maintains proper formatting, spacing, and section organization
+// to ensure clean, consistent changelog files that follow established conventions.
 package changelog
 
 import (
@@ -24,16 +36,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `
 
 // ValidSections represents the valid section types for a changelog
+// according to the Keep a Changelog specification.
 var ValidSections = map[string]bool{
-	"Added":      true,
-	"Changed":    true,
-	"Deprecated": true,
-	"Removed":    true,
-	"Fixed":      true,
-	"Security":   true,
+	"Added":      true, // New features
+	"Changed":    true, // Changes to existing functionality
+	"Deprecated": true, // Features that will be removed in future versions
+	"Removed":    true, // Features that were removed in this version
+	"Fixed":      true, // Bug fixes
+	"Security":   true, // Vulnerability fixes
 }
 
 // InitProject initializes a project with an empty changelog file.
+//
+// This function creates a new CHANGELOG.md file at the specified path
+// using the standard Keep a Changelog template format, with an empty
+// Unreleased section ready for new entries.
+//
+// Parameters:
+//   - filePath: Path where the changelog file should be created
+//
+// Returns:
+//   - error: Error if the file already exists or cannot be created
 func InitProject(filePath string) error {
 	// Check if the file already exists
 	_, err := os.Stat(filePath)
@@ -56,7 +79,22 @@ func InitProject(filePath string) error {
 }
 
 // AddChangelogSection adds a new entry to a specific section in the changelog.
-// It returns true if the entry was a duplicate (already exists) and was not added.
+//
+// This function handles several scenarios:
+// 1. If the specified section doesn't exist in the Unreleased section, it creates it
+// 2. If the section exists, it adds the entry to the section
+// 3. If the entry already exists in the section, it doesn't duplicate it
+//
+// The function maintains proper spacing and formatting in the changelog file.
+//
+// Parameters:
+//   - filePath: Path to the changelog file
+//   - section: Section name (must be one of the ValidSections)
+//   - content: Text content to add as a new bullet point entry
+//
+// Returns:
+//   - bool: true if the entry already existed (duplicate), false if added successfully
+//   - error: Any error encountered during file operations or if section is invalid
 func AddChangelogSection(filePath, section, content string) (bool, error) {
 	// Validate section
 	if !ValidSections[section] {

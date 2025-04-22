@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - Simplified the way Changie retrieves the current version from Git, making it more reliable.
 - Improved error messages for better clarity when Git operations fail.
 - Enhanced debug messages to help users troubleshoot issues more effectively.
+- Enhanced code documentation across all packages for better maintainability
+- Added comprehensive package-level documentation to improve developer onboarding
+- Improved function documentation with detailed parameter and return value descriptions
 
 ## [0.9.1] - 2024-07-01
 
