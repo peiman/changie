@@ -136,4 +136,4 @@ jobs:
           name: Release ${{ github.ref_name }}
           body: |
             Release of version ${{ github.ref_name }}.
-          token: ${{ secrets.CKELETIN_GITHUB_TOKEN }}
+          token: ${{ secrets.CHANGIE_GITHUB_TOKEN }}
