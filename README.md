@@ -1,165 +1,368 @@
 # changie
 
-Changie is a version and change log manager for releases. It's designed for projects using Git, [Semantic Versioning](https://semver.org), and [Keep a Changelog](https://keepachangelog.com/).
+[![Build Status](https://github.com/peiman/changie/actions/workflows/ci.yml/badge.svg)](https://github.com/peiman/changie/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/peiman/changie)](https://codecov.io/gh/peiman/changie)
+[![Go Report Card](https://goreportcard.com/badge/github.com/peiman/changie)](https://goreportcard.com/report/github.com/peiman/changie)
+[![Version](https://img.shields.io/github/v/release/peiman/changie)](https://github.com/peiman/changie/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/peiman/changie.svg)](https://pkg.go.dev/github.com/peiman/changie)
+[![License](https://img.shields.io/github/license/peiman/changie)](LICENSE)
+[![CodeQL](https://github.com/peiman/changie/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/peiman/changie/security/code-scanning)
+[![Made with Go](https://img.shields.io/badge/made%20with-Go-brightgreen.svg)](https://go.dev)
 
-## Features
+**A professional Golang CLI tool for managing changelogs following the "Keep a Changelog" format and Semantic Versioning.**
 
-- Semantic versioning support (major, minor, patch)
-- Automatic CHANGELOG.md management
-- Git integration for version tagging
-- Support for different remote repository providers (GitHub, Bitbucket)
+---
+
+## Table of Contents
+
+- [changie](#changie)
+  - [Table of Contents](#table-of-contents)
+  - [Introduction](#introduction)
+  - [Key Highlights](#key-highlights)
+  - [Quick Start](#quick-start)
+  - [Features](#features)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Using changie](#using-changie)
+    - [Important: Single Source of Truth for Names](#important-single-source-of-truth-for-names)
+  - [Commands](#commands)
+    - [`init` Command](#init-command)
+      - [Usage](#usage)
+      - [Flags](#flags)
+      - [Examples](#examples)
+    - [`changelog` Command](#changelog-command)
+      - [Usage](#usage-1)
+      - [Subcommands](#subcommands)
+      - [Flags](#flags-1)
+      - [Examples](#examples-1)
+    - [`major`, `minor`, `patch` Commands](#major-minor-patch-commands)
+      - [Usage](#usage-2)
+      - [Flags](#flags-2)
+      - [Examples](#examples-2)
+  - [Configuration](#configuration)
+    - [Configuration File](#configuration-file)
+    - [Environment Variables](#environment-variables)
+    - [Command-Line Flags](#command-line-flags)
+  - [Development Workflow](#development-workflow)
+    - [Taskfile Tasks](#taskfile-tasks)
+    - [Pre-Commit Hooks with Lefthook](#pre-commit-hooks-with-lefthook)
+    - [Continuous Integration](#continuous-integration)
+  - [Dependency Management](#dependency-management)
+    - [Available Tasks](#available-tasks)
+    - [Automated Checks](#automated-checks)
+    - [Best Practices](#best-practices)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Additional Notes](#additional-notes)
+  
+---
+
+## Introduction
+
+**changie** is a professional Go command-line application designed to help developers manage changelogs according to the [Keep a Changelog](https://keepachangelog.com/) format and [Semantic Versioning](https://semver.org/) principles. It provides a structured workflow for adding, organizing, and releasing changelog entries while integrating seamlessly with Git.
+
+Built on solid engineering principles, changie includes:
+
+- Modular command structure with [Cobra](https://github.com/spf13/cobra)
+- Configuration management via [Viper](https://github.com/spf13/viper)
+- Structured logging with [Zerolog](https://github.com/rs/zerolog)
+- Comprehensive testing and code quality checks
+
+---
+
+## Key Highlights
+
+- **Standardized Changelog Management**: Follow "Keep a Changelog" best practices without manual formatting
+- **Semantic Versioning Support**: Automatic version bumping following SemVer principles
+- **Git Integration**: Seamless interaction with Git for tagging and committing changes
+- **Flexible Output Format**: Generate consistent, well-formatted changelog files
+
+---
 
 ## Quick Start
 
+1. **Install changie**:
+
+   ```bash
+   go install github.com/peiman/changie@latest
+   ```
+
+2. **Initialize a project**:
+
+   ```bash
+   changie init
+   ```
+
+3. **Add a changelog entry**:
+
+   ```bash
+   changie changelog added "New feature: added user authentication"
+   ```
+
+4. **Release a new version**:
+
+   ```bash
+   changie minor
+   ```
+
+---
+
+## Features
+
+- **Project Initialization**: Generate a properly structured CHANGELOG.md file
+- **Entry Management**: Add standardized changelog entries by type (added, changed, fixed, etc.)
+- **Version Control**: Bump versions following Semantic Versioning (major, minor, patch)
+- **Git Integration**: Commit changes and create version tags automatically
+- **Structured Output**: Ensure consistency and readability of changelog files
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Go**: 1.20+ recommended
+- **Git**: For version control and integration features
+
 ### Installation
 
-To install changie, use the following command:
-
 ```bash
-go get -u github.com/peiman/changie
+go install github.com/peiman/changie@latest
 ```
 
-### Basic Usage
-
-1. Initialize your project:
-
-```bash
-changie init
-```
-
-2. Add a changelog entry:
-
-```bash
-changie changelog added "New feature: Improved error handling"
-```
-
-3. Bump the version:
-
-```bash
-changie minor
-```
-
-## Detailed Usage
-
-### Managing the changelog
-
-To add a new entry to the changelog, use one of the following commands:
-
-```bash
-changie changelog added "Description of new feature"
-changie changelog changed "Description of changes in existing functionality"
-changie changelog deprecated "Description of soon-to-be removed features"
-changie changelog removed "Description of removed features"
-changie changelog fixed "Description of any bug fixes"
-changie changelog security "Description of security vulnerabilities fixed"
-```
-
-### Bumping versions
-
-To bump the version, use one of the following commands:
-
-```bash
-changie major  # Bump major version (e.g., 1.3.2 -> 2.0.0)
-changie minor  # Bump minor version (e.g., 1.3.2 -> 1.4.0)
-changie patch  # Bump patch version (e.g., 1.3.2 -> 1.3.3)
-```
-
-### Automatic pushing
-
-To bump the version and automatically push changes and tags, use the `--auto-push` flag:
-
-```bash
-changie minor --auto-push
-```
-
-### Specifying the remote repository provider
-
-By default, changie assumes you're using GitHub. To specify a different provider, use the `--rrp` flag:
-
-```bash
-changie --rrp bitbucket major
-```
-
-## Configuration
-
-Changie doesn't require any configuration files. It uses command-line flags for customization.
-
-## Troubleshooting
-
-### Version mismatch between Git tag and Changelog
-
-If you encounter a warning about version mismatch, ensure that your Git tags and CHANGELOG.md are in sync. You may need to manually edit the changelog or create a new Git tag.
-
-### Git is not installed
-
-Changie requires Git to be installed and available in your system's PATH. Ensure Git is properly installed and accessible from the command line.
-
-## Contributing
-
-Contributions to changie are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
-
-## Developer Guide
-
-### Setting Up
-
-To contribute to changie or modify it for your own needs, you'll need to clone the repository and set up your development environment. Ensure you have Go installed on your system.
-
-1. Clone the repository:
+Or build from source:
 
 ```bash
 git clone https://github.com/peiman/changie.git
 cd changie
+go install
 ```
 
-2. Install dependencies:
+### Using changie
+
+1. **Initialize a project**:
+
+   ```bash
+   changie init
+   ```
+
+   This creates a `CHANGELOG.md` file in your project root.
+
+2. **Add a changelog entry**:
+
+   ```bash
+   changie changelog added "New feature: added user authentication"
+   ```
+
+3. **Release a new version**:
+
+   ```bash
+   changie minor
+   ```
+
+   This will bump the minor version number and update the changelog.
+
+### Important: Single Source of Truth for Names
+
+This project uses a "single source of truth" approach for configuration:
+
+1. **Binary Name**: Defined only in `Taskfile.yml` as `BINARY_NAME`. This is propagated through the codebase via build flags and the `binaryName` variable in `cmd/root.go`.
+
+2. **Module Path**: Defined only in `go.mod` and referenced in `Taskfile.yml` as `MODULE_PATH`.
+
+When customizing this project:
+
+- Change `BINARY_NAME` in `Taskfile.yml` to your desired binary name
+- Change the module path in `go.mod` to your own repository path
+- Run `task build` to apply these changes throughout the codebase
+
+---
+
+## Commands
+
+### `init` Command
+
+Initialize a project with a properly formatted CHANGELOG.md file.
+
+#### Usage
 
 ```bash
-go mod tidy
+changie init [flags]
 ```
 
-### Using the Makefile
+#### Flags
 
-The Makefile provides several commands to streamline common development tasks.
+- `--file`: Changelog file name (default: "CHANGELOG.md")
 
-- **Lint the code**:
-  ```bash
-  make lint
-  ```
-  This command runs `golangci-lint` to check for linting issues.
+#### Examples
 
-- **Run tests**:
-  ```bash
-  make test
-  ```
-  This command runs all tests to ensure everything is working correctly.
+```bash
+changie init
+changie init --file HISTORY.md
+```
 
-- **Install the binary**:
-  ```bash
-  make install
-  ```
-  This command installs the binary into your `GOBIN` directory, making it available for use system-wide.
+### `changelog` Command
 
-- **Build the project**:
-  ```bash
-  make build
-  ```
-  This command compiles the project.
+Add entries to different sections of the changelog.
 
-- **Clean the build cache**:
-  ```bash
-  make clean
-  ```
-  This command cleans the build cache, test cache, and module cache.
+#### Usage
 
-- **Development mode (lint and test)**:
-  ```bash
-  make dev
-  ```
-  This command runs both the lint and test commands to ensure your code is clean and functioning before you commit.
+```bash
+changie changelog [subcommand] [content]
+```
 
+#### Subcommands
+
+- `added`: Add entry to the Added section
+- `changed`: Add entry to the Changed section
+- `deprecated`: Add entry to the Deprecated section
+- `removed`: Add entry to the Removed section
+- `fixed`: Add entry to the Fixed section
+- `security`: Add entry to the Security section
+
+#### Flags
+
+- `--file`: Changelog file name (default: "CHANGELOG.md")
+
+#### Examples
+
+```bash
+changie changelog added "New feature: added user authentication"
+changie changelog fixed "Bug in login form"
+changie changelog security "Patched XSS vulnerability"
+```
+
+### `major`, `minor`, `patch` Commands
+
+Bump the version number according to Semantic Versioning rules.
+
+#### Usage
+
+```bash
+changie [major|minor|patch] [flags]
+```
+
+#### Flags
+
+- `--file`: Changelog file name (default: "CHANGELOG.md")
+- `--rrp`: Remote repository provider (github, bitbucket) (default: "github")
+- `--auto-push`: Automatically push changes and tags
+
+#### Examples
+
+```bash
+changie major
+changie minor --auto-push
+changie patch --file HISTORY.md
+```
+
+---
+
+## Configuration
+
+changie uses Viper for flexible configuration:
+
+### Configuration File
+
+Default config file: `$HOME/.changie.yaml`
+
+Example:
+
+```yaml
+app:
+  log_level: "info"
+  changelog:
+    file: "CHANGELOG.md"
+  version:
+    tag_prefix: "v"
+```
+
+### Environment Variables
+
+Override any config via environment variables:
+
+```bash
+export APP_LOG_LEVEL="debug"
+export APP_CHANGELOG_FILE="HISTORY.md"
+```
+
+### Command-Line Flags
+
+Override at runtime:
+
+```bash
+changie init --file HISTORY.md
+```
+
+---
+
+## Development Workflow
+
+### Taskfile Tasks
+
+- `task setup`: Install tools
+- `task format`: Format code
+- `task lint`: Run linters
+- `task test`: Run tests with coverage
+- `task build`: Build the binary
+- `task run`: Run the binary
+- `task check`: All checks (format, lint, deps, tests)
+
+### Pre-Commit Hooks with Lefthook
+
+`task setup` installs hooks that run `format`, `lint`, `test` on commit, ensuring code quality before changes land in the repository.
+
+### Continuous Integration
+
+GitHub Actions runs `task check` on each commit or pull request, maintaining code standards and reliability.
+
+---
+
+## Dependency Management
+
+### Available Tasks
+
+- `task deps:verify`: Verifies that dependencies haven't been modified
+- `task deps:outdated`: Checks for outdated dependencies
+- `task deps:check`: Runs all dependency checks (verification, outdated, vulnerabilities)
+
+### Automated Checks
+
+Dependency verification is automatically included in:
+
+- Pre-commit hooks via Lefthook
+- CI workflow via GitHub Actions
+- The comprehensive quality check command: `task check`
+
+### Best Practices
+
+1. Run `task deps:check` before starting a new feature
+2. Update dependencies incrementally with `go get -u <package>` followed by `task tidy`
+3. Always run tests after dependency updates
+4. Document significant dependency changes in commit messages
+
+---
+
+## Contributing
+
+1. Fork & create a new branch
+2. Make changes, run `task check`
+3. Commit with descriptive messages following the project's commit convention
+4. Open a pull request against `main`
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+MIT License. See [LICENSE](LICENSE).
+
+---
+
+## Additional Notes
+
+- Run `task test:coverage-text` to identify uncovered code paths for targeted testing improvements
+- Regularly run `task deps:check` to ensure dependencies are up-to-date and secure
+- For consistent formatting, run `task format` before committing changes
+
+---

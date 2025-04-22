@@ -65,16 +65,27 @@ func Compare(v1, v2 string) (int, error) {
 
 // parseVersion converts a version string to an array of integers.
 func parseVersion(version string) ([3]int, error) {
-	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
+	// Handle empty version string
+	if version == "" {
+		return [3]int{0, 0, 0}, nil
+	}
+
+	// Trim 'v' prefix if present
+	trimmedVersion := strings.TrimPrefix(version, "v")
+
+	parts := strings.Split(trimmedVersion, ".")
 	if len(parts) != 3 {
-		return [3]int{}, fmt.Errorf("invalid version format: %s", version)
+		return [3]int{}, fmt.Errorf("invalid version format: %s (expected format: X.Y.Z)", version)
 	}
 
 	var v [3]int
 	for i, part := range parts {
 		num, err := strconv.Atoi(part)
 		if err != nil {
-			return [3]int{}, fmt.Errorf("invalid version number: %s", part)
+			return [3]int{}, fmt.Errorf("invalid version number: %s (must be a valid integer)", part)
+		}
+		if num < 0 {
+			return [3]int{}, fmt.Errorf("invalid version number: %s (must be non-negative)", part)
 		}
 		v[i] = num
 	}

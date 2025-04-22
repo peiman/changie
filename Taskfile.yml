@@ -1,0 +1,133 @@
+# Taskfile.yml
+version: '3'
+
+vars:
+  BINARY_NAME: changie
+  MODULE_PATH: github.com/peiman/changie
+  VERSION:
+    sh: git describe --tags --always --dirty
+  COMMIT:
+    sh: git rev-parse HEAD
+  DATE:
+    sh: date -u '+%Y-%m-%d_%H:%M:%S'
+  LDFLAGS: >-
+    -ldflags="
+    -X '{{.MODULE_PATH}}/cmd.binaryName={{.BINARY_NAME}}'
+    -X '{{.MODULE_PATH}}/cmd.Version={{.VERSION}}'
+    -X '{{.MODULE_PATH}}/cmd.Commit={{.COMMIT}}'
+    -X '{{.MODULE_PATH}}/cmd.Date={{.DATE}}'
+    "
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  setup:
+    desc: Install development tools
+    cmds:
+    - go install golang.org/x/tools/cmd/goimports@latest
+    - go install golang.org/x/vuln/cmd/govulncheck@latest
+    - go install gotest.tools/gotestsum@latest
+    - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    - go install github.com/evilmartians/lefthook@latest
+    - go install github.com/psampaz/go-mod-outdated@latest
+    - lefthook install
+    silent: true
+
+  tidy:
+    desc: Ensure go.mod and go.sum are up to date
+    cmds:
+      - go mod tidy
+
+  deps:verify:
+    desc: Verify that dependencies haven't been modified
+    cmds:
+      - go mod verify
+    silent: true
+
+  deps:outdated:
+    desc: Check for outdated dependencies
+    cmds:
+      - echo "Checking for outdated dependencies..."
+      - go list -u -m -json all | go-mod-outdated -update -direct
+    silent: true
+
+  deps:check:
+    desc: Run all dependency checks
+    cmds:
+      - task: deps:verify
+      - task: deps:outdated
+      - task: vuln
+    silent: true
+
+  format:
+    desc: Format code
+    cmds:
+      - goimports -w .
+      - gofmt -s -w .
+
+  lint:
+    desc: Run all linters
+    cmds:
+      - go vet ./...
+      - golangci-lint run
+
+  vuln:
+    desc: Check for vulnerabilities
+    cmds:
+      - govulncheck ./...
+
+  test:
+    desc: Run tests with coverage
+    cmd: |
+      gotestsum --format pkgname --jsonfile test-output.json --hide-summary=skipped -- -v -coverprofile=coverage.txt -covermode=atomic ./...
+
+  test:race:
+    desc: Run tests with race detection
+    cmd: |
+      gotestsum --format standard-verbose --jsonfile test-output.json -- -v -race ./...
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmd: |
+      gotestsum --format pkgname --watch --hide-summary=skipped
+
+  test:coverage-text:
+    desc: Run tests with detailed coverage data and display uncovered parts in the terminal
+    cmds:
+      - gotestsum --format pkgname --jsonfile test-output.json --hide-summary=skipped -- -cover -coverprofile=coverage.txt -covermode=atomic ./...
+      - echo "Detailed coverage report:"
+      - go tool cover -func=coverage.txt
+    silent: false
+
+  check:
+    desc: Run all quality checks
+    deps:
+      - format
+      - lint
+      - deps:check
+      - test
+
+  build:
+    desc: Build the binary
+    cmds:
+      - go build {{.LDFLAGS}} -o {{.BINARY_NAME}} main.go
+
+  run:
+    desc: Run the application
+    deps: [build]
+    cmds:
+      - ./{{.BINARY_NAME}}
+
+  install:
+    desc: Install the application
+    cmds:
+      - go install {{.LDFLAGS}} ./...
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - go clean
+      - rm -f {{.BINARY_NAME}} coverage.txt test-output.json coverage.html

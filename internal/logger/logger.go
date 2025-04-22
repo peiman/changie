@@ -2,67 +2,36 @@ package logger
 
 import (
 	"io"
+	"os"
+	"time"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
-// LogLevel is our custom enum for log levels
-type LogLevel int
-
-const (
-	DEBUG LogLevel = iota
-	INFO
-	WARN
-	ERROR
-)
-
-var logger *zap.Logger
-
-// Init initializes the logger
-func Init(level LogLevel, output io.Writer) {
-	zapLevel := zapcore.InfoLevel
-	switch level {
-	case DEBUG:
-		zapLevel = zapcore.DebugLevel
-	case INFO:
-		zapLevel = zapcore.InfoLevel
-	case WARN:
-		zapLevel = zapcore.WarnLevel
-	case ERROR:
-		zapLevel = zapcore.ErrorLevel
+// Init initializes the logger with options from Viper.
+// Call this once in rootCmd's PersistentPreRunE or main initialization.
+func Init(out io.Writer) error {
+	if out == nil {
+		out = os.Stderr
 	}
 
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	encoderConfig.EncodeDuration = zapcore.NanosDurationEncoder
+	logLevelStr := viper.GetString("app.log_level")
+	level, err := zerolog.ParseLevel(logLevelStr)
+	if err != nil {
+		level = zerolog.InfoLevel
+		log.Warn().
+			Err(err).
+			Str("provided_level", logLevelStr).
+			Msg("Invalid log level provided, defaulting to 'info'")
+	}
+	zerolog.SetGlobalLevel(level)
 
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.AddSync(output),
-		zapLevel,
-	)
+	log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: out, TimeFormat: time.RFC3339}).
+		With().
+		Timestamp().
+		Logger()
 
-	logger = zap.New(core, zap.AddStacktrace(zapcore.ErrorLevel))
-}
-
-// Debug logs a debug message
-func Debug(msg string, fields ...zap.Field) {
-	logger.Debug(msg, fields...)
-}
-
-// Info logs an info message
-func Info(msg string, fields ...zap.Field) {
-	logger.Info(msg, fields...)
-}
-
-// Warn logs a warning message
-func Warn(msg string, fields ...zap.Field) {
-	logger.Warn(msg, fields...)
-}
-
-// Error logs an error message
-func Error(msg string, fields ...zap.Field) {
-	logger.Error(msg, fields...)
+	return nil
 }

@@ -1,0 +1,12 @@
+# .lefthook.yml
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      run: task format
+    lint:
+      run: task lint
+    deps-verify:
+      run: task deps:verify
+    test:
+      run: task test

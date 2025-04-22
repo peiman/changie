@@ -1,95 +1,56 @@
-### OSX ###
-*.DS_Store
-.AppleDouble
-.LSOverride
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+changie
 
-# Icon must end with two \r
-Icon
+# Task artifacts
+.task
 
+# Test binary, built with `go test -c`
+*.test
+test-dir
 
-# Thumbnails
-._*
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
 
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
+# Dependency directories (remove the comment below to include it)
+vendor/
 
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+# Go workspace file
+go.work
 
-### Windows ###
-# Windows image file caches
-Thumbs.db
-ehthumbs.db
-
-# Folder config file
-Desktop.ini
-
-# Recycle Bin used on file shares
-$RECYCLE.BIN/
-
-# Windows Installer files
-*.cab
-*.msi
-*.msm
-*.msp
-
-# Windows shortcuts
-*.lnk
-
-
-### Linux ###
+# IDEs and editors
+.idea/
+.vscode/
+.cursorrules
+*.swp
+*.swo
 *~
 
-# temporary files which can be created if a process still has a handle open of a deleted file
-.fuse_hidden*
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# KDE directory preferences
-.directory
+# Log files
+*.log
 
-# Linux trash folder which might appear on any partition or disk
-.Trash-*
+# Config files
+changie.json
 
-### Misc ###
-# Compiled Object files, Static and Dynamic libs (Shared Objects)
-*.o
-*.a
-*.so
+# Build output directory
+/build/
 
-# Folders
-_obj
-_test
+# Test coverage
+coverage.txt
+test-output.json
 
-# Architecture specific extensions/prefixes
-*.[568vq]
-[568vq].out
-
-*.cgo1.go
-*.cgo2.c
-_cgo_defun.c
-_cgo_gotypes.go
-_cgo_export.*
-
-_testmain.go
-
-*.exe
-*.test
-*.prof
-
-
-# Other
-combined.txt
-coverage.out
-test_output.txt
-changie_file_combinator_output.txt
-diff.txt
-gitdiff.txt
+# Environment variables
+.env

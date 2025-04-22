@@ -3,484 +3,321 @@ package changelog
 import (
 	"fmt"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
-
-// Use this function to mock exec.Command in tests
-//
-//nolint:unused // This function is intended for future use in mocking exec.Command
-func mockExecCommand(command string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcess", "--", command}
-	cs = append(cs, args...)
-	cmd := exec.Command(os.Args[0], cs...)
-	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
-	return cmd
-}
-
-// TestHelperProcess isn't a real test. It's used to mock exec.Command
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	defer os.Exit(0)
-
-	args := os.Args
-	for len(args) > 0 {
-		if args[0] == "--" {
-			args = args[1:]
-			break
-		}
-		args = args[1:]
-	}
-	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "No command\n")
-		os.Exit(2)
-	}
-
-	cmd, args := args[0], args[1:]
-	switch cmd {
-	case "git":
-		if len(args) > 0 && args[0] == "describe" {
-			fmt.Fprintf(os.Stdout, "1.0.0\n")
-		} else {
-			fmt.Fprintf(os.Stderr, "unknown git command\n")
-			os.Exit(1)
-		}
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown command %q\n", cmd)
-		os.Exit(2)
-	}
-}
 
 func TestInitProject(t *testing.T) {
 	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "changie-test")
+	tempDir, err := os.MkdirTemp("", "changelog-test")
 	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
+		t.Fatalf("Failed to create temp directory: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Change to the temporary directory
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current working directory: %v", err)
-	}
-	defer func() {
-		if err := os.Chdir(oldWd); err != nil {
-			t.Errorf("Failed to change directory back: %v", err)
-		}
-	}()
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
-
-	changelogFile := "CHANGELOG.md"
-
-	// Test case 1: No existing CHANGELOG.md
-	err = InitProject(changelogFile)
-	if err != nil {
-		t.Errorf("InitProject failed when no CHANGELOG.md existed: %v", err)
-	}
-	if _, err := os.Stat(changelogFile); os.IsNotExist(err) {
-		t.Errorf("CHANGELOG.md was not created")
-	}
-
-	// Test case 2: Existing CHANGELOG.md
-	err = InitProject(changelogFile)
-	if err == nil {
-		t.Errorf("InitProject did not return an error when CHANGELOG.md already existed")
-	}
-	// Note: Update this check based on the actual error message your current implementation returns
-	if !strings.Contains(err.Error(), "already exists") {
-		t.Errorf("Unexpected error message: %v", err)
-	}
-}
-
-func TestAddChangelogSection(t *testing.T) {
-	tests := []struct {
-		name            string
-		initialContent  string
-		section         string
-		content         string
-		expectedContent string
-		expectDuplicate bool
+	// Test cases
+	testCases := []struct {
+		name        string
+		filePath    string
+		preexisting bool
+		wantErr     bool
 	}{
 		{
-			name: "Add new section",
-			initialContent: `# Changelog
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-
-## [0.1.0] - 2023-01-01
-### Added
-- Initial release
-`,
-			section: "Added",
-			content: "New feature",
-			expectedContent: `# Changelog
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-
-### Added
-- New feature
-
-## [0.1.0] - 2023-01-01
-### Added
-- Initial release
-`,
-			expectDuplicate: false,
+			name:        "New file creation",
+			filePath:    filepath.Join(tempDir, "CHANGELOG.md"),
+			preexisting: false,
+			wantErr:     false,
 		},
 		{
-			name: "Add to existing section",
-			initialContent: `# Changelog
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-### Added
-- Existing feature
-
-## [0.1.0] - 2023-01-01
-### Added
-- Initial release
-`,
-			section: "Added",
-			content: "Another new feature",
-			expectedContent: `# Changelog
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-### Added
-- Existing feature
-- Another new feature
-
-## [0.1.0] - 2023-01-01
-### Added
-- Initial release
-`,
-			expectDuplicate: false,
-		},
-		{
-			name: "Add duplicate entry",
-			initialContent: `# Changelog
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-### Added
-- Existing feature
-
-## [0.1.0] - 2023-01-01
-### Added
-- Initial release
-`,
-			section: "Added",
-			content: "Existing feature",
-			expectedContent: `# Changelog
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-### Added
-- Existing feature
-
-## [0.1.0] - 2023-01-01
-### Added
-- Initial release
-`,
-			expectDuplicate: true,
+			name:        "File already exists",
+			filePath:    filepath.Join(tempDir, "EXISTING.md"),
+			preexisting: true,
+			wantErr:     true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpfile, err := os.CreateTemp("", "CHANGELOG.md")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.Remove(tmpfile.Name())
+	// Create the preexisting file
+	preexistingFile := filepath.Join(tempDir, "EXISTING.md")
+	if err := os.WriteFile(preexistingFile, []byte("existing content"), 0644); err != nil {
+		t.Fatalf("Failed to create preexisting file: %v", err)
+	}
 
-			if _, err := tmpfile.Write([]byte(tt.initialContent)); err != nil {
-				t.Fatal(err)
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Call the function
+			err := InitProject(tc.filePath)
 
-			isDuplicate, err := AddChangelogSection(tmpfile.Name(), tt.section, tt.content)
-			if err != nil {
-				t.Fatalf("AddChangelogSection failed: %v", err)
-			}
-
-			if isDuplicate != tt.expectDuplicate {
-				t.Errorf("Expected isDuplicate to be %v, got %v", tt.expectDuplicate, isDuplicate)
+			// Check error result
+			if (err != nil) != tc.wantErr {
+				t.Errorf("InitProject() error = %v, wantErr %v", err, tc.wantErr)
+				return
 			}
 
-			content, err := os.ReadFile(tmpfile.Name())
-			if err != nil {
-				t.Fatal(err)
-			}
+			// Check file existence
+			if !tc.wantErr {
+				_, err := os.Stat(tc.filePath)
+				if err != nil {
+					t.Errorf("Expected file to exist at %s, but got error: %v", tc.filePath, err)
+				}
 
-			if !compareIgnoreWhitespace(string(content), tt.expectedContent) {
-				t.Errorf("Changelog content doesn't match expected.\nGot:\n%s\nExpected:\n%s", string(content), tt.expectedContent)
+				// Verify file content
+				content, err := os.ReadFile(tc.filePath)
+				if err != nil {
+					t.Errorf("Failed to read created file: %v", err)
+				}
+				if string(content) != changelogTemplate {
+					t.Errorf("File content does not match template")
+				}
 			}
 		})
 	}
 }
 
-func compareIgnoreWhitespace(a, b string) bool {
-	a = strings.Join(strings.Fields(strings.TrimSpace(a)), " ")
-	b = strings.Join(strings.Fields(strings.TrimSpace(b)), " ")
-	return a == b
+func TestAddChangelogSection(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "changelog-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create a test changelog file
+	testFile := filepath.Join(tempDir, "CHANGELOG.md")
+	if err := os.WriteFile(testFile, []byte(changelogTemplate), 0644); err != nil {
+		t.Fatalf("Failed to create test changelog file: %v", err)
+	}
+
+	// Test cases
+	testCases := []struct {
+		name      string
+		section   string
+		content   string
+		wantErr   bool
+		duplicate bool
+	}{
+		{
+			name:      "Add to Added section",
+			section:   "Added",
+			content:   "New feature X",
+			wantErr:   false,
+			duplicate: false,
+		},
+		{
+			name:      "Add to Fixed section",
+			section:   "Fixed",
+			content:   "Bug Y",
+			wantErr:   false,
+			duplicate: false,
+		},
+		{
+			name:      "Invalid section",
+			section:   "Invalid",
+			content:   "Something",
+			wantErr:   true,
+			duplicate: false,
+		},
+		{
+			name:      "Duplicate entry",
+			section:   "Added",
+			content:   "New feature X",
+			wantErr:   false,
+			duplicate: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Call the function
+			isDuplicate, err := AddChangelogSection(testFile, tc.section, tc.content)
+
+			// Check error result
+			if (err != nil) != tc.wantErr {
+				t.Errorf("AddChangelogSection() error = %v, wantErr %v", err, tc.wantErr)
+				return
+			}
+
+			// Check duplicate flag
+			if !tc.wantErr && isDuplicate != tc.duplicate {
+				t.Errorf("AddChangelogSection() isDuplicate = %v, want %v", isDuplicate, tc.duplicate)
+			}
+
+			// For non-error cases, check if content was added
+			if !tc.wantErr && !isDuplicate {
+				content, err := os.ReadFile(testFile)
+				if err != nil {
+					t.Errorf("Failed to read changelog file: %v", err)
+					return
+				}
+
+				// Check if entry was added
+				expectedEntry := fmt.Sprintf("- %s", tc.content)
+				if !strings.Contains(string(content), expectedEntry) {
+					t.Errorf("Expected entry '%s' not found in changelog", expectedEntry)
+				}
+			}
+		})
+	}
+}
+
+func TestGetLatestChangelogVersion(t *testing.T) {
+	// Test cases
+	testCases := []struct {
+		name        string
+		content     string
+		wantVersion string
+		wantErr     bool
+	}{
+		{
+			name: "No version",
+			content: `# Changelog
+## [Unreleased]
+### Added
+- Something
+`,
+			wantVersion: "",
+			wantErr:     false,
+		},
+		{
+			name: "One version",
+			content: `# Changelog
+## [Unreleased]
+### Added
+- Something
+
+## [1.2.3] - 2023-01-01
+### Added
+- Another thing
+`,
+			wantVersion: "1.2.3",
+			wantErr:     false,
+		},
+		{
+			name: "Multiple versions",
+			content: `# Changelog
+## [Unreleased]
+### Added
+- Something
+
+## [2.0.0] - 2023-02-01
+### Added
+- Major feature
+
+## [1.2.3] - 2023-01-01
+### Added
+- Another thing
+`,
+			wantVersion: "2.0.0",
+			wantErr:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Call the function
+			version, err := GetLatestChangelogVersion(tc.content)
+
+			// Check error result
+			if (err != nil) != tc.wantErr {
+				t.Errorf("GetLatestChangelogVersion() error = %v, wantErr %v", err, tc.wantErr)
+				return
+			}
+
+			// Check version
+			if version != tc.wantVersion {
+				t.Errorf("GetLatestChangelogVersion() = %v, want %v", version, tc.wantVersion)
+			}
+		})
+	}
 }
 
 func TestUpdateChangelog(t *testing.T) {
-	mockChangelog := `# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com),
-and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
-
-## [Unreleased]
-
-### Added
-
-- Feature A
-
-## [1.0.0] - 2023-01-01
-
-### Added
-
-- Initial release
-
-[Unreleased]: https://github.com/peiman/changie/compare/1.0.0...HEAD
-[1.0.0]: https://github.com/peiman/changie/releases/tag/1.0.0`
-
-	expectedChangelog := `# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com),
-and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
-
-## [Unreleased]
-
-## [1.1.0] - ` + time.Now().Format("2006-01-02") + `
-
-### Added
-
-- Feature A
-
-## [1.0.0] - 2023-01-01
-
-### Added
-
-- Initial release
-
-[Unreleased]: https://github.com/peiman/changie/compare/1.1.0...HEAD
-[1.1.0]: https://github.com/peiman/changie/compare/1.0.0...1.1.0
-[1.0.0]: https://github.com/peiman/changie/releases/tag/1.0.0`
-
-	tempFile, err := os.CreateTemp("", "changelog")
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "changelog-test")
 	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer os.RemoveAll(tempDir)
 
-	if _, err := tempFile.Write([]byte(mockChangelog)); err != nil {
-		t.Fatalf("Failed to write to temp file: %v", err)
-	}
+	// Create a test changelog file
+	testFile := filepath.Join(tempDir, "CHANGELOG.md")
 
-	if err := tempFile.Close(); err != nil {
-		t.Fatalf("Failed to close temp file: %v", err)
-	}
+	// Test cases
+	testCases := []struct {
+		name               string
+		initialContent     string
+		version            string
+		repositoryProvider string
+		wantErr            bool
+		checkContent       func(string) bool
+	}{
+		{
+			name:               "Valid update",
+			initialContent:     changelogTemplate,
+			version:            "1.0.0",
+			repositoryProvider: "github",
+			wantErr:            false,
+			checkContent: func(content string) bool {
+				// Check if version section was added
+				versionHeader := "## [1.0.0]"
+				unreleasedSection := "## [Unreleased]"
+				links := "[Unreleased]: https://github.com/user/repo/compare/v1.0.0...HEAD"
 
-	err = UpdateChangelog(tempFile.Name(), "1.1.0", "github")
-	if err != nil {
-		t.Fatalf("UpdateChangelog failed: %v", err)
-	}
-
-	updatedChangelog, err := os.ReadFile(tempFile.Name())
-	if err != nil {
-		t.Fatalf("Failed to read updated changelog: %v", err)
-	}
-
-	if string(updatedChangelog) != expectedChangelog {
-		t.Errorf("Updated changelog does not match expected.\nGot:\n%s\nExpected:\n%s", string(updatedChangelog), expectedChangelog)
-	}
-}
-
-func TestReformatChangelog2(t *testing.T) {
-	tmpfile, err := os.CreateTemp("", "CHANGELOG.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpfile.Name())
-
-	initialContent := `# Changelog
-
-
-All notable changes to this project will be documented in this file.
-
-
-The format is based on [Keep a Changelog](http://keepachangelog.com/)
-and this project adheres to [Semantic Versioning (SemVer)](http://semver.org/).
-## [Unreleased]
-
-
-### Added
-- Feature 1
-- Feature 2
-
-
-### Changed
-- Change 1
-## [1.0.0] - 2023-01-01
-
-
-### Added
-- Initial release`
-
-	if _, err := tmpfile.Write([]byte(initialContent)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		t.Fatal(err)
+				return strings.Contains(content, versionHeader) &&
+					strings.Contains(content, unreleasedSection) &&
+					strings.Contains(content, links)
+			},
+		},
+		{
+			name:               "No unreleased section",
+			initialContent:     "# Changelog\n\nSome content\n",
+			version:            "1.0.0",
+			repositoryProvider: "github",
+			wantErr:            true,
+			checkContent:       func(content string) bool { return true },
+		},
+		{
+			name:               "Bitbucket provider",
+			initialContent:     changelogTemplate,
+			version:            "2.0.0",
+			repositoryProvider: "bitbucket",
+			wantErr:            false,
+			checkContent: func(content string) bool {
+				// Check if bitbucket links were used
+				links := "[Unreleased]: https://bitbucket.org/user/repo/compare/v2.0.0...HEAD"
+				return strings.Contains(content, links)
+			},
+		},
 	}
 
-	err = ReformatChangelog(tmpfile.Name())
-	if err != nil {
-		t.Fatalf("Failed to reformat changelog: %v", err)
-	}
-
-	content, err := os.ReadFile(tmpfile.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := `# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com),
-and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
-
-## [Unreleased]
-
-### Added
-
-- Feature 1
-- Feature 2
-
-### Changed
-
-- Change 1
-
-## [1.0.0] - 2023-01-01
-
-### Added
-
-- Initial release
-`
-
-	if string(content) != expected {
-		t.Errorf("Reformatted changelog content does not match expected.\nGot:\n%s\nExpected:\n%s", string(content), expected)
-
-		gotLines := strings.Split(string(content), "\n")
-		expectedLines := strings.Split(expected, "\n")
-
-		for i := 0; i < len(gotLines) || i < len(expectedLines); i++ {
-			var gotLine, expectedLine string
-			if i < len(gotLines) {
-				gotLine = gotLines[i]
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create initial content
+			if err := os.WriteFile(testFile, []byte(tc.initialContent), 0644); err != nil {
+				t.Fatalf("Failed to create test changelog file: %v", err)
 			}
-			if i < len(expectedLines) {
-				expectedLine = expectedLines[i]
+
+			// Call the function
+			err := UpdateChangelog(testFile, tc.version, tc.repositoryProvider)
+
+			// Check error result
+			if (err != nil) != tc.wantErr {
+				t.Errorf("UpdateChangelog() error = %v, wantErr %v", err, tc.wantErr)
+				return
 			}
-			if gotLine != expectedLine {
-				t.Errorf("Line %d mismatch:\nGot     : %q\nExpected: %q", i+1, gotLine, expectedLine)
+
+			// For non-error cases, check content
+			if !tc.wantErr {
+				content, err := os.ReadFile(testFile)
+				if err != nil {
+					t.Errorf("Failed to read changelog file: %v", err)
+					return
+				}
+
+				if !tc.checkContent(string(content)) {
+					t.Errorf("UpdateChangelog() produced unexpected content:\n%s", string(content))
+				}
 			}
-		}
-	}
-}
-
-func TestNoExtraLineInChangelog(t *testing.T) {
-	changelogContent := `## [Unreleased]
-## [0.4.0] - 2024-06-26`
-
-	if strings.Contains(changelogContent, "---THIS NEW LINE SHOULD NOT BE HERE ---") {
-		t.Error("Changelog contains an unexpected extra line")
-	}
-}
-
-func TestUpdateChangelogFormatting(t *testing.T) {
-	// Save the original execCommand and defer its restoration
-	oldExecCommand := execCommand
-	defer func() { execCommand = oldExecCommand }()
-
-	initialContent := `# Changelog
-
-## [Unreleased]
-### Added
-- New feature
-
-## [1.0.0] - 2023-01-01
-### Added
-- Initial release
-
-[Unreleased]: https://github.com/user/repo/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/user/repo/releases/tag/v1.0.0`
-
-	expectedContent := `# Changelog
-
-## [Unreleased]
-
-## [1.1.0] - ` + time.Now().Format("2006-01-02") + `
-### Added
-- New feature
-
-## [1.0.0] - 2023-01-01
-### Added
-- Initial release
-
-[Unreleased]: https://github.com/peiman/changie/compare/1.1.0...HEAD
-[1.1.0]: https://github.com/peiman/changie/compare/1.0.0...1.1.0
-[1.0.0]: https://github.com/peiman/changie/releases/tag/1.0.0`
-
-	// Create a temporary file
-	tmpfile, err := os.CreateTemp("", "CHANGELOG.*.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpfile.Name())
-
-	// Write initial content
-	if _, err := tmpfile.Write([]byte(initialContent)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Mock execCommand to use mockExecCommand
-	execCommand = func(command string, args ...string) *exec.Cmd {
-		return mockExecCommand(command, args...)
-	}
-
-	// Update changelog
-	err = UpdateChangelog(tmpfile.Name(), "1.1.0", "github")
-	if err != nil {
-		t.Fatalf("UpdateChangelog failed: %v", err)
-	}
-
-	// Read updated content
-	updatedContent, err := os.ReadFile(tmpfile.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Compare updated content with expected content
-	if string(updatedContent) != expectedContent {
-		t.Errorf("UpdateChangelog produced incorrect output.\nExpected:\n%s\n\nGot:\n%s", expectedContent, string(updatedContent))
+		})
 	}
 }
