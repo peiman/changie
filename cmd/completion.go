@@ -24,7 +24,7 @@ PowerShell:
   %s completion powershell | Out-String | Invoke-Expression
 `, binaryName, binaryName, binaryName, binaryName),
 	DisableFlagsInUseLine: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Default to bash if no args provided:
 		return cmd.Root().GenBashCompletion(cmd.OutOrStdout())
 	},

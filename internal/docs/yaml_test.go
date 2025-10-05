@@ -40,7 +40,6 @@ func TestGenerateYAMLDocs(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := generator.GenerateYAMLDocs(&buf)
-
 	// ASSERTION PHASE
 	if err != nil {
 		t.Fatalf("GenerateYAMLDocs failed: %v", err)
@@ -101,7 +100,6 @@ func TestGenerateYAMLContent(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := generateYAMLContent(&buf, mockConfigOptions)
-
 	// ASSERTION PHASE
 	if err != nil {
 		t.Fatalf("generateYAMLContent failed: %v", err)
@@ -147,7 +145,6 @@ func TestGenerateYAMLDocs_EmptyRegistry(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := generator.GenerateYAMLDocs(&buf)
-
 	// ASSERTION PHASE
 	if err != nil {
 		t.Fatalf("GenerateYAMLDocs failed with empty registry: %v", err)

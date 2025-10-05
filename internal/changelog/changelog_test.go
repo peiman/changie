@@ -52,7 +52,7 @@ func TestInitProject(t *testing.T) {
 
 	// Create the preexisting file
 	preexistingFile := filepath.Join(tempDir, "EXISTING.md")
-	if err := os.WriteFile(preexistingFile, []byte("existing content"), 0644); err != nil {
+	if err := os.WriteFile(preexistingFile, []byte("existing content"), 0o644); err != nil {
 		t.Fatalf("Failed to create preexisting file: %v", err)
 	}
 
@@ -97,7 +97,7 @@ func TestAddChangelogSection(t *testing.T) {
 
 	// Create a test changelog file
 	testFile := filepath.Join(tempDir, "CHANGELOG.md")
-	if err := os.WriteFile(testFile, []byte(changelogTemplate), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(changelogTemplate), 0o644); err != nil {
 		t.Fatalf("Failed to create test changelog file: %v", err)
 	}
 
@@ -126,7 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release
 `
-	if err := os.WriteFile(testFileWithSections, []byte(changelogWithSections), 0644); err != nil {
+	if err := os.WriteFile(testFileWithSections, []byte(changelogWithSections), 0o644); err != nil {
 		t.Fatalf("Failed to create test changelog file with sections: %v", err)
 	}
 
@@ -137,7 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This is not a properly formatted changelog.
 No Unreleased section here.
 `
-	if err := os.WriteFile(malformedFile, []byte(malformedContent), 0644); err != nil {
+	if err := os.WriteFile(malformedFile, []byte(malformedContent), 0o644); err != nil {
 		t.Fatalf("Failed to create malformed changelog file: %v", err)
 	}
 
@@ -562,7 +562,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 		t.Run(tc.name, func(t *testing.T) {
 			// Create the changelog file for this test case
 			testFile := filepath.Join(tempDir, fmt.Sprintf("CHANGELOG_%s.md", strings.ReplaceAll(tc.name, " ", "_")))
-			if err := os.WriteFile(testFile, []byte(tc.initialContent), 0644); err != nil {
+			if err := os.WriteFile(testFile, []byte(tc.initialContent), 0o644); err != nil {
 				t.Fatalf("Failed to create test changelog file: %v", err)
 			}
 

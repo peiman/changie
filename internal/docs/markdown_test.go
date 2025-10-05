@@ -32,7 +32,6 @@ func TestGenerateMarkdownDocs(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := generator.GenerateMarkdownDocs(&buf, appInfo)
-
 	// ASSERTION PHASE
 	if err != nil {
 		t.Fatalf("GenerateMarkdownDocs failed: %v", err)
@@ -151,7 +150,6 @@ func TestGenerateMarkdownDocs_EmptyRegistry(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := generator.GenerateMarkdownDocs(&buf, appInfo)
-
 	// ASSERTION PHASE
 	if err != nil {
 		t.Fatalf("GenerateMarkdownDocs failed with empty registry: %v", err)

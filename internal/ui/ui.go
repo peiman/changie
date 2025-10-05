@@ -5,10 +5,9 @@ package ui
 import (
 	"fmt"
 
-	"github.com/rs/zerolog/log"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rs/zerolog/log"
 )
 
 // UIRunner defines an interface for running a UI
@@ -44,7 +43,7 @@ func (d *DefaultUIRunner) RunUI(message, col string) error {
 			Str("message", message).
 			Str("color", col).
 			Msg("Failed to run UI")
-		return err
+		return fmt.Errorf("failed to run UI: %w", err)
 	}
 
 	log.Info().

@@ -22,6 +22,9 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+
+	"github.com/peiman/changie/internal/git"
+	"github.com/peiman/changie/internal/logger"
 )
 
 // Template for a new changelog file following Keep a Changelog format
@@ -72,7 +75,7 @@ func InitProject(filePath string) error {
 	}
 
 	// Create the file with the template content
-	err = os.WriteFile(filePath, []byte(changelogTemplate), 0644)
+	err = os.WriteFile(filePath, []byte(changelogTemplate), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to create changelog file: %w (verify you have write permissions for the directory and sufficient disk space)", err)
 	}
@@ -206,7 +209,7 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 		}
 
 		// Write the updated content back to the file
-		err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0644)
+		err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
 		if err != nil {
 			return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 		}
@@ -284,7 +287,7 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 	}
 
 	// Write the updated content back to the file
-	err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0644)
+	err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
 	if err != nil {
 		return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 	}
@@ -349,14 +352,45 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 %s`, versionHeader))
 
 	// Update or add comparison links
+	// Try to get repository info from git remote
 	linkPrefix := ""
-	switch repositoryProvider {
-	case "github":
-		linkPrefix = "https://github.com/user/repo/compare/"
-	case "bitbucket":
-		linkPrefix = "https://bitbucket.org/user/repo/compare/"
-	default:
-		linkPrefix = "https://github.com/user/repo/compare/"
+	repoInfo, err := git.GetRepositoryInfo()
+	if err != nil {
+		// If we can't get repo info from git, use provided repository provider with placeholder
+		logger.Changelog.Warn().Err(err).Msg("Failed to get repository info from git, using placeholder URL")
+
+		switch repositoryProvider {
+		case "github":
+			linkPrefix = "https://github.com/user/repo/compare/"
+		case "bitbucket":
+			linkPrefix = "https://bitbucket.org/user/repo/compare/"
+		case "gitlab":
+			linkPrefix = "https://gitlab.com/user/repo/-/compare/"
+		default:
+			linkPrefix = "https://github.com/user/repo/compare/"
+		}
+	} else {
+		// Use actual repository info
+		logger.Changelog.Info().
+			Str("owner", repoInfo.Owner).
+			Str("repo", repoInfo.Repo).
+			Str("provider", repoInfo.Provider).
+			Msg("Using repository info from git remote")
+
+		// Override the provider with the detected one from git URL
+		repositoryProvider = repoInfo.Provider
+
+		switch repositoryProvider {
+		case "github":
+			linkPrefix = fmt.Sprintf("%s/%s/%s/compare/", repoInfo.BaseURL, repoInfo.Owner, repoInfo.Repo)
+		case "bitbucket":
+			linkPrefix = fmt.Sprintf("%s/%s/%s/compare/", repoInfo.BaseURL, repoInfo.Owner, repoInfo.Repo)
+		case "gitlab":
+			linkPrefix = fmt.Sprintf("%s/%s/%s/-/compare/", repoInfo.BaseURL, repoInfo.Owner, repoInfo.Repo)
+		default:
+			// For unknown providers, use GitHub-style format
+			linkPrefix = fmt.Sprintf("%s/%s/%s/compare/", repoInfo.BaseURL, repoInfo.Owner, repoInfo.Repo)
+		}
 	}
 
 	// Use the version as-is for tag links (respects the user's v-prefix preference)
@@ -377,7 +411,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	}
 
 	// Write the updated content back to the file
-	err = os.WriteFile(filePath, []byte(content), 0644)
+	err = os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write updated changelog: %w (check if you have write permissions for the file and sufficient disk space)", err)
 	}

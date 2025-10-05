@@ -192,7 +192,6 @@ func TestGenerateMarkdownConvenience(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := GenerateMarkdown(&buf, appInfo)
-
 	// ASSERTION PHASE
 	if err != nil {
 		t.Fatalf("GenerateMarkdown failed: %v", err)
@@ -229,7 +228,6 @@ func TestGenerateYAMLConvenience(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := GenerateYAML(&buf)
-
 	// ASSERTION PHASE
 	if err != nil {
 		t.Fatalf("GenerateYAML failed: %v", err)

@@ -16,15 +16,14 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 
-	"github.com/peiman/changie/internal/config"
-	"github.com/peiman/changie/internal/logger"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/peiman/changie/internal/config"
+	"github.com/peiman/changie/internal/logger"
 )
 
 var (
@@ -37,66 +36,16 @@ var (
 	configFileUsed   string
 )
 
-// EnvPrefix returns a sanitized environment variable prefix based on the binary name
+// EnvPrefix returns a sanitized environment variable prefix based on the binary name.
+// This is a wrapper around config.EnvPrefix for backward compatibility.
 func EnvPrefix() string {
-	// Convert to uppercase and replace non-alphanumeric characters with underscore
-	prefix := strings.ToUpper(binaryName)
-	re := regexp.MustCompile(`[^A-Z0-9]`)
-	prefix = re.ReplaceAllString(prefix, "_")
-
-	// Ensure it doesn't start with a number (invalid for env vars)
-	if prefix != "" && prefix[0] >= '0' && prefix[0] <= '9' {
-		prefix = "_" + prefix
-	}
-
-	// Handle case where all characters were special and got replaced
-	re = regexp.MustCompile(`^_+$`)
-	if re.MatchString(prefix) {
-		prefix = "_"
-	}
-
-	return prefix
+	return config.EnvPrefix(binaryName)
 }
 
-// ConfigPaths returns standard paths and filenames for config files based on the binary name
-func ConfigPaths() struct {
-	// Default config name with dot prefix (e.g. ".changie")
-	DefaultName string
-	// Config file extension
-	Extension string
-	// Default full config name (e.g. ".changie.yaml")
-	DefaultFullName string
-	// Default config file with home directory (e.g. "$HOME/.changie.yaml")
-	DefaultPath string
-	// Default ignore pattern for gitignore (e.g. "changie.yaml")
-	IgnorePattern string
-} {
-	ext := "yaml"
-	defaultName := fmt.Sprintf(".%s", binaryName)
-	defaultFullName := fmt.Sprintf("%s.%s", defaultName, ext)
-
-	home, err := os.UserHomeDir()
-	defaultPath := defaultFullName // Fallback if home dir not available
-	if err == nil {
-		defaultPath = filepath.Join(home, defaultFullName)
-	}
-
-	// Used for .gitignore - without leading dot
-	ignorePattern := fmt.Sprintf("%s.%s", binaryName, ext)
-
-	return struct {
-		DefaultName     string
-		Extension       string
-		DefaultFullName string
-		DefaultPath     string
-		IgnorePattern   string
-	}{
-		DefaultName:     defaultName,
-		Extension:       ext,
-		DefaultFullName: defaultFullName,
-		DefaultPath:     defaultPath,
-		IgnorePattern:   ignorePattern,
-	}
+// ConfigPaths returns standard paths and filenames for config files based on the binary name.
+// This is a wrapper around config.DefaultPaths for backward compatibility.
+func ConfigPaths() config.PathsConfig {
+	return config.DefaultPaths(binaryName)
 }
 
 // RootCmd represents the base command when called without any subcommands.
@@ -108,7 +57,7 @@ var RootCmd = &cobra.Command{
 
 It helps you automate changelog entries, version bumping, and Git tag management while maintaining a clean, consistent format.
 For more information on the format, see https://keepachangelog.com`, binaryName),
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if err := initConfig(); err != nil {
 			return err
 		}
@@ -147,6 +96,16 @@ func init() {
 	RootCmd.PersistentFlags().String("log-level", "info", "Set the log level (trace, debug, info, warn, error, fatal, panic)")
 	if err := viper.BindPFlag("app.log_level", RootCmd.PersistentFlags().Lookup("log-level")); err != nil {
 		log.Fatal().Err(err).Msg("Failed to bind 'log-level'")
+	}
+
+	RootCmd.PersistentFlags().String("log-format", "auto", "Log output format (json, console, auto)")
+	if err := viper.BindPFlag("app.log_format", RootCmd.PersistentFlags().Lookup("log-format")); err != nil {
+		log.Fatal().Err(err).Msg("Failed to bind 'log-format'")
+	}
+
+	RootCmd.PersistentFlags().Bool("log-caller", false, "Include caller information (file:line) in log output")
+	if err := viper.BindPFlag("app.log_caller", RootCmd.PersistentFlags().Lookup("log-caller")); err != nil {
+		log.Fatal().Err(err).Msg("Failed to bind 'log-caller'")
 	}
 }
 
@@ -233,23 +192,33 @@ func getConfigValue[T any](cmd *cobra.Command, flagName string, viperKey string)
 		switch any(value).(type) {
 		case string:
 			if v, err := cmd.Flags().GetString(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case bool:
 			if v, err := cmd.Flags().GetBool(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case int:
 			if v, err := cmd.Flags().GetInt(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case float64:
 			if v, err := cmd.Flags().GetFloat64(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case []string:
 			if v, err := cmd.Flags().GetStringSlice(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		}
 	}

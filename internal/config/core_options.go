@@ -20,5 +20,21 @@ func CoreOptions() []ConfigOption {
 			Required:     false,
 			Example:      "debug",
 		},
+		{
+			Key:          "app.log_format",
+			DefaultValue: "auto",
+			Description:  "Log output format (json, console, auto). Auto uses console when TTY is detected, JSON otherwise",
+			Type:         "string",
+			Required:     false,
+			Example:      "json",
+		},
+		{
+			Key:          "app.log_caller",
+			DefaultValue: false,
+			Description:  "Include caller information (file:line) in log output",
+			Type:         "bool",
+			Required:     false,
+			Example:      "true",
+		},
 	}
 }
