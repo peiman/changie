@@ -12,12 +12,13 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/peiman/changie/internal/changelog"
-	"github.com/peiman/changie/internal/git"
-	"github.com/peiman/changie/internal/semver"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/peiman/changie/internal/changelog"
+	"github.com/peiman/changie/internal/git"
+	"github.com/peiman/changie/internal/semver"
 )
 
 var (
@@ -36,7 +37,7 @@ This command will:
 4. Commit the changes
 5. Create a new git tag
 6. Optionally push changes and tags to remote repository`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVersionBump(cmd, "major")
 		},
 	}
@@ -56,7 +57,7 @@ This command will:
 4. Commit the changes
 5. Create a new git tag
 6. Optionally push changes and tags to remote repository`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVersionBump(cmd, "minor")
 		},
 	}
@@ -76,7 +77,7 @@ This command will:
 4. Commit the changes
 5. Create a new git tag
 6. Optionally push changes and tags to remote repository`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVersionBump(cmd, "patch")
 		},
 	}

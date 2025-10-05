@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/peiman/changie/internal/changelog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/peiman/changie/internal/changelog"
 )
 
 // createChangelogSectionCmd creates a command for adding entries to a specific changelog section.

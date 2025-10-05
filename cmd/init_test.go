@@ -185,7 +185,7 @@ func TestRunInit(t *testing.T) {
 				if tc.mockTags {
 					// Create an initial commit (required before creating tags)
 					readmeFile := filepath.Join(tempDir, "README.md")
-					if err := os.WriteFile(readmeFile, []byte("test"), 0644); err != nil {
+					if err := os.WriteFile(readmeFile, []byte("test"), 0o644); err != nil {
 						t.Fatalf("Failed to create README: %v", err)
 					}
 

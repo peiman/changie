@@ -20,11 +20,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/peiman/changie/internal/config"
-	"github.com/peiman/changie/internal/logger"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/peiman/changie/internal/config"
+	"github.com/peiman/changie/internal/logger"
 )
 
 var (
@@ -108,7 +109,7 @@ var RootCmd = &cobra.Command{
 
 It helps you automate changelog entries, version bumping, and Git tag management while maintaining a clean, consistent format.
 For more information on the format, see https://keepachangelog.com`, binaryName),
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if err := initConfig(); err != nil {
 			return err
 		}
@@ -233,23 +234,33 @@ func getConfigValue[T any](cmd *cobra.Command, flagName string, viperKey string)
 		switch any(value).(type) {
 		case string:
 			if v, err := cmd.Flags().GetString(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case bool:
 			if v, err := cmd.Flags().GetBool(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case int:
 			if v, err := cmd.Flags().GetInt(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case float64:
 			if v, err := cmd.Flags().GetFloat64(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		case []string:
 			if v, err := cmd.Flags().GetStringSlice(flagName); err == nil {
-				value = any(v).(T)
+				if typedValue, ok := any(v).(T); ok {
+					value = typedValue
+				}
 			}
 		}
 	}

@@ -3,10 +3,11 @@
 package cmd
 
 import (
-	"github.com/peiman/changie/internal/docs"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/peiman/changie/internal/docs"
 )
 
 // docsCmd represents the docs command
@@ -52,7 +53,7 @@ func init() {
 	setupCommandConfig(configCmd)
 }
 
-func runDocsConfig(cmd *cobra.Command, args []string) error {
+func runDocsConfig(cmd *cobra.Command, _ []string) error {
 	// Get configuration values from viper/flags
 	outputFormat := getConfigValue[string](cmd, "format", "app.docs.output_format")
 	outputFile := getConfigValue[string](cmd, "output", "app.docs.output_file")

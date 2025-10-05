@@ -166,3 +166,34 @@ func TestRunUI(t *testing.T) {
 		t.Errorf("Expected error for invalid color, got nil")
 	}
 }
+
+func TestModelInit(t *testing.T) {
+	m := model{
+		message:    "Test Message",
+		colorStyle: lipgloss.NewStyle(),
+	}
+
+	cmd := m.Init()
+	if cmd != nil {
+		t.Errorf("Init() should return nil, got %v", cmd)
+	}
+}
+
+func TestModelUpdateEscKey(t *testing.T) {
+	m := model{
+		message:    "Test Message",
+		colorStyle: lipgloss.NewStyle(),
+		done:       false,
+	}
+
+	// Test ESC key
+	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if updatedModel.(model).done {
+		t.Errorf("Update() should not set done to true for ESC key in this implementation")
+	}
+
+	// ESC should return a quit command
+	if cmd == nil {
+		t.Errorf("Update() should return a quit command for ESC key")
+	}
+}

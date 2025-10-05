@@ -8,11 +8,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/peiman/changie/internal/changelog"
-	"github.com/peiman/changie/internal/git"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/peiman/changie/internal/changelog"
+	"github.com/peiman/changie/internal/git"
 )
 
 var initCmd = &cobra.Command{
@@ -63,7 +64,7 @@ func askForVersionPrefix(cmd *cobra.Command) bool {
 	return input == "" || input == "y" || input == "yes"
 }
 
-func runInit(cmd *cobra.Command, args []string) error {
+func runInit(cmd *cobra.Command, _ []string) error {
 	log.Debug().Msg("Starting runInit execution")
 
 	file := viper.GetString("app.changelog.file")

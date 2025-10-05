@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/peiman/changie/cmd"
 	"github.com/spf13/cobra"
+
+	"github.com/peiman/changie/cmd"
 )
 
 func TestMainFunction(t *testing.T) {

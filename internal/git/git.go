@@ -43,7 +43,6 @@ func GetVersion() (string, error) {
 	// Use git describe to get the latest tag
 	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
 	output, err := cmd.CombinedOutput()
-
 	// If there are no tags, return empty string which will be treated as 0.0.0
 	if err != nil {
 		// Check if error is due to no tags
@@ -179,4 +178,152 @@ func PushChanges() error {
 	}
 
 	return nil
+}
+
+// RepositoryInfo holds parsed repository information
+type RepositoryInfo struct {
+	Owner    string // Repository owner/organization
+	Repo     string // Repository name
+	Provider string // Provider name (github, bitbucket, gitlab, etc.)
+	BaseURL  string // Base URL for the provider
+}
+
+// GetRemoteURL returns the remote origin URL from git config.
+//
+// This function uses "git config --get remote.origin.url" to retrieve the
+// remote repository URL.
+//
+// Returns:
+//   - string: The remote origin URL
+//   - error: Any error encountered during the git operation
+func GetRemoteURL() (string, error) {
+	cmd := exec.Command("git", "config", "--get", "remote.origin.url")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get remote URL: %w (verify you have a remote repository configured with 'git remote -v')", err)
+	}
+
+	url := strings.TrimSpace(string(output))
+	if url == "" {
+		return "", fmt.Errorf("remote URL is empty (configure a remote repository with 'git remote add origin <url>')")
+	}
+
+	return url, nil
+}
+
+// ParseRepositoryURL parses a git remote URL and extracts repository information.
+//
+// This function handles both HTTPS and SSH URL formats:
+//   - HTTPS: https://github.com/owner/repo.git
+//   - SSH: git@github.com:owner/repo.git
+//
+// Parameters:
+//   - remoteURL: The git remote URL to parse
+//
+// Returns:
+//   - *RepositoryInfo: Parsed repository information
+//   - error: Any error encountered during parsing
+func ParseRepositoryURL(remoteURL string) (*RepositoryInfo, error) {
+	remoteURL = strings.TrimSpace(remoteURL)
+	if remoteURL == "" {
+		return nil, fmt.Errorf("remote URL is empty")
+	}
+
+	var owner, repo, provider, baseURL string
+
+	// Handle SSH format: git@github.com:owner/repo.git
+	if strings.HasPrefix(remoteURL, "git@") {
+		parts := strings.Split(remoteURL, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid SSH URL format: %s (expected format: git@host:owner/repo.git)", remoteURL)
+		}
+
+		// Extract host
+		host := strings.TrimPrefix(parts[0], "git@")
+
+		// Extract owner/repo
+		path := strings.TrimSuffix(parts[1], ".git")
+		pathParts := strings.Split(path, "/")
+		if len(pathParts) < 2 {
+			return nil, fmt.Errorf("invalid repository path: %s (expected format: owner/repo)", path)
+		}
+
+		owner = pathParts[len(pathParts)-2]
+		repo = pathParts[len(pathParts)-1]
+
+		// Determine provider from host
+		switch {
+		case strings.Contains(host, "github.com"):
+			provider = "github"
+			baseURL = "https://github.com"
+		case strings.Contains(host, "bitbucket.org"):
+			provider = "bitbucket"
+			baseURL = "https://bitbucket.org"
+		case strings.Contains(host, "gitlab.com"):
+			provider = "gitlab"
+			baseURL = "https://gitlab.com"
+		default:
+			provider = "unknown"
+			baseURL = "https://" + host
+		}
+	} else if strings.HasPrefix(remoteURL, "http://") || strings.HasPrefix(remoteURL, "https://") {
+		// Handle HTTPS format: https://github.com/owner/repo.git
+		// Remove scheme
+		url := strings.TrimPrefix(remoteURL, "https://")
+		url = strings.TrimPrefix(url, "http://")
+
+		// Remove .git suffix
+		url = strings.TrimSuffix(url, ".git")
+
+		// Split into parts
+		parts := strings.Split(url, "/")
+		if len(parts) < 3 {
+			return nil, fmt.Errorf("invalid HTTPS URL format: %s (expected format: https://host/owner/repo)", remoteURL)
+		}
+
+		host := parts[0]
+		owner = parts[len(parts)-2]
+		repo = parts[len(parts)-1]
+
+		// Determine provider from host
+		switch {
+		case strings.Contains(host, "github.com"):
+			provider = "github"
+			baseURL = "https://github.com"
+		case strings.Contains(host, "bitbucket.org"):
+			provider = "bitbucket"
+			baseURL = "https://bitbucket.org"
+		case strings.Contains(host, "gitlab.com"):
+			provider = "gitlab"
+			baseURL = "https://gitlab.com"
+		default:
+			provider = "unknown"
+			baseURL = "https://" + host
+		}
+	} else {
+		return nil, fmt.Errorf("unsupported URL format: %s (expected SSH or HTTPS format)", remoteURL)
+	}
+
+	return &RepositoryInfo{
+		Owner:    owner,
+		Repo:     repo,
+		Provider: provider,
+		BaseURL:  baseURL,
+	}, nil
+}
+
+// GetRepositoryInfo gets repository information from git remote configuration.
+//
+// This is a convenience function that combines GetRemoteURL and ParseRepositoryURL.
+//
+// Returns:
+//   - *RepositoryInfo: Parsed repository information
+//   - error: Any error encountered during the operation
+func GetRepositoryInfo() (*RepositoryInfo, error) {
+	url, err := GetRemoteURL()
+	if err != nil {
+		return nil, err
+	}
+
+	return ParseRepositoryURL(url)
 }
