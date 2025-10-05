@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - Init command tests now use real git repositories instead of file-based mocks for accurate behavior verification
 - Boolean flag parsing in tests corrected to use proper syntax
 - Restored automatic git commit and tag creation in init command (regression from v0.3.0) - init now creates v0.0.0 tag when no tags exist
+- Version prefix handling now correctly uses user preference (always add 'v' or never add 'v') instead of preserving input prefix
+- Semver bump operations now clear prerelease and build metadata per SemVer specification
+- Config key mismatch fixed: repository_provider now uses correct `app.changelog.repository_provider` key
+- Changelog comparison links now respect user's v-prefix preference
+- Removed dead code in init tests
 
 ## [0.9.1] - 2024-07-01
 
