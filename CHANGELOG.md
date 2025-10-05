@@ -10,16 +10,32 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 ### Added
 
 - Ported to the [ckeletin-go](https://github.com/peiman/ckeletin-go) framework for improved structure, testability, and maintainability
+- Expanded test coverage for edge cases in version parsing and changelog modifications
+- Added comprehensive tests for handling unusual version formats and complex changelog structures
+- Interactive version prefix preference prompt when no git tags exist
+- `--use-v-prefix` flag for explicit control over version tag format (v1.0.0 vs 1.0.0)
+- Support for complex version formats including prerelease and build metadata in changelog parsing
+- Comprehensive test suite with 588+ lines in semver tests and 385+ lines in changelog tests
 
 ### Changed
 
-- Simplified the way Changie retrieves the current version from Git, making it more reliable.
-- Improved error messages for better clarity when Git operations fail.
-- Enhanced debug messages to help users troubleshoot issues more effectively.
+- Migrated from custom semver parsing to `blang/semver/v4` library for robust validation
+- Refactored semver package API with `ParseVersion`, `BumpVersion`, and `FormatVersion` functions
+- Enhanced init command to auto-detect and respect existing git tag conventions (v prefix)
+- Improved changelog validation with strict semver compliance
+- Updated git tag link generation to respect version prefix preferences
+- Simplified the way Changie retrieves the current version from Git, making it more reliable
+- Improved error messages for better clarity when Git operations fail
+- Enhanced debug messages to help users troubleshoot issues more effectively
 - Enhanced code documentation across all packages for better maintainability
 - Added comprehensive package-level documentation to improve developer onboarding
 - Improved function documentation with detailed parameter and return value descriptions
 - Enhanced error messages with specific troubleshooting suggestions and resolution steps
+
+### Fixed
+
+- Init command tests now use real git repositories instead of file-based mocks for accurate behavior verification
+- Boolean flag parsing in tests corrected to use proper syntax
 
 ## [0.9.1] - 2024-07-01
 

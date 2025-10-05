@@ -20,6 +20,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/blang/semver/v4"
 )
 
 // Template for a new changelog file following Keep a Changelog format
@@ -293,8 +295,9 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 // GetLatestChangelogVersion finds the latest version in the changelog.
 // Returns an empty string if no version is found.
 func GetLatestChangelogVersion(content string) (string, error) {
-	// Use regex to find version headers like "## [1.2.3] - 2023-01-01"
-	re := regexp.MustCompile(`## \[([0-9]+\.[0-9]+\.[0-9]+)\]`)
+	// Use regex to find version headers like "## [1.2.3] - 2023-01-01" or "## [v1.2.3-alpha] - 2023-01-01"
+	// Match any version format, including those with 'v' prefix, multiple segments, and prerelease/build metadata
+	re := regexp.MustCompile(`## \[([v]?[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)\]`)
 	matches := re.FindAllStringSubmatch(content, -1)
 
 	if len(matches) == 0 {
@@ -308,6 +311,20 @@ func GetLatestChangelogVersion(content string) (string, error) {
 
 // UpdateChangelog updates the changelog by converting Unreleased to a new version.
 func UpdateChangelog(filePath, version, repositoryProvider string) error {
+	// Check if the version starts with 'v' and remove it for semver validation
+	semverStr := version
+	hasVPrefix := false
+	if strings.HasPrefix(version, "v") {
+		semverStr = strings.TrimPrefix(version, "v")
+		hasVPrefix = true
+	}
+
+	// Validate the version using strict semver
+	_, err := semver.Parse(semverStr)
+	if err != nil {
+		return fmt.Errorf("invalid version format: %w (verify that the version follows semantic versioning rules)", err)
+	}
+
 	// Read the current changelog file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -325,7 +342,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	// Get current date
 	today := time.Now().Format("2006-01-02")
 
-	// Create new version section
+	// Create new version section - use the original version format for display
 	versionHeader := fmt.Sprintf("## [%s] - %s", version, today)
 
 	// Replace Unreleased with the version and add a new Unreleased section
@@ -344,18 +361,24 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 		linkPrefix = "https://github.com/user/repo/compare/"
 	}
 
+	// Determine tag format for links (add v prefix if not already there for links)
+	tagVersion := version
+	if !hasVPrefix {
+		tagVersion = "v" + version
+	}
+
 	// Check if version link section exists at end of file
 	linkRegex := regexp.MustCompile(`\[Unreleased\]: .*`)
 	if linkRegex.MatchString(content) {
 		// Update existing links
-		content = linkRegex.ReplaceAllString(content, fmt.Sprintf(`[Unreleased]: %sv%s...HEAD
-[%s]: %s...v%s`, linkPrefix, version, version, linkPrefix, version))
+		content = linkRegex.ReplaceAllString(content, fmt.Sprintf(`[Unreleased]: %s%s...HEAD
+[%s]: %s...%s`, linkPrefix, tagVersion, version, linkPrefix, tagVersion))
 	} else {
 		// Add new links section
 		content += fmt.Sprintf(`
 
-[Unreleased]: %sv%s...HEAD
-[%s]: %s...v%s`, linkPrefix, version, version, linkPrefix, version)
+[Unreleased]: %s%s...HEAD
+[%s]: %s...%s`, linkPrefix, tagVersion, version, linkPrefix, tagVersion)
 	}
 
 	// Write the updated content back to the file
