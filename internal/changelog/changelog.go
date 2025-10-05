@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/rs/zerolog/log"
 
 	"github.com/peiman/changie/internal/git"
+	"github.com/peiman/changie/internal/logger"
 )
 
 // Template for a new changelog file following Keep a Changelog format
@@ -357,7 +357,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	repoInfo, err := git.GetRepositoryInfo()
 	if err != nil {
 		// If we can't get repo info from git, use provided repository provider with placeholder
-		log.Warn().Err(err).Msg("Failed to get repository info from git, using placeholder URL")
+		logger.Changelog.Warn().Err(err).Msg("Failed to get repository info from git, using placeholder URL")
 
 		switch repositoryProvider {
 		case "github":
@@ -371,7 +371,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 		}
 	} else {
 		// Use actual repository info
-		log.Info().
+		logger.Changelog.Info().
 			Str("owner", repoInfo.Owner).
 			Str("repo", repoInfo.Repo).
 			Str("provider", repoInfo.Provider).

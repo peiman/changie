@@ -97,6 +97,16 @@ func init() {
 	if err := viper.BindPFlag("app.log_level", RootCmd.PersistentFlags().Lookup("log-level")); err != nil {
 		log.Fatal().Err(err).Msg("Failed to bind 'log-level'")
 	}
+
+	RootCmd.PersistentFlags().String("log-format", "auto", "Log output format (json, console, auto)")
+	if err := viper.BindPFlag("app.log_format", RootCmd.PersistentFlags().Lookup("log-format")); err != nil {
+		log.Fatal().Err(err).Msg("Failed to bind 'log-format'")
+	}
+
+	RootCmd.PersistentFlags().Bool("log-caller", false, "Include caller information (file:line) in log output")
+	if err := viper.BindPFlag("app.log_caller", RootCmd.PersistentFlags().Lookup("log-caller")); err != nil {
+		log.Fatal().Err(err).Msg("Failed to bind 'log-caller'")
+	}
 }
 
 func initConfig() error {
