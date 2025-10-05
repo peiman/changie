@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- Commit message format changed from 'Update changelog for version X.Y.Z' to 'Release X.Y.Z'
+
 ## [v1.0.0] - 2025-10-06
 
 ### Added
