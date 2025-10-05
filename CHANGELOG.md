@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - CLAUDE.md architecture guide for contributors
 - Automatic repository detection from git remote for changelog links
 - Comprehensive test coverage across all packages (325 tests total)
+- GoReleaser configuration for automated multi-platform releases
+- Release task commands (setup, check, snapshot, test, dry-run, clean, tag, release)
+- GitHub Actions CI integration with GoReleaser
+- Automated Homebrew tap updates
+- Linux package generation (DEB, RPM, APK)
+- .env file support in Taskfile
 
 ### Changed
 
