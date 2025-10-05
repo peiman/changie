@@ -48,6 +48,9 @@ changie.json
 # Build output directory
 /build/
 
+# GoReleaser output directory
+/dist/
+
 # Test coverage
 coverage.txt
 test-output.json
