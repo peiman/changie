@@ -1,6 +1,9 @@
 # Taskfile.yml
 version: '3'
 
+# Load environment variables from .env file
+dotenv: ['.env']
+
 vars:
   BINARY_NAME: changie
   MODULE_PATH: github.com/peiman/changie
@@ -165,3 +168,169 @@ tasks:
     cmds:
       - go clean
       - rm -f {{.BINARY_NAME}} coverage.txt test-output.json coverage.html
+
+  # Release tasks - Phase 1: Local Testing
+  release:setup:
+    desc: Install goreleaser for building releases
+    cmds:
+      - |
+        if command -v goreleaser >/dev/null 2>&1; then
+          echo "✓ goreleaser already installed: $(goreleaser --version | head -1)"
+        else
+          echo "Installing goreleaser..."
+          {{if eq OS "darwin"}}
+          brew install goreleaser/tap/goreleaser
+          {{else if eq OS "linux"}}
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt update
+          sudo apt install goreleaser
+          {{else}}
+          go install github.com/goreleaser/goreleaser/v2@latest
+          {{end}}
+          echo "✓ goreleaser installed successfully"
+        fi
+
+  release:check:
+    desc: Validate goreleaser configuration
+    cmds:
+      - |
+        if ! command -v goreleaser >/dev/null 2>&1; then
+          echo "❌ Error: goreleaser not installed. Run 'task release:setup' first."
+          exit 1
+        fi
+      - echo "Validating .goreleaser.yml configuration..."
+      - goreleaser check
+      - echo "✓ Configuration is valid"
+
+  release:snapshot:
+    desc: Build a snapshot release locally (no publishing)
+    deps: [release:check]
+    cmds:
+      - echo "Building snapshot release (local test, no publishing)..."
+      - goreleaser release --snapshot --clean --skip=publish
+      - echo ""
+      - echo "✓ Snapshot build complete! Artifacts in ./dist/"
+      - echo ""
+      - ls -lh ./dist/*.tar.gz ./dist/*.zip 2>/dev/null || true
+
+  release:test:
+    desc: Test the snapshot build binaries
+    deps: [release:snapshot]
+    cmds:
+      - |
+        echo "Testing built binary..."
+        BINARY_PATH=""
+        if [ -f "./dist/{{.BINARY_NAME}}_{{OS}}_{{ARCH}}/{{.BINARY_NAME}}" ]; then
+          BINARY_PATH="./dist/{{.BINARY_NAME}}_{{OS}}_{{ARCH}}/{{.BINARY_NAME}}"
+        elif [ -f "./dist/{{.BINARY_NAME}}_{{OS}}_{{ARCH}}/{{.BINARY_NAME}}.exe" ]; then
+          BINARY_PATH="./dist/{{.BINARY_NAME}}_{{OS}}_{{ARCH}}/{{.BINARY_NAME}}.exe"
+        else
+          echo "⚠️  Warning: Could not find binary for {{OS}}_{{ARCH}}"
+          echo "Available builds:"
+          ls -d ./dist/{{.BINARY_NAME}}_* 2>/dev/null || echo "No builds found"
+          exit 0
+        fi
+
+        echo "Running: $BINARY_PATH --version"
+        $BINARY_PATH --version
+        echo ""
+        echo "✓ Binary works correctly!"
+
+  release:dry-run:
+    desc: Perform a complete release dry run with validation
+    deps: [release:check, check]
+    cmds:
+      - |
+        echo "Performing release dry run..."
+        if [ -n "$GITHUB_TOKEN" ]; then
+          echo "✓ GITHUB_TOKEN is set"
+          echo "Running full dry run with validation..."
+          goreleaser release --clean --skip=publish
+        else
+          echo "⚠️  GITHUB_TOKEN not set - running local-only dry run"
+          goreleaser release --clean --skip=publish --skip=validate
+        fi
+        echo ""
+        echo "✓ Dry run complete!"
+
+  release:clean:
+    desc: Clean release artifacts
+    cmds:
+      - rm -rf ./dist
+      - echo "✓ Release artifacts cleaned"
+
+  # Release tasks - Phase 2: Publishing
+  release:tag:
+    desc: "Create and push a version tag (Usage: task release:tag TAG=v1.0.0)"
+    cmds:
+      - |
+        if [ -z "{{.TAG}}" ]; then
+          echo "❌ Error: TAG variable required"
+          echo "Usage: task release:tag TAG=v1.0.0"
+          exit 1
+        fi
+      - |
+        if git rev-parse "{{.TAG}}" >/dev/null 2>&1; then
+          echo "❌ Error: Tag {{.TAG}} already exists"
+          exit 1
+        fi
+      - |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "❌ Error: Working directory not clean. Commit changes first:"
+          git status --short
+          exit 1
+        fi
+      - |
+        echo "Creating annotated tag {{.TAG}}..."
+        git tag -a "{{.TAG}}" -m "Release {{.TAG}}"
+        echo "✓ Tag created locally"
+      - |
+        echo "Pushing tag to origin..."
+        git push origin "{{.TAG}}"
+        echo "✓ Tag {{.TAG}} pushed successfully"
+        echo ""
+        echo "GitHub Actions will now build and release automatically."
+        echo "Track progress at: https://github.com/peiman/changie/actions"
+
+  release:
+    desc: Build and publish a release (requires GITHUB_TOKEN)
+    deps: [release:check, check]
+    cmds:
+      - |
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "❌ Error: GITHUB_TOKEN environment variable required"
+          echo ""
+          echo "Set it with: export GITHUB_TOKEN=ghp_xxxxxxxxxxxx"
+          echo ""
+          echo "Create token at:"
+          echo "  https://github.com/settings/tokens/new"
+          echo ""
+          echo "Required scopes:"
+          echo "  ✅ repo (all)"
+          exit 1
+        fi
+      - |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "❌ Error: Working directory not clean. Commit changes first:"
+          git status --short
+          exit 1
+        fi
+      - |
+        CURRENT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+        if [ -z "$CURRENT_TAG" ]; then
+          echo "❌ Error: Current commit is not tagged"
+          echo ""
+          echo "Create a tag first with:"
+          echo "  task release:tag TAG=v1.0.0"
+          echo ""
+          echo "Or use changie to bump version:"
+          echo "  changie patch   # or minor, or major"
+          exit 1
+        fi
+        echo "✓ Releasing tag: $CURRENT_TAG"
+      - |
+        echo "Running goreleaser..."
+        goreleaser release --clean
+        echo ""
+        echo "✓ Release published successfully!"
+        echo "View at: https://github.com/peiman/changie/releases"

@@ -1,0 +1,274 @@
+# GoReleaser configuration for changie
+# Documentation: https://goreleaser.com
+
+version: 2
+
+# Build configuration
+builds:
+  - id: changie
+    binary: changie
+    main: ./main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+      - openbsd
+      - netbsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - "386"
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      # Skip 386 on darwin (not supported)
+      - goos: darwin
+        goarch: "386"
+      # Skip arm on darwin (not supported)
+      - goos: darwin
+        goarch: arm
+      # Skip Windows ARM (not well supported)
+      - goos: windows
+        goarch: arm
+        goarm: "6"
+      - goos: windows
+        goarch: arm
+        goarm: "7"
+    ldflags:
+      - -s -w
+      - -X github.com/peiman/changie/cmd.Version={{.Version}}
+      - -X github.com/peiman/changie/cmd.Commit={{.Commit}}
+      - -X github.com/peiman/changie/cmd.Date={{.Date}}
+      - -X github.com/peiman/changie/cmd.BuiltBy=goreleaser
+    flags:
+      - -trimpath
+
+# Universal macOS binary
+universal_binaries:
+  - id: changie-universal
+    name_template: changie
+    replace: true
+
+# Archive configuration
+archives:
+  - id: changie-archive
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+# Checksums
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# Snapshot configuration (for unreleased builds)
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# Release notes from changelog
+changelog:
+  use: github
+  sort: asc
+  abbrev: 7
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Documentation"
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "Dependency Updates"
+      regexp: '^.*?(feat|fix)\(deps\)!?:.+$'
+      order: 3
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+
+# Homebrew tap (for macOS/Linux installation via brew)
+brews:
+  - name: changie
+    repository:
+      owner: peiman
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/peiman/changie
+    description: "Professional changelog management CLI for SemVer projects"
+    license: MIT
+    install: |
+      bin.install "changie"
+
+      # Generate and install shell completions
+      generate_completions_from_executable(bin/"changie", "completion")
+    test: |
+      system "#{bin}/changie", "version"
+
+# Snapcraft (for Linux snap packages)
+snapcrafts:
+  - id: changie-snap
+    name: changie
+    summary: Professional changelog management CLI
+    description: |
+      changie is a professional changelog management CLI tool for SemVer projects
+      that follows the Keep a Changelog format. It helps automate version bumping,
+      changelog updates, and release workflows.
+    grade: stable
+    confinement: strict
+    license: MIT
+    base: core22
+    publish: false  # Set to true after setting up snapcraft credentials
+    apps:
+      changie:
+        command: changie
+        plugs: ["home", "network", "removable-media"]
+
+# AUR (Arch User Repository) - requires separate setup
+# Note: This requires manual setup of the AUR repository
+# See: https://goreleaser.com/customization/aur/
+aurs:
+  - name: changie-bin
+    homepage: https://github.com/peiman/changie
+    description: "Professional changelog management CLI for SemVer projects"
+    maintainers:
+      - "Peiman Zabih <peiman at peimanzabih dot com>"
+    license: MIT
+    private_key: "{{ .Env.AUR_PRIVATE_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/changie-bin.git"
+    package: |-
+      # bin
+      install -Dm755 "./changie" "${pkgdir}/usr/bin/changie"
+
+      # license
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/changie/LICENSE"
+
+      # completions
+      mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
+      mkdir -p "${pkgdir}/usr/share/zsh/site-functions/"
+      mkdir -p "${pkgdir}/usr/share/fish/vendor_completions.d/"
+
+      install -Dm644 "./completions/changie.bash" "${pkgdir}/usr/share/bash-completion/completions/changie"
+      install -Dm644 "./completions/changie.zsh" "${pkgdir}/usr/share/zsh/site-functions/_changie"
+      install -Dm644 "./completions/changie.fish" "${pkgdir}/usr/share/fish/vendor_completions.d/changie.fish"
+
+# nFPM (for deb, rpm, apk packages)
+nfpms:
+  - id: changie-packages
+    package_name: changie
+    homepage: https://github.com/peiman/changie
+    maintainer: Peiman Zabih <peiman@peimanzabih.com>
+    description: Professional changelog management CLI for SemVer projects
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/changie/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/changie/README.md
+      - src: ./CHANGELOG.md
+        dst: /usr/share/doc/changie/CHANGELOG.md
+
+# GitHub Release configuration
+release:
+  github:
+    owner: peiman
+    name: changie
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## Release {{ .Tag }}
+
+    Welcome to this new release!
+  footer: |
+    ## Installation
+
+    ### Homebrew (macOS/Linux)
+    ```bash
+    brew install peiman/tap/changie
+    ```
+
+    ### Snap (Linux)
+    ```bash
+    snap install changie
+    ```
+
+    ### APT (Debian/Ubuntu)
+    ```bash
+    echo 'deb [trusted=yes] https://apt.fury.io/peiman/ /' | sudo tee /etc/apt/sources.list.d/changie.list
+    sudo apt update
+    sudo apt install changie
+    ```
+
+    ### YUM/DNF (RedHat/Fedora/CentOS)
+    ```bash
+    echo '[changie]
+    name=changie
+    baseurl=https://yum.fury.io/peiman/
+    enabled=1
+    gpgcheck=0' | sudo tee /etc/yum.repos.d/changie.repo
+    sudo yum install changie
+    ```
+
+    ### Go Install
+    ```bash
+    go install github.com/peiman/changie@latest
+    ```
+
+    ### Direct Download
+    Download the appropriate binary for your platform from the assets below.
+  name_template: "Release {{.Version}}"
+
+# Announce to various platforms (optional)
+announce:
+  skip: "{{gt .Patch 0}}"  # Only announce major/minor releases
+
+  # Twitter (requires Twitter API credentials)
+  # twitter:
+  #   enabled: true
+  #   message_template: "changie {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}"
+
+  # Slack (requires Slack webhook)
+  # slack:
+  #   enabled: true
+  #   message_template: "changie {{ .Tag }} has been released! {{ .ReleaseURL }}"
+
+# Docker images (optional - add if you want Docker distribution)
+# dockers:
+#   - image_templates:
+#       - "ghcr.io/peiman/changie:{{ .Tag }}"
+#       - "ghcr.io/peiman/changie:latest"
+#     dockerfile: Dockerfile
+#     build_flag_templates:
+#       - "--pull"
+#       - "--label=org.opencontainers.image.created={{.Date}}"
+#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#       - "--label=org.opencontainers.image.version={{.Version}}"
