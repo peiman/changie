@@ -38,7 +38,6 @@ func init() {
 
 func runAddChangelogSection(cmd *cobra.Command, args []string, section string) error {
 	log.Debug().Str("section", section).Msg("Adding changelog entry")
-	initChangelogConfig()
 
 	file := viper.GetString("app.changelog.file")
 	if cmd.Flags().Changed("file") {

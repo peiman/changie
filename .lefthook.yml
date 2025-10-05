@@ -4,6 +4,8 @@ pre-commit:
   commands:
     format:
       run: task format
+    check-defaults:
+      run: task check-defaults
     lint:
       run: task lint
     deps-verify:

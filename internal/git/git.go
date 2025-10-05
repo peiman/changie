@@ -112,8 +112,8 @@ func CommitChangelog(file, version string) error {
 // TagVersion creates a new git tag for the given version.
 //
 // This function creates an annotated tag (-a) with a standardized message
-// that includes the version number. It automatically adds the "v" prefix
-// to the tag name if not already present.
+// that includes the version number. It respects the user's configured
+// preference for using 'v' prefix or not.
 //
 // Parameters:
 //   - version: Version number to tag (with or without "v" prefix)
@@ -121,11 +121,9 @@ func CommitChangelog(file, version string) error {
 // Returns:
 //   - error: Any error encountered during the git operation
 func TagVersion(version string) error {
-	// Ensure version has v prefix
+	// The version parameter already has the correct prefix (or no prefix)
+	// based on the user's preference, so we use it directly
 	tagName := version
-	if !strings.HasPrefix(version, "v") {
-		tagName = "v" + version
-	}
 
 	// Create the tag
 	tagMsg := fmt.Sprintf("Version %s", version)

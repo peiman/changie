@@ -11,7 +11,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/peiman/changie/internal/changelog"
 	"github.com/peiman/changie/internal/git"
@@ -105,17 +104,6 @@ func init() {
 	}
 }
 
-// initVersionConfig sets up the version-related configuration with
-// environment variables and default values.
-func initVersionConfig() {
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-
-	viper.SetDefault("app.changelog.file", "CHANGELOG.md")
-	viper.SetDefault("app.changelog.repository_provider", "github")
-	viper.SetDefault("app.changelog.auto_push", false)
-}
-
 // runVersionBump implements the core logic for version bumping commands.
 // This is shared by all three version commands (major, minor, patch) with
 // the bump type specified as a parameter.
@@ -136,7 +124,6 @@ func initVersionConfig() {
 //   - error: Any error that occurred during execution
 func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	log.Debug().Str("type", bumpType).Msg("Starting version bump")
-	initVersionConfig()
 
 	// Check if git is installed
 	if !git.IsInstalled() {
@@ -173,15 +160,18 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "Current version: %s\n", currentVersion)
 	}
 
+	// Get the user's preference for 'v' prefix
+	useVPrefix := viper.GetBool("app.version.use_v_prefix")
+
 	// Bump version according to type
 	var newVersion string
 	switch bumpType {
 	case "major":
-		newVersion, err = semver.BumpMajor(currentVersion)
+		newVersion, err = semver.BumpMajor(currentVersion, useVPrefix)
 	case "minor":
-		newVersion, err = semver.BumpMinor(currentVersion)
+		newVersion, err = semver.BumpMinor(currentVersion, useVPrefix)
 	case "patch":
-		newVersion, err = semver.BumpPatch(currentVersion)
+		newVersion, err = semver.BumpPatch(currentVersion, useVPrefix)
 	default:
 		err = fmt.Errorf("invalid bump type: %s - must be one of: major, minor, patch", bumpType)
 	}
