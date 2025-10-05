@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - `--use-v-prefix` flag for explicit control over version tag format (v1.0.0 vs 1.0.0)
 - Support for complex version formats including prerelease and build metadata in changelog parsing
 - Comprehensive test suite with 588+ lines in semver tests and 385+ lines in changelog tests
+- Branch protection for version bump commands with --allow-any-branch flag to bypass main/master branch check
 
 ### Changed
 

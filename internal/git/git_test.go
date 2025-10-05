@@ -191,3 +191,51 @@ func TestPushChangesErrorHandling(t *testing.T) {
 		t.Error("Expected error from PushChanges in non-git dir, but got nil")
 	}
 }
+
+// TestGetCurrentBranch tests the GetCurrentBranch function
+func TestGetCurrentBranch(t *testing.T) {
+	// This test verifies the function works in a git repository
+	// Since we're running in the changie git repo, this should succeed
+	branch, err := GetCurrentBranch()
+	if err != nil {
+		t.Logf("GetCurrentBranch returned error (expected if not in git repo): %v", err)
+	} else {
+		t.Logf("Current branch: %s", branch)
+		if branch == "" {
+			t.Error("Expected non-empty branch name")
+		}
+	}
+}
+
+// TestGetCurrentBranchErrorHandling ensures GetCurrentBranch handles errors properly
+func TestGetCurrentBranchErrorHandling(t *testing.T) {
+	// Test with a non-git directory
+	tmpDir, err := os.MkdirTemp("", "non-git-dir")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Save current dir
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current dir: %v", err)
+	}
+
+	// Change to temp dir and back when done
+	err = os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to change to temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(currentDir); err != nil {
+			t.Logf("Warning: Failed to change back to original directory: %v", err)
+		}
+	}()
+
+	// GetCurrentBranch should return an error in non-git dir
+	_, err = GetCurrentBranch()
+	if err == nil {
+		t.Error("Expected error from GetCurrentBranch in non-git dir, but got nil")
+	}
+}

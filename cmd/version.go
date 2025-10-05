@@ -30,11 +30,12 @@ var (
 For example, 1.2.3 → 2.0.0
 
 This command will:
-1. Check for uncommitted changes
-2. Update the changelog
-3. Commit the changes
-4. Create a new git tag
-5. Optionally push changes and tags to remote repository`,
+1. Check that you're on main/master branch (use --allow-any-branch to bypass)
+2. Check for uncommitted changes
+3. Update the changelog
+4. Commit the changes
+5. Create a new git tag
+6. Optionally push changes and tags to remote repository`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runVersionBump(cmd, "major")
 		},
@@ -49,11 +50,12 @@ This command will:
 For example, 1.2.3 → 1.3.0
 
 This command will:
-1. Check for uncommitted changes
-2. Update the changelog
-3. Commit the changes
-4. Create a new git tag
-5. Optionally push changes and tags to remote repository`,
+1. Check that you're on main/master branch (use --allow-any-branch to bypass)
+2. Check for uncommitted changes
+3. Update the changelog
+4. Commit the changes
+5. Create a new git tag
+6. Optionally push changes and tags to remote repository`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runVersionBump(cmd, "minor")
 		},
@@ -68,11 +70,12 @@ This command will:
 For example, 1.2.3 → 1.2.4
 
 This command will:
-1. Check for uncommitted changes
-2. Update the changelog
-3. Commit the changes
-4. Create a new git tag
-5. Optionally push changes and tags to remote repository`,
+1. Check that you're on main/master branch (use --allow-any-branch to bypass)
+2. Check for uncommitted changes
+3. Update the changelog
+4. Commit the changes
+5. Create a new git tag
+6. Optionally push changes and tags to remote repository`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runVersionBump(cmd, "patch")
 		},
@@ -87,6 +90,7 @@ func init() {
 		cmd.Flags().String("file", "CHANGELOG.md", "Changelog file name")
 		cmd.Flags().String("rrp", "github", "Remote repository provider (github, bitbucket)")
 		cmd.Flags().Bool("auto-push", false, "Automatically push changes and tags")
+		cmd.Flags().Bool("allow-any-branch", false, "Allow version bumping on any branch (bypasses main/master branch check)")
 
 		// Bind flags to Viper
 		if err := viper.BindPFlag("app.changelog.file", cmd.Flags().Lookup("file")); err != nil {
@@ -97,6 +101,9 @@ func init() {
 		}
 		if err := viper.BindPFlag("app.changelog.auto_push", cmd.Flags().Lookup("auto-push")); err != nil {
 			log.Fatal().Err(err).Msg("Failed to bind 'auto-push' flag")
+		}
+		if err := viper.BindPFlag("app.version.allow_any_branch", cmd.Flags().Lookup("allow-any-branch")); err != nil {
+			log.Fatal().Err(err).Msg("Failed to bind 'allow-any-branch' flag")
 		}
 
 		// Add command to RootCmd
@@ -130,6 +137,29 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 		err := fmt.Errorf("git is not installed or not available in PATH - please install Git (https://git-scm.com/downloads) and ensure it's in your system PATH")
 		log.Error().Err(err).Msg("Failed to run git")
 		return err
+	}
+
+	// Check if we're on main/master branch (unless bypassed)
+	allowAnyBranch := viper.GetBool("app.version.allow_any_branch")
+	if cmd.Flags().Changed("allow-any-branch") {
+		allowAnyBranch, _ = cmd.Flags().GetBool("allow-any-branch")
+	}
+
+	if !allowAnyBranch {
+		currentBranch, err := git.GetCurrentBranch()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get current branch")
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+
+		if currentBranch != "main" && currentBranch != "master" {
+			err := fmt.Errorf("not on main/master branch (current: %s) - version bumps should typically be done on the main branch to maintain a clean release history. Use --allow-any-branch to bypass this check if you're working with release branches or have a different workflow", currentBranch)
+			log.Error().Err(err).Str("branch", currentBranch).Msg("Branch check failed")
+			return err
+		}
+		log.Debug().Str("branch", currentBranch).Msg("Branch check passed")
+	} else {
+		log.Debug().Msg("Branch check bypassed with --allow-any-branch flag")
 	}
 
 	// Check for uncommitted changes

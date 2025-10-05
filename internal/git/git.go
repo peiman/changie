@@ -58,6 +58,25 @@ func GetVersion() (string, error) {
 	return version, nil
 }
 
+// GetCurrentBranch returns the name of the current git branch.
+//
+// This function uses "git rev-parse --abbrev-ref HEAD" to get the current branch name.
+// This is a reliable way to get the branch name that works in all scenarios.
+//
+// Returns:
+//   - string: The name of the current branch
+//   - error: Any error encountered during the git operation
+func GetCurrentBranch() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch: %w (verify you're in a git repository)", err)
+	}
+
+	branch := strings.TrimSpace(string(output))
+	return branch, nil
+}
+
 // HasUncommittedChanges checks if there are any uncommitted changes in the repository.
 //
 // This function uses "git status --porcelain" to determine if there are any staged

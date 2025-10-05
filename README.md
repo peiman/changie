@@ -248,6 +248,7 @@ changie [major|minor|patch] [flags]
 - `--file`: Changelog file name (default: "CHANGELOG.md")
 - `--rrp`: Remote repository provider (github, bitbucket) (default: "github")
 - `--auto-push`: Automatically push changes and tags
+- `--allow-any-branch`: Allow version bumping on any branch (bypasses main/master branch check)
 
 #### Examples
 
@@ -255,7 +256,10 @@ changie [major|minor|patch] [flags]
 changie major
 changie minor --auto-push
 changie patch --file HISTORY.md
+changie minor --allow-any-branch  # For release branches or hotfixes
 ```
+
+**Note:** By default, version bump commands check that you're on the `main` or `master` branch. This is a best practice to maintain a clean release history. Use `--allow-any-branch` when you need to bump versions on other branches (e.g., release branches, hotfix branches).
 
 ---
 
