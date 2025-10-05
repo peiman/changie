@@ -313,10 +313,8 @@ func GetLatestChangelogVersion(content string) (string, error) {
 func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	// Check if the version starts with 'v' and remove it for semver validation
 	semverStr := version
-	hasVPrefix := false
 	if strings.HasPrefix(version, "v") {
 		semverStr = strings.TrimPrefix(version, "v")
-		hasVPrefix = true
 	}
 
 	// Validate the version using strict semver
@@ -361,11 +359,8 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 		linkPrefix = "https://github.com/user/repo/compare/"
 	}
 
-	// Determine tag format for links (add v prefix if not already there for links)
+	// Use the version as-is for tag links (respects the user's v-prefix preference)
 	tagVersion := version
-	if !hasVPrefix {
-		tagVersion = "v" + version
-	}
 
 	// Check if version link section exists at end of file
 	linkRegex := regexp.MustCompile(`\[Unreleased\]: .*`)

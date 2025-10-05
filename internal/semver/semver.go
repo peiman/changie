@@ -64,8 +64,9 @@ func FormatVersion(ver semver.Version, includePrefix bool) string {
 
 // BumpVersion increments a version number based on the bump type
 // Returns the new version string and an error if the version is invalid
-func BumpVersion(version string, bumpType BumpType, preservePrefix bool) (string, error) {
-	parsedVersion, hasPrefix, err := ParseVersion(version)
+// useVPrefix determines whether to add 'v' prefix to the output (true = add 'v', false = no prefix)
+func BumpVersion(version string, bumpType BumpType, useVPrefix bool) (string, error) {
+	parsedVersion, _, err := ParseVersion(version)
 	if err != nil {
 		return "", err
 	}
@@ -85,25 +86,33 @@ func BumpVersion(version string, bumpType BumpType, preservePrefix bool) (string
 		return "", ErrInvalidBump
 	}
 
-	// Format the result based on preservePrefix and original prefix
-	return FormatVersion(parsedVersion, preservePrefix && hasPrefix), nil
+	// Clear prerelease and build metadata per SemVer spec
+	// When a version is bumped, prerelease and build info should be removed
+	parsedVersion.Pre = nil
+	parsedVersion.Build = nil
+
+	// Format the result based on user's v-prefix preference
+	return FormatVersion(parsedVersion, useVPrefix), nil
 }
 
 // BumpMajor increments the major version number
 // This resets the minor and patch numbers to 0
-func BumpMajor(version string, preservePrefix bool) (string, error) {
-	return BumpVersion(version, Major, preservePrefix)
+// useVPrefix determines whether to add 'v' prefix to the output
+func BumpMajor(version string, useVPrefix bool) (string, error) {
+	return BumpVersion(version, Major, useVPrefix)
 }
 
 // BumpMinor increments the minor version number
 // This resets the patch number to 0
-func BumpMinor(version string, preservePrefix bool) (string, error) {
-	return BumpVersion(version, Minor, preservePrefix)
+// useVPrefix determines whether to add 'v' prefix to the output
+func BumpMinor(version string, useVPrefix bool) (string, error) {
+	return BumpVersion(version, Minor, useVPrefix)
 }
 
 // BumpPatch increments the patch version number
-func BumpPatch(version string, preservePrefix bool) (string, error) {
-	return BumpVersion(version, Patch, preservePrefix)
+// useVPrefix determines whether to add 'v' prefix to the output
+func BumpPatch(version string, useVPrefix bool) (string, error) {
+	return BumpVersion(version, Patch, useVPrefix)
 }
 
 // Compare compares two version strings and returns:

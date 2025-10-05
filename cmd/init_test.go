@@ -132,15 +132,6 @@ func TestRunInit(t *testing.T) {
 				}
 			}()
 
-			// Create existing file if needed
-			if tc.name == "File exists" {
-				fullPath := filepath.Join(tempDir, "CHANGELOG.md")
-				err := os.WriteFile(fullPath, []byte("existing content"), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create existing file: %v", err)
-				}
-			}
-
 			// Create a new root command for each test
 			rootCmd := &cobra.Command{Use: binaryName}
 			cmd := &cobra.Command{

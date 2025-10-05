@@ -76,10 +76,10 @@ func TestBumpMajor(t *testing.T) {
 			shouldFail:     false,
 		},
 		{
-			name:           "bump major without v prefix and preserve prefix",
+			name:           "bump major without v prefix but with useVPrefix=true",
 			version:        "1.2.3",
 			preservePrefix: true,
-			want:           "2.0.0",
+			want:           "v2.0.0",
 			shouldFail:     false,
 		},
 	}
@@ -167,10 +167,10 @@ func TestBumpMinor(t *testing.T) {
 			shouldFail:     false,
 		},
 		{
-			name:           "bump minor without v prefix and preserve prefix",
+			name:           "bump minor without v prefix but with useVPrefix=true",
 			version:        "1.2.3",
 			preservePrefix: true,
-			want:           "1.3.0",
+			want:           "v1.3.0",
 			shouldFail:     false,
 		},
 	}
@@ -239,11 +239,11 @@ func TestBumpPatch(t *testing.T) {
 			shouldFail:     true,
 		},
 		{
-			name:           "bump patch with special characters (invalid)",
+			name:           "bump patch with prerelease - metadata cleared per SemVer spec",
 			version:        "1.2.3-beta",
 			preservePrefix: false,
-			shouldFail:     false, // Changed to false, as we now handle prerelease identifiers
-			want:           "1.2.4-beta",
+			shouldFail:     false,
+			want:           "1.2.4",
 		},
 		{
 			name:           "bump patch with leading zeros (invalid)",
@@ -259,10 +259,10 @@ func TestBumpPatch(t *testing.T) {
 			shouldFail:     false,
 		},
 		{
-			name:           "bump patch without v prefix and preserve prefix",
+			name:           "bump patch without v prefix but with useVPrefix=true",
 			version:        "1.2.3",
 			preservePrefix: true,
-			want:           "1.2.4",
+			want:           "v1.2.4",
 			shouldFail:     false,
 		},
 	}
@@ -573,25 +573,25 @@ func TestBumpVersion(t *testing.T) {
 			want:           "1.2.4",
 		},
 		{
-			name:           "bump major with prerelease",
+			name:           "bump major with prerelease - metadata cleared per SemVer spec",
 			version:        "1.2.3-alpha.1",
 			bumpType:       Major,
 			preservePrefix: false,
-			want:           "2.0.0-alpha.1",
+			want:           "2.0.0",
 		},
 		{
-			name:           "bump major with build metadata",
+			name:           "bump major with build metadata - metadata cleared per SemVer spec",
 			version:        "1.2.3+build.123",
 			bumpType:       Major,
 			preservePrefix: false,
-			want:           "2.0.0+build.123",
+			want:           "2.0.0",
 		},
 		{
-			name:           "bump major with prerelease and build metadata",
+			name:           "bump major with prerelease and build metadata - metadata cleared per SemVer spec",
 			version:        "1.2.3-alpha.1+build.123",
 			bumpType:       Major,
 			preservePrefix: false,
-			want:           "2.0.0-alpha.1+build.123",
+			want:           "2.0.0",
 		},
 		{
 			name:           "invalid version",

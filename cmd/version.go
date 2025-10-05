@@ -161,17 +161,17 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	}
 
 	// Get the user's preference for 'v' prefix
-	preservePrefix := viper.GetBool("app.version.use_v_prefix")
+	useVPrefix := viper.GetBool("app.version.use_v_prefix")
 
 	// Bump version according to type
 	var newVersion string
 	switch bumpType {
 	case "major":
-		newVersion, err = semver.BumpMajor(currentVersion, preservePrefix)
+		newVersion, err = semver.BumpMajor(currentVersion, useVPrefix)
 	case "minor":
-		newVersion, err = semver.BumpMinor(currentVersion, preservePrefix)
+		newVersion, err = semver.BumpMinor(currentVersion, useVPrefix)
 	case "patch":
-		newVersion, err = semver.BumpPatch(currentVersion, preservePrefix)
+		newVersion, err = semver.BumpPatch(currentVersion, useVPrefix)
 	default:
 		err = fmt.Errorf("invalid bump type: %s - must be one of: major, minor, patch", bumpType)
 	}

@@ -11,14 +11,6 @@ package config
 func VersionOptions() []ConfigOption {
 	return []ConfigOption{
 		{
-			Key:          "app.version.tag_prefix",
-			DefaultValue: "v",
-			Description:  "Prefix for git version tags",
-			Type:         "string",
-			Required:     false,
-			Example:      "",
-		},
-		{
 			Key:          "app.version.auto_push",
 			DefaultValue: false,
 			Description:  "Automatically push changes and tags after version bump",
@@ -27,7 +19,7 @@ func VersionOptions() []ConfigOption {
 			Example:      "true",
 		},
 		{
-			Key:          "app.version.remote_repository_provider",
+			Key:          "app.changelog.repository_provider",
 			DefaultValue: "github",
 			Description:  "Remote repository provider (github, bitbucket, gitlab)",
 			Type:         "string",
