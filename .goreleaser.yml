@@ -216,35 +216,36 @@ release:
     brew install peiman/tap/changie
     ```
 
-    ### Snap (Linux)
-    ```bash
-    snap install changie
-    ```
-
-    ### APT (Debian/Ubuntu)
-    ```bash
-    echo 'deb [trusted=yes] https://apt.fury.io/peiman/ /' | sudo tee /etc/apt/sources.list.d/changie.list
-    sudo apt update
-    sudo apt install changie
-    ```
-
-    ### YUM/DNF (RedHat/Fedora/CentOS)
-    ```bash
-    echo '[changie]
-    name=changie
-    baseurl=https://yum.fury.io/peiman/
-    enabled=1
-    gpgcheck=0' | sudo tee /etc/yum.repos.d/changie.repo
-    sudo yum install changie
-    ```
-
     ### Go Install
     ```bash
     go install github.com/peiman/changie@latest
     ```
 
+    ### Linux Packages
+
+    **DEB (Debian/Ubuntu):**
+    ```bash
+    # Download and install
+    wget https://github.com/peiman/changie/releases/download/{{ .Tag }}/changie_{{ .Version }}_linux_amd64.deb
+    sudo dpkg -i changie_{{ .Version }}_linux_amd64.deb
+    ```
+
+    **RPM (RedHat/Fedora/CentOS):**
+    ```bash
+    # Download and install
+    wget https://github.com/peiman/changie/releases/download/{{ .Tag }}/changie_{{ .Version }}_linux_amd64.rpm
+    sudo rpm -i changie_{{ .Version }}_linux_amd64.rpm
+    ```
+
+    **APK (Alpine):**
+    ```bash
+    # Download and install
+    wget https://github.com/peiman/changie/releases/download/{{ .Tag }}/changie_{{ .Version }}_linux_amd64.apk
+    apk add --allow-untrusted changie_{{ .Version }}_linux_amd64.apk
+    ```
+
     ### Direct Download
-    Download the appropriate binary for your platform from the assets below.
+    Download the appropriate archive for your platform from the assets below, extract, and move the binary to your PATH.
   name_template: "Release {{.Version}}"
 
 # Announce to various platforms (optional)
