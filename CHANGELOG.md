@@ -9,40 +9,34 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ### Added
 
-- Ported to the [ckeletin-go](https://github.com/peiman/ckeletin-go) framework for improved structure, testability, and maintainability
-- Expanded test coverage for edge cases in version parsing and changelog modifications
-- Added comprehensive tests for handling unusual version formats and complex changelog structures
-- Interactive version prefix preference prompt when no git tags exist
+- Ported to [ckeletin-go](https://github.com/peiman/ckeletin-go) framework for better structure and testability
+- Branch protection with `--allow-any-branch` flag for version bump commands
+- Interactive version prefix prompt when no git tags exist
 - `--use-v-prefix` flag for explicit control over version tag format (v1.0.0 vs 1.0.0)
-- Support for complex version formats including prerelease and build metadata in changelog parsing
-- Comprehensive test suite with 588+ lines in semver tests and 385+ lines in changelog tests
-- Branch protection for version bump commands with --allow-any-branch flag to bypass main/master branch check
+- `--log-format` flag (auto, json, console) following zerolog best practices
+- `--log-caller` flag for debugging with file:line information
+- Component-specific sub-loggers (logger.Version, logger.Changelog, logger.Git, etc.)
+- golangci-lint configuration with 30+ linters
+- CLAUDE.md architecture guide for contributors
+- Automatic repository detection from git remote for changelog links
+- Comprehensive test coverage across all packages (325 tests total)
 
 ### Changed
 
-- Migrated from custom semver parsing to `blang/semver/v4` library for robust validation
-- Refactored semver package API with `ParseVersion`, `BumpVersion`, and `FormatVersion` functions
-- Enhanced init command to auto-detect and respect existing git tag conventions (v prefix)
-- Improved changelog validation with strict semver compliance
-- Updated git tag link generation to respect version prefix preferences
-- Simplified the way Changie retrieves the current version from Git, making it more reliable
-- Improved error messages for better clarity when Git operations fail
-- Enhanced debug messages to help users troubleshoot issues more effectively
-- Enhanced code documentation across all packages for better maintainability
-- Added comprehensive package-level documentation to improve developer onboarding
-- Improved function documentation with detailed parameter and return value descriptions
-- Enhanced error messages with specific troubleshooting suggestions and resolution steps
+- Migrated to `blang/semver/v4` library for semantic versioning
+- Refactored business logic from cmd/ to internal/ packages following Go best practices
+- Init command auto-detects and respects existing git tag conventions
+- Logger uses TTY detection for automatic JSON/console format selection
+- Updated golang.org/x/text to v0.29.0
+- Test coverage: overall 80.1%, cmd 82.3%, logger 97.0%, internal/version 74.6%
 
 ### Fixed
 
-- Init command tests now use real git repositories instead of file-based mocks for accurate behavior verification
-- Boolean flag parsing in tests corrected to use proper syntax
-- Restored automatic git commit and tag creation in init command (regression from v0.3.0) - init now creates v0.0.0 tag when no tags exist
-- Version prefix handling now correctly uses user preference (always add 'v' or never add 'v') instead of preserving input prefix
-- Semver bump operations now clear prerelease and build metadata per SemVer specification
-- Config key mismatch fixed: repository_provider now uses correct `app.changelog.repository_provider` key
-- Changelog comparison links now respect user's v-prefix preference
-- Removed dead code in init tests
+- Init command now creates v0.0.0 tag when no tags exist (regression from v0.3.0)
+- Version prefix handling now uses user preference consistently
+- Semver bump operations clear prerelease and build metadata per SemVer specification
+- Config key for repository_provider now uses correct `app.changelog.repository_provider`
+- Changelog comparison links respect user's v-prefix preference
 
 ## [0.9.1] - 2024-07-01
 
