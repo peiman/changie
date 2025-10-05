@@ -147,33 +147,33 @@ brews:
 #         command: changie
 #         plugs: ["home", "network", "removable-media"]
 
-# AUR (Arch User Repository) - requires separate setup
-# Note: This requires manual setup of the AUR repository
+# AUR (Arch User Repository) - DISABLED (requires AUR_PRIVATE_KEY)
+# Uncomment when you have AUR credentials set up
 # See: https://goreleaser.com/customization/aur/
-aurs:
-  - name: changie-bin
-    homepage: https://github.com/peiman/changie
-    description: "Professional changelog management CLI for SemVer projects"
-    maintainers:
-      - "Peiman Zabih <peiman at peimanzabih dot com>"
-    license: MIT
-    private_key: "{{ .Env.AUR_PRIVATE_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/changie-bin.git"
-    package: |-
-      # bin
-      install -Dm755 "./changie" "${pkgdir}/usr/bin/changie"
-
-      # license
-      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/changie/LICENSE"
-
-      # completions
-      mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
-      mkdir -p "${pkgdir}/usr/share/zsh/site-functions/"
-      mkdir -p "${pkgdir}/usr/share/fish/vendor_completions.d/"
-
-      install -Dm644 "./completions/changie.bash" "${pkgdir}/usr/share/bash-completion/completions/changie"
-      install -Dm644 "./completions/changie.zsh" "${pkgdir}/usr/share/zsh/site-functions/_changie"
-      install -Dm644 "./completions/changie.fish" "${pkgdir}/usr/share/fish/vendor_completions.d/changie.fish"
+# aurs:
+#   - name: changie-bin
+#     homepage: https://github.com/peiman/changie
+#     description: "Professional changelog management CLI for SemVer projects"
+#     maintainers:
+#       - "Peiman Zabih <peiman at peimanzabih dot com>"
+#     license: MIT
+#     private_key: "{{ .Env.AUR_PRIVATE_KEY }}"
+#     git_url: "ssh://aur@aur.archlinux.org/changie-bin.git"
+#     package: |-
+#       # bin
+#       install -Dm755 "./changie" "${pkgdir}/usr/bin/changie"
+#
+#       # license
+#       install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/changie/LICENSE"
+#
+#       # completions
+#       mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
+#       mkdir -p "${pkgdir}/usr/share/zsh/site-functions/"
+#       mkdir -p "${pkgdir}/usr/share/fish/vendor_completions.d/"
+#
+#       install -Dm644 "./completions/changie.bash" "${pkgdir}/usr/share/bash-completion/completions/changie"
+#       install -Dm644 "./completions/changie.zsh" "${pkgdir}/usr/share/zsh/site-functions/_changie"
+#       install -Dm644 "./completions/changie.fish" "${pkgdir}/usr/share/fish/vendor_completions.d/changie.fish"
 
 # nFPM (for deb, rpm, apk packages)
 nfpms:
