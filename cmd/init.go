@@ -3,9 +3,7 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -14,6 +12,7 @@ import (
 
 	"github.com/peiman/changie/internal/changelog"
 	"github.com/peiman/changie/internal/git"
+	"github.com/peiman/changie/internal/ui"
 )
 
 var initCmd = &cobra.Command{
@@ -46,22 +45,6 @@ func init() {
 
 	// Setup command configuration inheritance
 	setupCommandConfig(initCmd)
-}
-
-// askForVersionPrefix prompts the user for their version prefix preference
-func askForVersionPrefix(cmd *cobra.Command) bool {
-	fmt.Fprintf(cmd.OutOrStdout(), "No existing version tags found.\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "Would you like to use 'v' prefix for version tags? (e.g., v1.0.0 vs 1.0.0) [Y/n]: ")
-
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		log.Warn().Err(err).Msg("Error reading input, defaulting to use 'v' prefix")
-		return true
-	}
-
-	input = strings.TrimSpace(strings.ToLower(input))
-	return input == "" || input == "y" || input == "yes"
 }
 
 func runInit(cmd *cobra.Command, _ []string) error {
@@ -103,7 +86,12 @@ func runInit(cmd *cobra.Command, _ []string) error {
 			}
 		} else if currentVersion == "" && !explicitPrefixSet {
 			// No tags found and no explicit preference, ask user
-			useVPrefix = askForVersionPrefix(cmd)
+			fmt.Fprintf(cmd.OutOrStdout(), "No existing version tags found.\n")
+			result, err := ui.AskYesNo("Would you like to use 'v' prefix for version tags? (e.g., v1.0.0 vs 1.0.0)", true, cmd.OutOrStdout())
+			if err != nil {
+				log.Warn().Err(err).Msg("Error reading input, defaulting to use 'v' prefix")
+			}
+			useVPrefix = result
 		}
 	}
 

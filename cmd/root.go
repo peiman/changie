@@ -16,8 +16,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -38,66 +36,16 @@ var (
 	configFileUsed   string
 )
 
-// EnvPrefix returns a sanitized environment variable prefix based on the binary name
+// EnvPrefix returns a sanitized environment variable prefix based on the binary name.
+// This is a wrapper around config.EnvPrefix for backward compatibility.
 func EnvPrefix() string {
-	// Convert to uppercase and replace non-alphanumeric characters with underscore
-	prefix := strings.ToUpper(binaryName)
-	re := regexp.MustCompile(`[^A-Z0-9]`)
-	prefix = re.ReplaceAllString(prefix, "_")
-
-	// Ensure it doesn't start with a number (invalid for env vars)
-	if prefix != "" && prefix[0] >= '0' && prefix[0] <= '9' {
-		prefix = "_" + prefix
-	}
-
-	// Handle case where all characters were special and got replaced
-	re = regexp.MustCompile(`^_+$`)
-	if re.MatchString(prefix) {
-		prefix = "_"
-	}
-
-	return prefix
+	return config.EnvPrefix(binaryName)
 }
 
-// ConfigPaths returns standard paths and filenames for config files based on the binary name
-func ConfigPaths() struct {
-	// Default config name with dot prefix (e.g. ".changie")
-	DefaultName string
-	// Config file extension
-	Extension string
-	// Default full config name (e.g. ".changie.yaml")
-	DefaultFullName string
-	// Default config file with home directory (e.g. "$HOME/.changie.yaml")
-	DefaultPath string
-	// Default ignore pattern for gitignore (e.g. "changie.yaml")
-	IgnorePattern string
-} {
-	ext := "yaml"
-	defaultName := fmt.Sprintf(".%s", binaryName)
-	defaultFullName := fmt.Sprintf("%s.%s", defaultName, ext)
-
-	home, err := os.UserHomeDir()
-	defaultPath := defaultFullName // Fallback if home dir not available
-	if err == nil {
-		defaultPath = filepath.Join(home, defaultFullName)
-	}
-
-	// Used for .gitignore - without leading dot
-	ignorePattern := fmt.Sprintf("%s.%s", binaryName, ext)
-
-	return struct {
-		DefaultName     string
-		Extension       string
-		DefaultFullName string
-		DefaultPath     string
-		IgnorePattern   string
-	}{
-		DefaultName:     defaultName,
-		Extension:       ext,
-		DefaultFullName: defaultFullName,
-		DefaultPath:     defaultPath,
-		IgnorePattern:   ignorePattern,
-	}
+// ConfigPaths returns standard paths and filenames for config files based on the binary name.
+// This is a wrapper around config.DefaultPaths for backward compatibility.
+func ConfigPaths() config.PathsConfig {
+	return config.DefaultPaths(binaryName)
 }
 
 // RootCmd represents the base command when called without any subcommands.

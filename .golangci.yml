@@ -248,6 +248,11 @@ issues:
       linters:
         - gocyclo
 
+    # Allow complex version bump orchestration function (inherently complex workflow)
+    - path: internal/version/bump.go
+      linters:
+        - gocyclo
+
     # Allow complex init function (inherently complex workflow)
     - path: cmd/init.go
       linters:
