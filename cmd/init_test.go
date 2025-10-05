@@ -85,6 +85,24 @@ func TestRunInit(t *testing.T) {
 			wantMsg: "failed to initialize project",
 			wantErr: true,
 		},
+		{
+			name:       "creates initial git commit and tag when no tags exist",
+			args:       []string{},
+			mockGit:    true,
+			mockTags:   false, // No existing tags
+			hasVPrefix: true,
+			wantMsg:    "Project initialized with changelog file: CHANGELOG.md",
+			wantErr:    false,
+		},
+		{
+			name:       "creates initial git tag without v prefix when configured",
+			args:       []string{"--use-v-prefix=false"},
+			mockGit:    true,
+			mockTags:   false,
+			hasVPrefix: false,
+			wantMsg:    "Project initialized with changelog file: CHANGELOG.md",
+			wantErr:    false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -242,6 +260,30 @@ func TestRunInit(t *testing.T) {
 					expectedPrefix, _ := cmd.Flags().GetBool("use-v-prefix")
 					assert.Equal(t, expectedPrefix, viper.GetBool("app.version.use_v_prefix"),
 						"Version prefix preference should match flag value")
+				}
+
+				// Check for git operations when initializing in a repo with no tags
+				if tc.mockGit && !tc.mockTags && strings.Contains(tc.name, "creates initial") {
+					// Verify initial commit was created
+					logCmd := exec.Command("git", "log", "--oneline")
+					logCmd.Dir = tempDir
+					logOutput, err := logCmd.CombinedOutput()
+					assert.NoError(t, err, "Should be able to get git log")
+					assert.Contains(t, string(logOutput), "Update changelog for version 0.0.0",
+						"Should have created initial commit with changelog")
+
+					// Verify initial tag was created
+					tagCmd := exec.Command("git", "tag", "-l")
+					tagCmd.Dir = tempDir
+					tagOutput, err := tagCmd.CombinedOutput()
+					assert.NoError(t, err, "Should be able to list tags")
+
+					expectedTag := "v0.0.0"
+					if !tc.hasVPrefix {
+						expectedTag = "0.0.0"
+					}
+					assert.Contains(t, string(tagOutput), expectedTag,
+						"Should have created initial tag %s", expectedTag)
 				}
 			}
 		})

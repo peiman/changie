@@ -126,6 +126,34 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Project initialized with changelog file: %s\n", file)
+
+	// If git is available and there are no tags, create initial commit and tag
+	if git.IsInstalled() {
+		currentVersion, err := git.GetVersion()
+		if err == nil && currentVersion == "" {
+			// No tags exist, create initial commit and tag
+			log.Info().Msg("No version tags found, creating initial commit and tag")
+
+			// Add changelog file to git
+			if err := git.CommitChangelog(file, "0.0.0"); err != nil {
+				log.Warn().Err(err).Msg("Failed to create initial commit, continuing anyway")
+			} else {
+				// Create initial tag
+				initialTag := "0.0.0"
+				if useVPrefix {
+					initialTag = "v0.0.0"
+				}
+
+				if err := git.TagVersion(initialTag); err != nil {
+					log.Warn().Err(err).Str("tag", initialTag).Msg("Failed to create initial tag, continuing anyway")
+				} else {
+					fmt.Fprintf(cmd.OutOrStdout(), "Created initial git tag: %s\n", initialTag)
+					log.Info().Str("tag", initialTag).Msg("Created initial git tag")
+				}
+			}
+		}
+	}
+
 	log.Debug().Msg("runInit completed successfully")
 
 	return nil
