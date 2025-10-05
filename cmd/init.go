@@ -42,14 +42,9 @@ func init() {
 
 	// Add initCmd to RootCmd
 	RootCmd.AddCommand(initCmd)
-}
 
-func initInitConfig() {
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-
-	viper.SetDefault("app.changelog.file", "CHANGELOG.md")
-	viper.SetDefault("app.version.use_v_prefix", true)
+	// Setup command configuration inheritance
+	setupCommandConfig(initCmd)
 }
 
 // askForVersionPrefix prompts the user for their version prefix preference
@@ -70,7 +65,6 @@ func askForVersionPrefix(cmd *cobra.Command) bool {
 
 func runInit(cmd *cobra.Command, args []string) error {
 	log.Debug().Msg("Starting runInit execution")
-	initInitConfig()
 
 	file := viper.GetString("app.changelog.file")
 	if cmd.Flags().Changed("file") {

@@ -2,8 +2,6 @@ package semver
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/blang/semver/v4"

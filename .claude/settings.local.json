@@ -3,7 +3,10 @@
     "allow": [
       "Bash(go list:*)",
       "Bash(go test:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Read(//tmp/ckeletin-go/cmd/**)",
+      "Read(//private/tmp/ckeletin-go/scripts/**)",
+      "Read(//tmp/ckeletin-go/scripts/**)"
     ],
     "deny": [],
     "ask": []
