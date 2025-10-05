@@ -127,24 +127,25 @@ brews:
     test: |
       system "#{bin}/changie", "version"
 
-# Snapcraft (for Linux snap packages)
-snapcrafts:
-  - id: changie-snap
-    name: changie
-    summary: Professional changelog management CLI
-    description: |
-      changie is a professional changelog management CLI tool for SemVer projects
-      that follows the Keep a Changelog format. It helps automate version bumping,
-      changelog updates, and release workflows.
-    grade: stable
-    confinement: strict
-    license: MIT
-    base: core22
-    publish: false  # Set to true after setting up snapcraft credentials
-    apps:
-      changie:
-        command: changie
-        plugs: ["home", "network", "removable-media"]
+# Snapcraft (for Linux snap packages) - DISABLED for now
+# Uncomment when snapcraft is installed
+# snapcrafts:
+#   - id: changie-snap
+#     name: changie
+#     summary: Professional changelog management CLI
+#     description: |
+#       changie is a professional changelog management CLI tool for SemVer projects
+#       that follows the Keep a Changelog format. It helps automate version bumping,
+#       changelog updates, and release workflows.
+#     grade: stable
+#     confinement: strict
+#     license: MIT
+#     base: core22
+#     publish: false  # Set to true after setting up snapcraft credentials
+#     apps:
+#       changie:
+#         command: changie
+#         plugs: ["home", "network", "removable-media"]
 
 # AUR (Arch User Repository) - requires separate setup
 # Note: This requires manual setup of the AUR repository
