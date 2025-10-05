@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 
+## [v1.0.1] - 2025-10-06
+
 ### Fixed
 
 - Commit message format changed from 'Update changelog for version X.Y.Z' to 'Release X.Y.Z'
@@ -165,7 +167,8 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 - Initial project setup
 
-[Unreleased]: https://github.com/peiman/changie/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/peiman/changie/compare/v1.0.1...HEAD
+[v1.0.1]: https://github.com/peiman/changie/compare/...v1.0.1
 [v1.0.0]: https://github.com/peiman/changie/compare/...v1.0.0
 [0.9.1]: https://github.com/peiman/changie/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/peiman/changie/compare/v0.8.0...v0.9.0
