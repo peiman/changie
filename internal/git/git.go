@@ -117,7 +117,7 @@ func CommitChangelog(file, version string) error {
 	}
 
 	// Commit the changes
-	commitMsg := fmt.Sprintf("Update changelog for version %s", version)
+	commitMsg := fmt.Sprintf("Release %s", version)
 	cmd = exec.Command("git", "commit", "-m", commitMsg)
 	err = cmd.Run()
 	if err != nil {

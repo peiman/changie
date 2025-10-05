@@ -260,7 +260,7 @@ func TestRunInit(t *testing.T) {
 					logCmd.Dir = tempDir
 					logOutput, err := logCmd.CombinedOutput()
 					assert.NoError(t, err, "Should be able to get git log")
-					assert.Contains(t, string(logOutput), "Update changelog for version 0.0.0",
+					assert.Contains(t, string(logOutput), "Release 0.0.0",
 						"Should have created initial commit with changelog")
 
 					// Verify initial tag was created
