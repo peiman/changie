@@ -166,17 +166,26 @@ Changie includes an **official MCP server** that exposes changelog operations as
 
 **Option 1: Build from source**
 ```bash
-go build -o changie-mcp-server ./cmd/mcp-server
+# Build MCP server binary
+task build:mcp
+
+# Run server
 ./changie-mcp-server
 ```
 
-**Option 2: Docker**
+**Option 2: Docker (Recommended)**
 ```bash
-# Build image
-docker build -f Dockerfile.mcp -t changie-mcp .
+# Build Docker image
+task docker:build:mcp
 
 # Run server
-docker run -i changie-mcp
+task docker:run:mcp
+
+# Test image
+task docker:test:mcp
+
+# Clean up
+task docker:clean:mcp
 ```
 
 **Option 3: With Claude Desktop**

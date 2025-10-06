@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - examples/ directory with comprehensive usage scripts for basic workflows, CI/CD integration, and release strategies
 - .ai/ directory with AI agent resources, prompts, workflows, and MCP integration guidance
 - feat: add MCP server for AI agent integration with official Go SDK v1.0.0
+- chore: add Task commands for MCP Docker operations (build, run, test, clean)
 
 ### Fixed
 
