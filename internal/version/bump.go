@@ -35,6 +35,24 @@ type BumpConfig struct {
 	UseVPrefix bool
 }
 
+// BumpResult holds the result of a version bump operation.
+type BumpResult struct {
+	// OldVersion is the version before bumping
+	OldVersion string
+
+	// NewVersion is the version after bumping
+	NewVersion string
+
+	// BumpType is the type of bump performed ("major", "minor", "patch")
+	BumpType string
+
+	// ChangelogFile is the path to the changelog file that was updated
+	ChangelogFile string
+
+	// Pushed indicates whether changes were automatically pushed to remote
+	Pushed bool
+}
+
 // Bump performs a complete version bump workflow.
 //
 // The workflow includes:
@@ -52,15 +70,16 @@ type BumpConfig struct {
 //   - output: Writer for user-facing output messages
 //
 // Returns:
+//   - *BumpResult: Result of the bump operation (nil if error occurred)
 //   - error: Any error encountered during the workflow
-func Bump(cfg BumpConfig, output io.Writer) error {
+func Bump(cfg BumpConfig, output io.Writer) (*BumpResult, error) {
 	logger.Version.Debug().Str("type", cfg.BumpType).Msg("Starting version bump")
 
 	// Check if git is installed
 	if !git.IsInstalled() {
 		err := fmt.Errorf("git is not installed or not available in PATH - please install Git (https://git-scm.com/downloads) and ensure it's in your system PATH")
 		logger.Version.Error().Err(err).Msg("Failed to run git")
-		return err
+		return nil, err
 	}
 
 	// Check if we're on main/master branch (unless bypassed)
@@ -68,13 +87,13 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 		currentBranch, err := git.GetCurrentBranch()
 		if err != nil {
 			logger.Version.Error().Err(err).Msg("Failed to get current branch")
-			return fmt.Errorf("failed to get current branch: %w", err)
+			return nil, fmt.Errorf("failed to get current branch: %w", err)
 		}
 
 		if currentBranch != "main" && currentBranch != "master" {
 			err := fmt.Errorf("not on main/master branch (current: %s) - version bumps should typically be done on the main branch to maintain a clean release history. Use --allow-any-branch to bypass this check if you're working with release branches or have a different workflow", currentBranch)
 			logger.Version.Error().Err(err).Str("branch", currentBranch).Msg("Branch check failed")
-			return err
+			return nil, err
 		}
 		logger.Version.Debug().Str("branch", currentBranch).Msg("Branch check passed")
 	} else {
@@ -85,20 +104,20 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	hasUncommittedChanges, err := git.HasUncommittedChanges()
 	if err != nil {
 		logger.Version.Error().Err(err).Msg("Failed to check for uncommitted changes")
-		return fmt.Errorf("failed to check for uncommitted changes: %w", err)
+		return nil, fmt.Errorf("failed to check for uncommitted changes: %w", err)
 	}
 
 	if hasUncommittedChanges {
 		err := fmt.Errorf("uncommitted changes found - run 'git status' to see changed files, then either commit changes with 'git commit' or stash them with 'git stash' before bumping version")
 		logger.Version.Error().Err(err).Msg("Failed to bump version")
-		return err
+		return nil, err
 	}
 
 	// Get current version from git
 	currentVersion, err := git.GetVersion()
 	if err != nil {
 		logger.Version.Error().Err(err).Msg("Failed to get current version from git")
-		return fmt.Errorf("failed to get current version: %w - ensure you're in a git repository with at least one tag, or initialize with 'git tag v0.0.0'", err)
+		return nil, fmt.Errorf("failed to get current version: %w - ensure you're in a git repository with at least one tag, or initialize with 'git tag v0.0.0'", err)
 	}
 
 	// Log current version
@@ -124,7 +143,7 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 
 	if err != nil {
 		logger.Version.Error().Err(err).Str("type", cfg.BumpType).Str("current_version", currentVersion).Msg("Failed to bump version")
-		return fmt.Errorf("failed to bump version: %w - check if the current version (%s) is a valid semantic version in the format X.Y.Z", err, currentVersion)
+		return nil, fmt.Errorf("failed to bump version: %w - check if the current version (%s) is a valid semantic version in the format X.Y.Z", err, currentVersion)
 	}
 
 	fmt.Fprintf(output, "New version: %s\n", newVersion)
@@ -134,14 +153,14 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	err = changelog.UpdateChangelog(cfg.ChangelogFile, newVersion, cfg.RepositoryProvider)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("file", cfg.ChangelogFile).Str("version", newVersion).Msg("Failed to update changelog")
-		return fmt.Errorf("failed to update changelog: %w - verify that '%s' exists and follows the Keep a Changelog format", err, cfg.ChangelogFile)
+		return nil, fmt.Errorf("failed to update changelog: %w - verify that '%s' exists and follows the Keep a Changelog format", err, cfg.ChangelogFile)
 	}
 
 	// Commit changes
 	err = git.CommitChangelog(cfg.ChangelogFile, newVersion)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("file", cfg.ChangelogFile).Str("version", newVersion).Msg("Failed to commit changelog")
-		return fmt.Errorf("failed to commit changelog: %w - ensure git is properly configured and you have permissions to commit changes", err)
+		return nil, fmt.Errorf("failed to commit changelog: %w - ensure git is properly configured and you have permissions to commit changes", err)
 	}
 
 	// Tag version
@@ -149,24 +168,35 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	err = git.TagVersion(newVersion)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("version", newVersion).Msg("Failed to tag version")
-		return fmt.Errorf("failed to tag version: %w - check if the tag already exists (use 'git tag' to list existing tags)", err)
+		return nil, fmt.Errorf("failed to tag version: %w - check if the tag already exists (use 'git tag' to list existing tags)", err)
 	}
 
 	fmt.Fprintf(output, "%s release %s done.\n", cfg.BumpType, newVersion)
 
 	// Auto-push if enabled
+	pushed := false
 	if cfg.AutoPush {
 		fmt.Fprintf(output, "Pushing changes and tags...\n")
 		err = git.PushChanges()
 		if err != nil {
 			logger.Version.Error().Err(err).Msg("Failed to push changes")
-			return fmt.Errorf("failed to push changes: %w - check network connection and remote repository permissions", err)
+			return nil, fmt.Errorf("failed to push changes: %w - check network connection and remote repository permissions", err)
 		}
 		fmt.Fprintf(output, "Automatically pushed changes and tags to remote repository.\n")
+		pushed = true
 	} else {
 		fmt.Fprintf(output, "Don't forget to git push and git push --tags.\n")
 	}
 
 	logger.Version.Debug().Str("type", cfg.BumpType).Str("version", newVersion).Msg("Version bump completed successfully")
-	return nil
+
+	result := &BumpResult{
+		OldVersion:    currentVersion,
+		NewVersion:    newVersion,
+		BumpType:      cfg.BumpType,
+		ChangelogFile: cfg.ChangelogFile,
+		Pushed:        pushed,
+	}
+
+	return result, nil
 }

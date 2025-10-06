@@ -107,6 +107,11 @@ func init() {
 	if err := viper.BindPFlag("app.log_caller", RootCmd.PersistentFlags().Lookup("log-caller")); err != nil {
 		log.Fatal().Err(err).Msg("Failed to bind 'log-caller'")
 	}
+
+	RootCmd.PersistentFlags().Bool("json", false, "Output results in JSON format")
+	if err := viper.BindPFlag("app.json_output", RootCmd.PersistentFlags().Lookup("json")); err != nil {
+		log.Fatal().Err(err).Msg("Failed to bind 'json'")
+	}
 }
 
 func initConfig() error {

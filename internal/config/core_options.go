@@ -36,5 +36,13 @@ func CoreOptions() []ConfigOption {
 			Required:     false,
 			Example:      "true",
 		},
+		{
+			Key:          "app.json_output",
+			DefaultValue: false,
+			Description:  "Output command results in JSON format for machine consumption",
+			Type:         "bool",
+			Required:     false,
+			Example:      "true",
+		},
 	}
 }

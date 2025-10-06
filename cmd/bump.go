@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/peiman/changie/internal/output"
 	"github.com/peiman/changie/internal/version"
 )
 
@@ -182,5 +183,27 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	}
 
 	// Delegate to the version package
-	return version.Bump(cfg, cmd.OutOrStdout())
+	result, err := version.Bump(cfg, cmd.OutOrStdout())
+
+	// If JSON output is requested, output structured result
+	if output.IsJSONEnabled() {
+		jsonOutput := output.BumpOutput{
+			Success:       err == nil,
+			BumpType:      bumpType,
+			ChangelogFile: file,
+		}
+
+		if err != nil {
+			jsonOutput.Error = err.Error()
+		} else if result != nil {
+			jsonOutput.OldVersion = result.OldVersion
+			jsonOutput.NewVersion = result.NewVersion
+			jsonOutput.Tag = result.NewVersion
+			jsonOutput.Pushed = result.Pushed
+		}
+
+		return output.WriteJSON(cmd.OutOrStdout(), jsonOutput)
+	}
+
+	return err
 }

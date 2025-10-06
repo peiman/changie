@@ -6,7 +6,8 @@
       "Bash(git fetch:*)",
       "Read(//tmp/ckeletin-go/cmd/**)",
       "Read(//private/tmp/ckeletin-go/scripts/**)",
-      "Read(//tmp/ckeletin-go/scripts/**)"
+      "Read(//tmp/ckeletin-go/scripts/**)",
+      "Bash(go run:*)"
     ],
     "deny": [],
     "ask": []
