@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 - llms.txt file for LLM-optimized documentation and MCP integration
 - JSON output support with --json flag for machine-readable command results
+- examples/ directory with comprehensive usage scripts for basic workflows, CI/CD integration, and release strategies
 
 ### Fixed
 
