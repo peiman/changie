@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 
+## [v1.1.0] - 2025-10-06
+
 ### Changed
 
 - Restructured version bump commands under 'bump' parent command (changie major → changie bump major)
@@ -184,7 +186,8 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 - Initial project setup
 
-[Unreleased]: https://github.com/peiman/changie/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/peiman/changie/compare/v1.1.0...HEAD
+[v1.1.0]: https://github.com/peiman/changie/compare/v1.0.2...v1.1.0
 [v1.0.2]: https://github.com/peiman/changie/compare/v1.0.1...v1.0.2
 [v1.0.1]: https://github.com/peiman/changie/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/peiman/changie/compare/v0.9.1...v1.0.0
