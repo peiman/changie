@@ -19,8 +19,7 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 ### Fixed
 
 - Table of contents in README.md now correctly references 'bump' command
-
-
+- fix: update Dockerfile.mcp to use golang:1.24-alpine for Go 1.24.0 compatibility
 
 ### Changed
 

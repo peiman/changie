@@ -2,7 +2,7 @@
 # This Dockerfile builds both the changie CLI and the MCP server in a minimal container
 
 # Stage 1: Build Go binaries
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git make
