@@ -3,6 +3,9 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +13,46 @@ import (
 
 	"github.com/peiman/changie/internal/output"
 )
+
+var (
+	changieBinary  string
+	changieTestDir string
+)
+
+// TestMain builds the changie binary once for all integration tests
+func TestMain(m *testing.M) {
+	// Create temp directory for test binary
+	tmpDir, err := os.MkdirTemp("", "changie-test-bin-*")
+	if err != nil {
+		panic(err)
+	}
+
+	changieTestDir = tmpDir
+	changieBinary = filepath.Join(tmpDir, "changie")
+
+	// Build changie binary
+	projectRoot, err := filepath.Abs("../..")
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		panic(err)
+	}
+
+	cmd := exec.Command("go", "build", "-o", changieBinary, projectRoot)
+	if err := cmd.Run(); err != nil {
+		// Binary build failed - tests will skip integration tests
+		changieBinary = ""
+	} else {
+		// Add binary directory to PATH
+		os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	}
+
+	// Run tests
+	code := m.Run()
+
+	// Cleanup
+	os.RemoveAll(tmpDir)
+	os.Exit(code)
+}
 
 func TestBumpVersionInput(t *testing.T) {
 	tests := []struct {
