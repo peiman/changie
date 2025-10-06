@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 - Changelog comparison links now include previous version (e.g., [1.0.0]: .../v0.9.0...v1.0.0 instead of [1.0.0]: .../...v1.0.0)
 
+
+### Changed
+
+- Refactored AddChangelogSection to reduce cyclomatic complexity from 19 to below 15
+
+
 ## [v1.0.1] - 2025-10-06
 
 ### Fixed

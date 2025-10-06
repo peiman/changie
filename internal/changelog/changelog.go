@@ -101,198 +101,160 @@ func InitProject(filePath string) error {
 //   - bool: true if the entry already existed (duplicate), false if added successfully
 //   - error: Any error encountered during file operations or if section is invalid
 func AddChangelogSection(filePath, section, content string) (bool, error) {
-	// Validate section
 	if !ValidSections[section] {
-		validSectionsList := "Added, Changed, Deprecated, Removed, Fixed, Security"
-		return false, fmt.Errorf("invalid section: %s, must be one of: %s (section names are case-sensitive)", section, validSectionsList)
+		return false, fmt.Errorf("invalid section: %s, must be one of: Added, Changed, Deprecated, Removed, Fixed, Security (section names are case-sensitive)", section)
 	}
 
-	// Read the current changelog file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return false, fmt.Errorf("failed to read changelog file: %w (check if '%s' exists and you have read permissions)", err, filePath)
 	}
 
-	fileContent := string(data)
-
-	// Split the content into lines
-	lines := strings.Split(fileContent, "\n")
-
-	// Find the Unreleased section
-	unreleasedHeader := "## [Unreleased]"
-	unreleasedIndex := -1
-
-	for i, line := range lines {
-		if strings.TrimSpace(line) == unreleasedHeader {
-			unreleasedIndex = i
-			break
-		}
-	}
-
+	lines := strings.Split(string(data), "\n")
+	unreleasedIndex := findUnreleasedSection(lines)
 	if unreleasedIndex == -1 {
 		return false, fmt.Errorf("unreleased section not found in changelog (ensure the file follows the Keep a Changelog format with an '## [Unreleased]' section)")
 	}
 
-	// Find the appropriate section header
 	sectionHeader := fmt.Sprintf("### %s", section)
-	sectionFound := false
-	sectionIndex := -1
+	sectionIndex, nextMajorIndex := findSection(lines, unreleasedIndex, sectionHeader)
 
-	// Define the boundary of our search (from Unreleased to the next major section)
-	nextMajorSectionIndex := len(lines)
+	if sectionIndex == -1 {
+		return false, createNewSection(filePath, lines, unreleasedIndex, nextMajorIndex, sectionHeader, content)
+	}
+
+	return addToExistingSection(filePath, lines, sectionIndex, nextMajorIndex, content)
+}
+
+func findUnreleasedSection(lines []string) int {
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "## [Unreleased]" {
+			return i
+		}
+	}
+	return -1
+}
+
+func findSection(lines []string, unreleasedIndex int, sectionHeader string) (sectionIndex, nextMajorIndex int) {
+	sectionIndex = -1
+	nextMajorIndex = len(lines)
+
 	for i := unreleasedIndex + 1; i < len(lines); i++ {
 		trimmedLine := strings.TrimSpace(lines[i])
 		if strings.HasPrefix(trimmedLine, "## ") {
-			nextMajorSectionIndex = i
+			nextMajorIndex = i
 			break
 		}
-
-		// Check if this is our section
 		if trimmedLine == sectionHeader {
-			sectionFound = true
 			sectionIndex = i
 		}
 	}
+	return sectionIndex, nextMajorIndex
+}
 
-	// If section is not found, we need to create it
-	if !sectionFound {
-		// Create a new section
-		// First, find where to insert it - right after Unreleased or after the last existing section
-
-		// Find the last section within Unreleased
-		lastSectionIndex := unreleasedIndex
-		for i := unreleasedIndex + 1; i < nextMajorSectionIndex; i++ {
-			trimmedLine := strings.TrimSpace(lines[i])
-			if strings.HasPrefix(trimmedLine, "### ") {
-				lastSectionIndex = i
-			}
-		}
-
-		// Create a result array with the new section
-		result := make([]string, 0, len(lines)+5) // Allocate extra space
-
-		// Add everything up to and including the last section (or Unreleased if no sections)
-		result = append(result, lines[:lastSectionIndex+1]...)
-
-		// If we're adding after an existing section, preserve proper spacing
-		if lastSectionIndex > unreleasedIndex {
-			// Find the end of the last section
-			lastSectionEndIndex := nextMajorSectionIndex
-			for i := lastSectionIndex + 1; i < nextMajorSectionIndex; i++ {
-				if strings.HasPrefix(strings.TrimSpace(lines[i]), "### ") {
-					lastSectionEndIndex = i
-					break
-				}
-			}
-
-			// Include content of the last section
-			if lastSectionEndIndex > lastSectionIndex+1 {
-				result = append(result, lines[lastSectionIndex+1:lastSectionEndIndex]...)
-			}
-
-			// Add one newline, then our new section
-			result = append(result, "", sectionHeader)
-		} else {
-			// Adding right after Unreleased, add a newline then our section
-			result = append(result, "", sectionHeader)
-		}
-
-		// Add our new entry
-		result = append(result, "", fmt.Sprintf("- %s", content))
-
-		// Add the rest of the file
-		if nextMajorSectionIndex < len(lines) {
-			// Add a blank line before the next section
-			result = append(result, "")
-			// Then add the rest of the lines
-			result = append(result, lines[nextMajorSectionIndex:]...)
-		}
-
-		// Write the updated content back to the file
-		err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
-		if err != nil {
-			return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
-		}
-
-		return false, nil
-	}
-
-	// Section exists, check if content already exists
-	newEntry := fmt.Sprintf("- %s", content)
-	isDuplicate := false
-
-	// Find the boundaries of this section
-	nextSectionIndex := nextMajorSectionIndex
-	for i := sectionIndex + 1; i < nextMajorSectionIndex; i++ {
+func createNewSection(filePath string, lines []string, unreleasedIndex, nextMajorIndex int, sectionHeader, content string) error {
+	lastSectionIndex := unreleasedIndex
+	for i := unreleasedIndex + 1; i < nextMajorIndex; i++ {
 		if strings.HasPrefix(strings.TrimSpace(lines[i]), "### ") {
-			nextSectionIndex = i
-			break
+			lastSectionIndex = i
 		}
 	}
 
-	// Check entries in this section (until next section or end)
-	for i := sectionIndex + 1; i < nextSectionIndex; i++ {
-		line := strings.TrimSpace(lines[i])
-		if line == newEntry {
-			isDuplicate = true
-			break
+	result := make([]string, 0, len(lines)+5)
+	result = append(result, lines[:lastSectionIndex+1]...)
+
+	if lastSectionIndex > unreleasedIndex {
+		lastSectionEndIndex := findSectionEnd(lines, lastSectionIndex, nextMajorIndex)
+		if lastSectionEndIndex > lastSectionIndex+1 {
+			result = append(result, lines[lastSectionIndex+1:lastSectionEndIndex]...)
 		}
+		result = append(result, "", sectionHeader)
+	} else {
+		result = append(result, "", sectionHeader)
 	}
 
-	if isDuplicate {
+	result = append(result, "", fmt.Sprintf("- %s", content))
+
+	if nextMajorIndex < len(lines) {
+		result = append(result, "", "")
+		result = append(result, lines[nextMajorIndex:]...)
+	}
+
+	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
+	}
+	return nil
+}
+
+func findSectionEnd(lines []string, sectionIndex, nextMajorIndex int) int {
+	for i := sectionIndex + 1; i < nextMajorIndex; i++ {
+		if strings.HasPrefix(strings.TrimSpace(lines[i]), "### ") {
+			return i
+		}
+	}
+	return nextMajorIndex
+}
+
+func addToExistingSection(filePath string, lines []string, sectionIndex, nextMajorIndex int, content string) (bool, error) {
+	newEntry := fmt.Sprintf("- %s", content)
+	nextSectionIndex := findSectionEnd(lines, sectionIndex, nextMajorIndex)
+
+	if isDuplicate(lines, sectionIndex, nextSectionIndex, newEntry) {
 		return true, nil
 	}
 
-	// Create a result with the new entry
-	result := make([]string, 0, len(lines)+2) // Allocate space for potential new lines
-
-	// Copy all lines up to and including the section header
+	result := make([]string, 0, len(lines)+2)
 	result = append(result, lines[:sectionIndex+1]...)
 
-	// Check if there's any content in this section
-	hasContent := false
-	for i := sectionIndex + 1; i < nextSectionIndex; i++ {
-		if strings.TrimSpace(lines[i]) != "" && !strings.HasPrefix(strings.TrimSpace(lines[i]), "###") {
-			hasContent = true
-			break
-		}
-	}
-
-	if hasContent {
-		// Existing content found, add our entry after the last content line
-		lastContentLine := sectionIndex
-		for i := sectionIndex + 1; i < nextSectionIndex; i++ {
-			trimmedLine := strings.TrimSpace(lines[i])
-			if trimmedLine != "" && !strings.HasPrefix(trimmedLine, "###") && !strings.HasPrefix(trimmedLine, "##") {
-				lastContentLine = i
-			}
-		}
-
-		// Add everything up to the last content line
+	if hasContent(lines, sectionIndex, nextSectionIndex) {
+		lastContentLine := findLastContentLine(lines, sectionIndex, nextSectionIndex)
 		result = append(result, lines[sectionIndex+1:lastContentLine+1]...)
-
-		// Add the new entry after the last content
 		result = append(result, newEntry)
 	} else {
-		// No content in this section, add a blank line after header
 		result = append(result, "", newEntry)
 	}
 
-	// Add the rest of the file with proper spacing
 	if nextSectionIndex < len(lines) {
-		// Add a blank line before the next section
 		result = append(result, "")
-		// Then add the rest of the lines
 		result = append(result, lines[nextSectionIndex:]...)
 	}
 
-	// Write the updated content back to the file
-	err = os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
+	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
 	if err != nil {
 		return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 	}
-
 	return false, nil
+}
+
+func isDuplicate(lines []string, sectionIndex, nextSectionIndex int, newEntry string) bool {
+	for i := sectionIndex + 1; i < nextSectionIndex; i++ {
+		if strings.TrimSpace(lines[i]) == newEntry {
+			return true
+		}
+	}
+	return false
+}
+
+func hasContent(lines []string, sectionIndex, nextSectionIndex int) bool {
+	for i := sectionIndex + 1; i < nextSectionIndex; i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed != "" && !strings.HasPrefix(trimmed, "###") {
+			return true
+		}
+	}
+	return false
+}
+
+func findLastContentLine(lines []string, sectionIndex, nextSectionIndex int) int {
+	lastContentLine := sectionIndex
+	for i := sectionIndex + 1; i < nextSectionIndex; i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed != "" && !strings.HasPrefix(trimmed, "###") && !strings.HasPrefix(trimmed, "##") {
+			lastContentLine = i
+		}
+	}
+	return lastContentLine
 }
 
 // GetLatestChangelogVersion finds the latest version in the changelog.
