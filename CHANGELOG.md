@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- Changelog comparison links now include previous version (e.g., [1.0.0]: .../v0.9.0...v1.0.0 instead of [1.0.0]: .../...v1.0.0)
+
 ## [v1.0.1] - 2025-10-06
 
 ### Fixed
@@ -168,8 +172,8 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - Initial project setup
 
 [Unreleased]: https://github.com/peiman/changie/compare/v1.0.1...HEAD
-[v1.0.1]: https://github.com/peiman/changie/compare/...v1.0.1
-[v1.0.0]: https://github.com/peiman/changie/compare/...v1.0.0
+[v1.0.1]: https://github.com/peiman/changie/compare/v1.0.0...v1.0.1
+[v1.0.0]: https://github.com/peiman/changie/compare/v0.9.1...v1.0.0
 [0.9.1]: https://github.com/peiman/changie/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/peiman/changie/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/peiman/changie/compare/v0.7.0...v0.8.0

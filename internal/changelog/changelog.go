@@ -396,18 +396,74 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	// Use the version as-is for tag links (respects the user's v-prefix preference)
 	tagVersion := version
 
-	// Check if version link section exists at end of file
-	linkRegex := regexp.MustCompile(`\[Unreleased\]: .*`)
-	if linkRegex.MatchString(content) {
-		// Update existing links
-		content = linkRegex.ReplaceAllString(content, fmt.Sprintf(`[Unreleased]: %s%s...HEAD
-[%s]: %s...%s`, linkPrefix, tagVersion, version, linkPrefix, tagVersion))
-	} else {
-		// Add new links section
-		content += fmt.Sprintf(`
+	// Find the previous version by looking at version headers in the changelog
+	// The previous version is the first version header after our new version
+	versionHeaderRegex := regexp.MustCompile(`## \[([^\]]+)\] - `)
+	versionMatches := versionHeaderRegex.FindAllStringSubmatch(content, -1)
+	var previousVersion string
 
-[Unreleased]: %s%s...HEAD
-[%s]: %s...%s`, linkPrefix, tagVersion, version, linkPrefix, tagVersion)
+	for i, match := range versionMatches {
+		if len(match) >= 2 && match[1] == version {
+			// Found our new version, check if there's a next one (which is the previous release)
+			if i+1 < len(versionMatches) {
+				nextMatch := versionMatches[i+1]
+				if nextMatch[1] != "Unreleased" {
+					previousVersion = nextMatch[1]
+				}
+			}
+			break
+		}
+	}
+
+	// Find where the links section starts
+	linksRegex := regexp.MustCompile(`(?m)^\[.+?\]: .+$`)
+	linksMatches := linksRegex.FindAllStringIndex(content, -1)
+
+	// Build the new version link
+	var newVersionLink string
+	if previousVersion != "" {
+		// Link to comparison with previous version
+		newVersionLink = fmt.Sprintf("[%s]: %s%s...%s", version, linkPrefix, previousVersion, tagVersion)
+	} else {
+		// First release - link to releases/tag instead of comparison
+		baseURL := strings.TrimSuffix(linkPrefix, "/compare/")
+		newVersionLink = fmt.Sprintf("[%s]: %s/releases/tag/%s", version, baseURL, tagVersion)
+	}
+
+	// Build new links section
+	newUnreleasedLink := fmt.Sprintf("[Unreleased]: %s%s...HEAD", linkPrefix, tagVersion)
+
+	if len(linksMatches) > 0 {
+		// Extract existing links section and preserve non-Unreleased links
+		existingLinksStart := linksMatches[0][0]
+		linksSection := content[existingLinksStart:]
+
+		// Split into individual link lines and filter
+		linkLines := strings.Split(linksSection, "\n")
+		var otherLinks []string
+		for _, line := range linkLines {
+			trimmed := strings.TrimSpace(line)
+			// Keep links that are not Unreleased and not the new version
+			if trimmed != "" && !strings.HasPrefix(trimmed, "[Unreleased]:") && !strings.HasPrefix(trimmed, "["+version+"]:") {
+				otherLinks = append(otherLinks, trimmed)
+			}
+		}
+
+		// Build new links section: Unreleased, new version, then all existing links
+		var linksBuilder strings.Builder
+		linksBuilder.WriteString(newUnreleasedLink)
+		linksBuilder.WriteString("\n")
+		linksBuilder.WriteString(newVersionLink)
+		if len(otherLinks) > 0 {
+			linksBuilder.WriteString("\n")
+			linksBuilder.WriteString(strings.Join(otherLinks, "\n"))
+		}
+
+		// Replace the entire links section
+		content = strings.TrimRight(content[:existingLinksStart], "\n") + "\n\n" + linksBuilder.String()
+	} else {
+		// No existing links, add new section
+		content = strings.TrimRight(content, "\n") + "\n\n" + newUnreleasedLink + "\n" + newVersionLink
 	}
 
 	// Write the updated content back to the file

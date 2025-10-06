@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestInitProject(t *testing.T) {
@@ -600,6 +601,182 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 			}
 		})
 	}
+}
+
+// TestUpdateChangelogLinkFormat specifically tests that comparison links include previous versions
+func TestUpdateChangelogLinkFormat(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "changelog-link-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	testCases := []struct {
+		name            string
+		initialContent  string
+		version         string
+		previousVersion string
+		description     string
+		isFirstRelease  bool
+	}{
+		{
+			name: "First release uses releases tag format",
+			initialContent: `# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Initial feature
+`,
+			version:        "1.0.0",
+			isFirstRelease: true,
+			description:    "First release should link to releases/tag, not compare",
+		},
+		{
+			name: "Second release compares with first",
+			initialContent: `# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- New feature
+
+## [1.0.0] - 2023-01-01
+
+### Added
+
+- Initial release
+
+[Unreleased]: https://github.com/peiman/changie/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/peiman/changie/releases/tag/1.0.0
+`,
+			version:         "2.0.0",
+			previousVersion: "1.0.0",
+			isFirstRelease:  false,
+			description:     "Second release should compare with previous version 1.0.0",
+		},
+		{
+			name: "Third release with v-prefix compares with second",
+			initialContent: `# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Fixed
+
+- Bug fix
+
+## [v2.0.0] - 2023-06-01
+
+### Added
+
+- New feature
+
+## [v1.0.0] - 2023-01-01
+
+### Added
+
+- Initial release
+
+[Unreleased]: https://github.com/peiman/changie/compare/v2.0.0...HEAD
+[v2.0.0]: https://github.com/peiman/changie/compare/v1.0.0...v2.0.0
+[v1.0.0]: https://github.com/peiman/changie/releases/tag/v1.0.0
+`,
+			version:         "v3.0.0",
+			previousVersion: "v2.0.0",
+			isFirstRelease:  false,
+			description:     "Third release with v-prefix should compare with previous v2.0.0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testFile := filepath.Join(tempDir, fmt.Sprintf("CHANGELOG_%d.md", time.Now().UnixNano()))
+			if err := os.WriteFile(testFile, []byte(tc.initialContent), 0o644); err != nil {
+				t.Fatalf("Failed to create test changelog file: %v", err)
+			}
+
+			err := UpdateChangelog(testFile, tc.version, "github")
+			if err != nil {
+				t.Fatalf("UpdateChangelog() failed: %v", err)
+			}
+
+			content, err := os.ReadFile(testFile)
+			if err != nil {
+				t.Fatalf("Failed to read updated changelog: %v", err)
+			}
+
+			contentStr := string(content)
+			linksSection := extractLinksSection(contentStr)
+
+			if tc.isFirstRelease {
+				// First release should use releases/tag format
+				expectedPattern := fmt.Sprintf("[%s]: ", tc.version)
+				if !strings.Contains(linksSection, expectedPattern) {
+					t.Errorf("Test: %s\nExpected version link for %s not found.\n\nActual links section:\n%s",
+						tc.description, tc.version, linksSection)
+				}
+				// Should contain "releases/tag"
+				if !strings.Contains(linksSection, "releases/tag/"+tc.version) {
+					t.Errorf("Test: %s\nExpected releases/tag format not found.\n\nActual links section:\n%s",
+						tc.description, linksSection)
+				}
+			} else {
+				// Subsequent releases should use compare format with previous version
+				expectedPattern := fmt.Sprintf("[%s]: ", tc.version)
+				if !strings.Contains(linksSection, expectedPattern) {
+					t.Errorf("Test: %s\nExpected version link for %s not found.\n\nActual links section:\n%s",
+						tc.description, tc.version, linksSection)
+				}
+				// Should contain "compare/previousVersion...currentVersion"
+				comparePattern := fmt.Sprintf("compare/%s...%s", tc.previousVersion, tc.version)
+				if !strings.Contains(linksSection, comparePattern) {
+					t.Errorf("Test: %s\nExpected comparison link pattern '%s' not found.\n\nActual links section:\n%s",
+						tc.description, comparePattern, linksSection)
+				}
+			}
+
+			// Verify Unreleased points to new version
+			unreleasedPattern := "[Unreleased]: "
+			if !strings.Contains(linksSection, unreleasedPattern) {
+				t.Errorf("Unreleased link not found.\n\nActual links section:\n%s", linksSection)
+			}
+			// Should point from new version to HEAD
+			headPattern := fmt.Sprintf("%s...HEAD", tc.version)
+			if !strings.Contains(linksSection, headPattern) {
+				t.Errorf("Unreleased link should point from %s to HEAD.\n\nActual links section:\n%s",
+					tc.version, linksSection)
+			}
+		})
+	}
+}
+
+// Helper to extract just the links section for debugging
+func extractLinksSection(content string) string {
+	lines := strings.Split(content, "\n")
+	var linkLines []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "[") && strings.Contains(line, "]: ") {
+			linkLines = append(linkLines, line)
+		}
+	}
+	return strings.Join(linkLines, "\n")
 }
 
 // Helper function to generate a large number of changelog entries
