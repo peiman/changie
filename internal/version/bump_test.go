@@ -2,6 +2,7 @@ package version
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,8 +10,11 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/peiman/changie/internal/output"
 )
 
 // setupTestGitRepo creates a temporary git repository for testing
@@ -526,5 +530,172 @@ func TestBump_Integration(t *testing.T) {
 		require.NoError(t, err, "Failed to list git tags")
 		assert.Contains(t, string(tagOutput), bump.expectedVersion,
 			"Tag %s should exist", bump.expectedVersion)
+	}
+}
+
+func TestBumpWithJSONOutput(t *testing.T) {
+	// Set up a buffer to capture log output
+	var logBuf bytes.Buffer
+	log.Logger = zerolog.New(&logBuf).With().Timestamp().Logger()
+
+	tests := []struct {
+		name        string
+		bumpType    string
+		expectedOld string
+		expectedNew string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "successful patch bump with JSON",
+			bumpType:    "patch",
+			expectedOld: "v1.0.0",
+			expectedNew: "v1.0.1",
+			expectError: false,
+		},
+		{
+			name:        "successful minor bump with JSON",
+			bumpType:    "minor",
+			expectedOld: "v1.0.0",
+			expectedNew: "v1.1.0",
+			expectError: false,
+		},
+		{
+			name:        "successful major bump with JSON",
+			bumpType:    "major",
+			expectedOld: "v1.0.0",
+			expectedNew: "v2.0.0",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a separate git repository for each test
+			_, cleanup := setupTestGitRepo(t, "v1.0.0", "main", false)
+			defer cleanup()
+			// Enable JSON output
+			viper.Set("app.json_output", true)
+			defer viper.Set("app.json_output", false)
+
+			var outputBuf bytes.Buffer
+
+			cfg := BumpConfig{
+				BumpType:           tt.bumpType,
+				AllowAnyBranch:     false,
+				AutoPush:           false,
+				ChangelogFile:      "CHANGELOG.md",
+				RepositoryProvider: "github",
+				UseVPrefix:         true,
+			}
+
+			err := Bump(cfg, &outputBuf)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+
+				// Verify JSON error output
+				var jsonOutput output.BumpOutput
+				jsonErr := json.Unmarshal(outputBuf.Bytes(), &jsonOutput)
+				require.NoError(t, jsonErr, "Output should be valid JSON")
+				assert.False(t, jsonOutput.Success, "Success should be false")
+				assert.NotEmpty(t, jsonOutput.Error, "Error field should be populated")
+				assert.Equal(t, tt.bumpType, jsonOutput.BumpType)
+			} else {
+				require.NoError(t, err)
+
+				// Verify JSON success output
+				var jsonOutput output.BumpOutput
+				jsonErr := json.Unmarshal(outputBuf.Bytes(), &jsonOutput)
+				require.NoError(t, jsonErr, "Output should be valid JSON")
+
+				// Verify JSON fields
+				assert.True(t, jsonOutput.Success, "Success should be true")
+				assert.Empty(t, jsonOutput.Error, "Error field should be empty")
+				assert.Equal(t, tt.bumpType, jsonOutput.BumpType)
+				assert.Equal(t, tt.expectedOld, jsonOutput.OldVersion)
+				assert.Equal(t, tt.expectedNew, jsonOutput.NewVersion)
+				assert.Equal(t, tt.expectedNew, jsonOutput.Tag)
+				assert.Equal(t, "CHANGELOG.md", jsonOutput.ChangelogFile)
+				assert.False(t, jsonOutput.Pushed, "Pushed should be false when AutoPush is false")
+			}
+		})
+	}
+}
+
+func TestBumpWithJSONOutputErrors(t *testing.T) {
+	// Set up a buffer to capture log output
+	var logBuf bytes.Buffer
+	log.Logger = zerolog.New(&logBuf).With().Timestamp().Logger()
+
+	tests := []struct {
+		name        string
+		setupFunc   func() func()
+		cfg         BumpConfig
+		errorSubstr string
+	}{
+		{
+			name: "uncommitted changes error with JSON",
+			setupFunc: func() func() {
+				_, cleanup := setupTestGitRepo(t, "v1.0.0", "main", true)
+				return cleanup
+			},
+			cfg: BumpConfig{
+				BumpType:           "patch",
+				AllowAnyBranch:     false,
+				AutoPush:           false,
+				ChangelogFile:      "CHANGELOG.md",
+				RepositoryProvider: "github",
+				UseVPrefix:         true,
+			},
+			errorSubstr: "uncommitted changes",
+		},
+		{
+			name: "wrong branch error with JSON",
+			setupFunc: func() func() {
+				_, cleanup := setupTestGitRepo(t, "v1.0.0", "feature", false)
+				return cleanup
+			},
+			cfg: BumpConfig{
+				BumpType:           "patch",
+				AllowAnyBranch:     false,
+				AutoPush:           false,
+				ChangelogFile:      "CHANGELOG.md",
+				RepositoryProvider: "github",
+				UseVPrefix:         true,
+			},
+			errorSubstr: "not on main/master branch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := tt.setupFunc()
+			defer cleanup()
+
+			// Enable JSON output
+			viper.Set("app.json_output", true)
+			defer viper.Set("app.json_output", false)
+
+			var outputBuf bytes.Buffer
+			err := Bump(tt.cfg, &outputBuf)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errorSubstr)
+
+			// Verify JSON error output
+			var jsonOutput output.BumpOutput
+			jsonErr := json.Unmarshal(outputBuf.Bytes(), &jsonOutput)
+			require.NoError(t, jsonErr, "Output should be valid JSON")
+
+			assert.False(t, jsonOutput.Success, "Success should be false")
+			assert.NotEmpty(t, jsonOutput.Error, "Error field should be populated")
+			assert.Contains(t, jsonOutput.Error, tt.errorSubstr, "Error should contain expected substring")
+			assert.Equal(t, tt.cfg.BumpType, jsonOutput.BumpType)
+			assert.Equal(t, tt.cfg.ChangelogFile, jsonOutput.ChangelogFile)
+		})
 	}
 }

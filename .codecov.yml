@@ -1,0 +1,22 @@
+# Codecov configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: 78%
+        threshold: 1%
+
+  ignore:
+    - "cmd/mcp-server/"  # Main entry point - not unit testable
+    - "examples/"        # Example scripts
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false

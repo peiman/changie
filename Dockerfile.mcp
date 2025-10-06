@@ -1,0 +1,62 @@
+# Multi-stage build for changie MCP server
+# This Dockerfile builds both the changie CLI and the MCP server in a minimal container
+
+# Stage 1: Build Go binaries
+FROM golang:1.24-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git make
+
+# Set working directory
+WORKDIR /build
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build changie CLI binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o changie .
+
+# Build MCP server binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o changie-mcp-server ./cmd/mcp-server
+
+# Stage 2: Runtime image
+FROM alpine:3.19
+
+# Install runtime dependencies
+# - git: Required for version operations (git describe, git tag, etc.)
+# - ca-certificates: For HTTPS operations
+RUN apk add --no-cache git ca-certificates
+
+# Create non-root user for security
+RUN addgroup -g 1000 changie && \
+    adduser -D -u 1000 -G changie changie
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy binaries from builder
+COPY --from=builder /build/changie /usr/local/bin/changie
+COPY --from=builder /build/changie-mcp-server /usr/local/bin/changie-mcp-server
+
+# Make binaries executable
+RUN chmod +x /usr/local/bin/changie /usr/local/bin/changie-mcp-server
+
+# Switch to non-root user
+USER changie
+
+# MCP servers communicate via stdio
+# No EXPOSE needed as MCP uses stdin/stdout
+
+# Set entrypoint to MCP server
+ENTRYPOINT ["changie-mcp-server"]
+
+# Metadata
+LABEL org.opencontainers.image.title="Changie MCP Server" \
+      org.opencontainers.image.description="Model Context Protocol server for changie changelog management" \
+      org.opencontainers.image.vendor="Changie" \
+      org.opencontainers.image.source="https://github.com/peiman/changie" \
+      org.opencontainers.image.documentation="https://github.com/peiman/changie/blob/main/.ai/README.md"

@@ -5,6 +5,7 @@
 *.so
 *.dylib
 changie
+changie-mcp-server
 
 # Task artifacts
 .task
@@ -26,6 +27,7 @@ go.work
 .idea/
 .vscode/
 .cursorrules
+.claude/settings.local.json
 *.swp
 *.swo
 *~
@@ -54,6 +56,13 @@ changie.json
 # Test coverage
 coverage.txt
 test-output.json
+mcp-coverage.html
+mcp-coverage.txt
+
+# AI-generated analysis files
+AI-BRANCH-CODE-REVIEW.md
+MCP-COVERAGE-ANALYSIS.md
 
 # Environment variables
 .env
+internal/mcp/CHANGELOG.md

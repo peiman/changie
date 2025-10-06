@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- JSON output support with `--json` flag for CI/CD integration
+- MCP server for AI assistant integration (Claude Desktop, Cursor, etc.)
+- Integration guide for setting up with AI coding tools
+- LLM-optimized documentation (llms.txt)
+- Examples directory with CI/CD workflow scripts
+
+### Changed
+
+- Enhanced help text with detailed examples and use cases
+
+
 ## [v1.1.0] - 2025-10-06
 
 ### Changed

@@ -41,18 +41,45 @@ Each bump command will:
 	// majorCmd represents the command to bump the major version number
 	majorCmd = &cobra.Command{
 		Use:   "major",
-		Short: "Bump the major version number",
+		Short: "Bump major version (X.0.0) for breaking changes",
 		Long: `Release a major version by bumping the first version number.
 
-For example, 1.2.3 → 2.0.0
+Use this command when making BREAKING CHANGES or incompatible API changes.
 
-This command will:
-1. Check that you're on main/master branch (use --allow-any-branch to bypass)
-2. Check for uncommitted changes
-3. Update the changelog
-4. Commit the changes
-5. Create a new git tag
-6. Optionally push changes and tags to remote repository`,
+Version change: 1.2.3 → 2.0.0
+
+WHAT IT DOES:
+1. Validates you're on main/master branch (bypass with --allow-any-branch)
+2. Checks for uncommitted changes (must have clean working directory)
+3. Gets current version from git tags
+4. Bumps major version and resets minor/patch to 0
+5. Updates CHANGELOG.md (moves Unreleased → new version section)
+6. Commits changelog with message "Release vX.0.0"
+7. Creates git tag (e.g., v2.0.0)
+8. Optionally pushes to remote (with --auto-push)
+
+EXAMPLES:
+  # Basic major version bump
+  changie bump major
+
+  # With automatic push to remote
+  changie bump major --auto-push
+
+  # On a release branch
+  changie bump major --allow-any-branch
+
+  # With custom changelog file
+  changie bump major --file HISTORY.md
+
+  # JSON output for scripts/automation
+  changie bump major --json
+
+COMMON USE CASES:
+  - Removing deprecated features
+  - Changing API contracts
+  - Major architectural changes
+  - Database schema migrations requiring data changes
+  - Any change that breaks backward compatibility`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVersionBump(cmd, "major")
 		},
@@ -61,18 +88,45 @@ This command will:
 	// minorCmd represents the command to bump the minor version number
 	minorCmd = &cobra.Command{
 		Use:   "minor",
-		Short: "Bump the minor version number",
+		Short: "Bump minor version (x.Y.0) for new features",
 		Long: `Release a minor version by bumping the second version number.
 
-For example, 1.2.3 → 1.3.0
+Use this command when adding NEW FEATURES in a backward-compatible manner.
 
-This command will:
-1. Check that you're on main/master branch (use --allow-any-branch to bypass)
-2. Check for uncommitted changes
-3. Update the changelog
-4. Commit the changes
-5. Create a new git tag
-6. Optionally push changes and tags to remote repository`,
+Version change: 1.2.3 → 1.3.0
+
+WHAT IT DOES:
+1. Validates you're on main/master branch (bypass with --allow-any-branch)
+2. Checks for uncommitted changes (must have clean working directory)
+3. Gets current version from git tags
+4. Bumps minor version and resets patch to 0
+5. Updates CHANGELOG.md (moves Unreleased → new version section)
+6. Commits changelog with message "Release vX.Y.0"
+7. Creates git tag (e.g., v1.3.0)
+8. Optionally pushes to remote (with --auto-push)
+
+EXAMPLES:
+  # Basic minor version bump
+  changie bump minor
+
+  # With automatic push to remote
+  changie bump minor --auto-push
+
+  # On a release branch
+  changie bump minor --allow-any-branch
+
+  # With custom changelog file
+  changie bump minor --file HISTORY.md
+
+  # JSON output for scripts/automation
+  changie bump minor --json
+
+COMMON USE CASES:
+  - Adding new API endpoints
+  - New command-line options or commands
+  - New functionality that doesn't break existing code
+  - Performance improvements
+  - New optional features`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVersionBump(cmd, "minor")
 		},
@@ -81,18 +135,45 @@ This command will:
 	// patchCmd represents the command to bump the patch version number
 	patchCmd = &cobra.Command{
 		Use:   "patch",
-		Short: "Bump the patch version number",
+		Short: "Bump patch version (x.y.Z) for bug fixes",
 		Long: `Release a patch version by bumping the third version number.
 
-For example, 1.2.3 → 1.2.4
+Use this command when making BUG FIXES in a backward-compatible manner.
 
-This command will:
-1. Check that you're on main/master branch (use --allow-any-branch to bypass)
-2. Check for uncommitted changes
-3. Update the changelog
-4. Commit the changes
-5. Create a new git tag
-6. Optionally push changes and tags to remote repository`,
+Version change: 1.2.3 → 1.2.4
+
+WHAT IT DOES:
+1. Validates you're on main/master branch (bypass with --allow-any-branch)
+2. Checks for uncommitted changes (must have clean working directory)
+3. Gets current version from git tags
+4. Bumps patch version
+5. Updates CHANGELOG.md (moves Unreleased → new version section)
+6. Commits changelog with message "Release vX.Y.Z"
+7. Creates git tag (e.g., v1.2.4)
+8. Optionally pushes to remote (with --auto-push)
+
+EXAMPLES:
+  # Basic patch version bump
+  changie bump patch
+
+  # With automatic push to remote
+  changie bump patch --auto-push
+
+  # On a hotfix branch
+  changie bump patch --allow-any-branch
+
+  # With custom changelog file
+  changie bump patch --file HISTORY.md
+
+  # JSON output for scripts/automation
+  changie bump patch --json
+
+COMMON USE CASES:
+  - Bug fixes
+  - Security patches
+  - Documentation corrections
+  - Minor refactoring without behavior changes
+  - Dependency updates (security fixes)`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVersionBump(cmd, "patch")
 		},
@@ -182,5 +263,6 @@ func runVersionBump(cmd *cobra.Command, bumpType string) error {
 	}
 
 	// Delegate to the version package
+	// The Bump function handles both text and JSON output internally
 	return version.Bump(cfg, cmd.OutOrStdout())
 }

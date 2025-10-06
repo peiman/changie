@@ -214,6 +214,7 @@ issues:
         - wrapcheck
         - noctx
         - revive
+        - thelper  # Table-driven test check functions are not test helpers
 
     # Exclude known issues in legacy code
     - path: cmd/completion.go
@@ -274,6 +275,12 @@ issues:
     - linters:
         - revive
       text: "unused-parameter.*cmd.*args"
+
+    # Allow command execution in MCP tools (changie validates inputs)
+    - path: internal/mcp/
+      linters:
+        - gosec
+      text: "G204"
 
   # Maximum issues count per one linter. Set to 0 to disable
   max-issues-per-linter: 0

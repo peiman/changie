@@ -11,6 +11,7 @@ import (
 	"github.com/peiman/changie/internal/changelog"
 	"github.com/peiman/changie/internal/git"
 	"github.com/peiman/changie/internal/logger"
+	"github.com/peiman/changie/internal/output"
 	"github.com/peiman/changie/internal/semver"
 )
 
@@ -35,6 +36,24 @@ type BumpConfig struct {
 	UseVPrefix bool
 }
 
+// BumpResult holds the result of a version bump operation.
+type BumpResult struct {
+	// OldVersion is the version before bumping
+	OldVersion string
+
+	// NewVersion is the version after bumping
+	NewVersion string
+
+	// BumpType is the type of bump performed ("major", "minor", "patch")
+	BumpType string
+
+	// ChangelogFile is the path to the changelog file that was updated
+	ChangelogFile string
+
+	// Pushed indicates whether changes were automatically pushed to remote
+	Pushed bool
+}
+
 // Bump performs a complete version bump workflow.
 //
 // The workflow includes:
@@ -46,21 +65,36 @@ type BumpConfig struct {
 // 6. Updating the changelog file
 // 7. Committing changes and creating git tag
 // 8. Optionally pushing changes to remote
+// 9. Outputting results (JSON if enabled, text otherwise)
 //
 // Parameters:
 //   - cfg: Configuration for the bump operation
-//   - output: Writer for user-facing output messages
+//   - out: Writer for user-facing output messages
 //
 // Returns:
 //   - error: Any error encountered during the workflow
-func Bump(cfg BumpConfig, output io.Writer) error {
+func Bump(cfg BumpConfig, out io.Writer) error {
 	logger.Version.Debug().Str("type", cfg.BumpType).Msg("Starting version bump")
+
+	// Helper to return JSON or text error
+	returnError := func(err error) error {
+		if output.IsJSONEnabled() {
+			jsonOutput := output.BumpOutput{
+				Success:       false,
+				BumpType:      cfg.BumpType,
+				ChangelogFile: cfg.ChangelogFile,
+				Error:         err.Error(),
+			}
+			_ = output.WriteJSON(out, jsonOutput)
+		}
+		return err
+	}
 
 	// Check if git is installed
 	if !git.IsInstalled() {
 		err := fmt.Errorf("git is not installed or not available in PATH - please install Git (https://git-scm.com/downloads) and ensure it's in your system PATH")
 		logger.Version.Error().Err(err).Msg("Failed to run git")
-		return err
+		return returnError(err)
 	}
 
 	// Check if we're on main/master branch (unless bypassed)
@@ -68,13 +102,13 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 		currentBranch, err := git.GetCurrentBranch()
 		if err != nil {
 			logger.Version.Error().Err(err).Msg("Failed to get current branch")
-			return fmt.Errorf("failed to get current branch: %w", err)
+			return returnError(fmt.Errorf("failed to get current branch: %w", err))
 		}
 
 		if currentBranch != "main" && currentBranch != "master" {
 			err := fmt.Errorf("not on main/master branch (current: %s) - version bumps should typically be done on the main branch to maintain a clean release history. Use --allow-any-branch to bypass this check if you're working with release branches or have a different workflow", currentBranch)
 			logger.Version.Error().Err(err).Str("branch", currentBranch).Msg("Branch check failed")
-			return err
+			return returnError(err)
 		}
 		logger.Version.Debug().Str("branch", currentBranch).Msg("Branch check passed")
 	} else {
@@ -85,28 +119,30 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	hasUncommittedChanges, err := git.HasUncommittedChanges()
 	if err != nil {
 		logger.Version.Error().Err(err).Msg("Failed to check for uncommitted changes")
-		return fmt.Errorf("failed to check for uncommitted changes: %w", err)
+		return returnError(fmt.Errorf("failed to check for uncommitted changes: %w", err))
 	}
 
 	if hasUncommittedChanges {
 		err := fmt.Errorf("uncommitted changes found - run 'git status' to see changed files, then either commit changes with 'git commit' or stash them with 'git stash' before bumping version")
 		logger.Version.Error().Err(err).Msg("Failed to bump version")
-		return err
+		return returnError(err)
 	}
 
 	// Get current version from git
 	currentVersion, err := git.GetVersion()
 	if err != nil {
 		logger.Version.Error().Err(err).Msg("Failed to get current version from git")
-		return fmt.Errorf("failed to get current version: %w - ensure you're in a git repository with at least one tag, or initialize with 'git tag v0.0.0'", err)
+		return returnError(fmt.Errorf("failed to get current version: %w - ensure you're in a git repository with at least one tag, or initialize with 'git tag v0.0.0'", err))
 	}
 
 	// Log current version
 	if currentVersion == "" {
 		currentVersion = "0.0.0" // Default if no tag exists
-		fmt.Fprintf(output, "No version tag found, starting from %s\n", currentVersion)
-	} else {
-		fmt.Fprintf(output, "Current version: %s\n", currentVersion)
+		if !output.IsJSONEnabled() {
+			fmt.Fprintf(out, "No version tag found, starting from %s\n", currentVersion)
+		}
+	} else if !output.IsJSONEnabled() {
+		fmt.Fprintf(out, "Current version: %s\n", currentVersion)
 	}
 
 	// Bump version according to type
@@ -124,49 +160,80 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 
 	if err != nil {
 		logger.Version.Error().Err(err).Str("type", cfg.BumpType).Str("current_version", currentVersion).Msg("Failed to bump version")
-		return fmt.Errorf("failed to bump version: %w - check if the current version (%s) is a valid semantic version in the format X.Y.Z", err, currentVersion)
+		return returnError(fmt.Errorf("failed to bump version: %w - check if the current version (%s) is a valid semantic version in the format X.Y.Z", err, currentVersion))
 	}
 
-	fmt.Fprintf(output, "New version: %s\n", newVersion)
+	if !output.IsJSONEnabled() {
+		fmt.Fprintf(out, "New version: %s\n", newVersion)
+	}
 
 	// Update changelog
-	fmt.Fprintf(output, "Updating changelog file: %s\n", cfg.ChangelogFile)
+	if !output.IsJSONEnabled() {
+		fmt.Fprintf(out, "Updating changelog file: %s\n", cfg.ChangelogFile)
+	}
 	err = changelog.UpdateChangelog(cfg.ChangelogFile, newVersion, cfg.RepositoryProvider)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("file", cfg.ChangelogFile).Str("version", newVersion).Msg("Failed to update changelog")
-		return fmt.Errorf("failed to update changelog: %w - verify that '%s' exists and follows the Keep a Changelog format", err, cfg.ChangelogFile)
+		return returnError(fmt.Errorf("failed to update changelog: %w - verify that '%s' exists and follows the Keep a Changelog format", err, cfg.ChangelogFile))
 	}
 
 	// Commit changes
 	err = git.CommitChangelog(cfg.ChangelogFile, newVersion)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("file", cfg.ChangelogFile).Str("version", newVersion).Msg("Failed to commit changelog")
-		return fmt.Errorf("failed to commit changelog: %w - ensure git is properly configured and you have permissions to commit changes", err)
+		return returnError(fmt.Errorf("failed to commit changelog: %w - ensure git is properly configured and you have permissions to commit changes", err))
 	}
 
 	// Tag version
-	fmt.Fprintf(output, "Tagging version: %s\n", newVersion)
+	if !output.IsJSONEnabled() {
+		fmt.Fprintf(out, "Tagging version: %s\n", newVersion)
+	}
 	err = git.TagVersion(newVersion)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("version", newVersion).Msg("Failed to tag version")
-		return fmt.Errorf("failed to tag version: %w - check if the tag already exists (use 'git tag' to list existing tags)", err)
+		return returnError(fmt.Errorf("failed to tag version: %w - check if the tag already exists (use 'git tag' to list existing tags)", err))
 	}
 
-	fmt.Fprintf(output, "%s release %s done.\n", cfg.BumpType, newVersion)
+	if !output.IsJSONEnabled() {
+		fmt.Fprintf(out, "%s release %s done.\n", cfg.BumpType, newVersion)
+	}
 
 	// Auto-push if enabled
+	pushed := false
 	if cfg.AutoPush {
-		fmt.Fprintf(output, "Pushing changes and tags...\n")
+		if !output.IsJSONEnabled() {
+			fmt.Fprintf(out, "Pushing changes and tags...\n")
+		}
 		err = git.PushChanges()
 		if err != nil {
 			logger.Version.Error().Err(err).Msg("Failed to push changes")
-			return fmt.Errorf("failed to push changes: %w - check network connection and remote repository permissions", err)
+			return returnError(fmt.Errorf("failed to push changes: %w - check network connection and remote repository permissions", err))
 		}
-		fmt.Fprintf(output, "Automatically pushed changes and tags to remote repository.\n")
-	} else {
-		fmt.Fprintf(output, "Don't forget to git push and git push --tags.\n")
+		if !output.IsJSONEnabled() {
+			fmt.Fprintf(out, "Automatically pushed changes and tags to remote repository.\n")
+		}
+		pushed = true
+	} else if !output.IsJSONEnabled() {
+		fmt.Fprintf(out, "Don't forget to git push and git push --tags.\n")
 	}
 
 	logger.Version.Debug().Str("type", cfg.BumpType).Str("version", newVersion).Msg("Version bump completed successfully")
+
+	// Output result in appropriate format
+	if output.IsJSONEnabled() {
+		jsonOutput := output.BumpOutput{
+			Success:       true,
+			OldVersion:    currentVersion,
+			NewVersion:    newVersion,
+			Tag:           newVersion,
+			ChangelogFile: cfg.ChangelogFile,
+			Pushed:        pushed,
+			BumpType:      cfg.BumpType,
+		}
+		if err := output.WriteJSON(out, jsonOutput); err != nil {
+			return fmt.Errorf("failed to write JSON output: %w", err)
+		}
+	}
+
 	return nil
 }

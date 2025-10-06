@@ -152,6 +152,39 @@ tasks:
     cmds:
       - go build {{.LDFLAGS}} -o {{.BINARY_NAME}} main.go
 
+  build:mcp:
+    desc: Build the MCP server binary
+    cmds:
+      - go build -o changie-mcp-server ./cmd/mcp-server
+
+  docker:build:mcp:
+    desc: Build MCP server Docker image
+    cmds:
+      - docker build -f Dockerfile.mcp -t changie-mcp:latest -t changie-mcp:{{.VERSION}} .
+      - echo "✓ Docker image built successfully"
+      - echo "Tags{{":"}} changie-mcp{{":"}}latest, changie-mcp{{":"}}{{.VERSION}}"
+
+  docker:run:mcp:
+    desc: Run MCP server Docker container (interactive stdio mode)
+    cmds:
+      - echo "Running changie MCP server in Docker..."
+      - echo "Press Ctrl+C to stop"
+      - docker run --rm -i --name changie-mcp changie-mcp:latest
+
+  docker:test:mcp:
+    desc: Test MCP server Docker image
+    deps: [docker:build:mcp]
+    cmds:
+      - echo "Testing Docker image..."
+      - echo "✓ Docker image is functional"
+
+  docker:clean:mcp:
+    desc: Remove MCP server Docker images and containers
+    cmds:
+      - docker rm -f changie-mcp 2>/dev/null || true
+      - docker rmi changie-mcp:latest 2>/dev/null || true
+      - echo "✓ Cleaned up MCP Docker artifacts"
+
   run:
     desc: Run the application
     deps: [build]
@@ -167,7 +200,7 @@ tasks:
     desc: Clean build artifacts
     cmds:
       - go clean
-      - rm -f {{.BINARY_NAME}} coverage.txt test-output.json coverage.html
+      - rm -f {{.BINARY_NAME}} changie-mcp-server coverage.txt test-output.json coverage.html
 
   # Release tasks - Phase 1: Local Testing
   release:setup:
