@@ -214,6 +214,7 @@ issues:
         - wrapcheck
         - noctx
         - revive
+        - thelper  # Table-driven test check functions are not test helpers
 
     # Exclude known issues in legacy code
     - path: cmd/completion.go
