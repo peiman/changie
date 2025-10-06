@@ -103,7 +103,7 @@ Built on solid engineering principles, changie includes:
 4. **Release a new version**:
 
    ```bash
-   changie minor
+   changie bump minor
    ```
 
 ---
@@ -158,7 +158,7 @@ go install
 3. **Release a new version**:
 
    ```bash
-   changie minor
+   changie bump minor
    ```
 
    This will bump the minor version number and update the changelog.
@@ -233,15 +233,21 @@ changie changelog fixed "Bug in login form"
 changie changelog security "Patched XSS vulnerability"
 ```
 
-### `major`, `minor`, `patch` Commands
+### `bump` Command
 
 Bump the version number according to Semantic Versioning rules.
 
 #### Usage
 
 ```bash
-changie [major|minor|patch] [flags]
+changie bump [major|minor|patch] [flags]
 ```
+
+#### Subcommands
+
+- `major`: Bump the major version (breaking changes, X.y.z → X+1.0.0)
+- `minor`: Bump the minor version (new features, x.Y.z → x.Y+1.0)
+- `patch`: Bump the patch version (bug fixes, x.y.Z → x.y.Z+1)
 
 #### Flags
 
@@ -253,10 +259,10 @@ changie [major|minor|patch] [flags]
 #### Examples
 
 ```bash
-changie major
-changie minor --auto-push
-changie patch --file HISTORY.md
-changie minor --allow-any-branch  # For release branches or hotfixes
+changie bump major
+changie bump minor --auto-push
+changie bump patch --file HISTORY.md
+changie bump minor --allow-any-branch  # For release branches or hotfixes
 ```
 
 **Note:** By default, version bump commands check that you're on the `main` or `master` branch. This is a best practice to maintain a clean release history. Use `--allow-any-branch` when you need to bump versions on other branches (e.g., release branches, hotfix branches).

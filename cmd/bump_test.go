@@ -1,4 +1,4 @@
-// cmd/version_test.go
+// cmd/bump_test.go
 
 package cmd
 

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 
+### Changed
+
+- Restructured version bump commands under 'bump' parent command (changie major → changie bump major)
+
+
 ## [v1.0.2] - 2025-10-06
 
 ### Fixed

@@ -1,9 +1,9 @@
 // Package cmd implements command line interface commands for the application.
 //
-// This file contains the implementation of the version-related commands:
-// - major: Bump the major version number (X.y.z -> X+1.0.0)
-// - minor: Bump the minor version number (x.Y.z -> x.Y+1.0)
-// - patch: Bump the patch version number (x.y.Z -> x.y.Z+1)
+// This file contains the implementation of the bump command and its subcommands:
+// - bump major: Bump the major version number (X.y.z -> X+1.0.0)
+// - bump minor: Bump the minor version number (x.Y.z -> x.Y+1.0)
+// - bump patch: Bump the patch version number (x.y.Z -> x.y.Z+1)
 //
 // These commands manage semantic versioning operations including checking for
 // uncommitted changes, changelog updates, and git tagging.
@@ -18,6 +18,26 @@ import (
 )
 
 var (
+	// bumpCmd represents the parent bump command
+	bumpCmd = &cobra.Command{
+		Use:   "bump",
+		Short: "Bump version numbers following semantic versioning",
+		Long: `Bump version numbers following semantic versioning (SemVer) principles.
+
+Use subcommands to specify the type of version bump:
+  - major: Breaking changes (X.y.z -> X+1.0.0)
+  - minor: New features, backward compatible (x.Y.z -> x.Y+1.0)
+  - patch: Bug fixes, backward compatible (x.y.Z -> x.y.Z+1)
+
+Each bump command will:
+1. Check that you're on main/master branch (use --allow-any-branch to bypass)
+2. Check for uncommitted changes
+3. Update the changelog
+4. Commit the changes
+5. Create a new git tag
+6. Optionally push changes and tags to remote repository`,
+	}
+
 	// majorCmd represents the command to bump the major version number
 	majorCmd = &cobra.Command{
 		Use:   "major",
@@ -79,10 +99,10 @@ This command will:
 	}
 )
 
-// init registers the version commands with the root command and
-// defines and binds their flags to viper configuration values.
+// init registers the bump command with the root command and
+// defines and binds flags to viper configuration values.
 func init() {
-	// Add common flags to all version commands
+	// Add common flags to all bump subcommands
 	for _, cmd := range []*cobra.Command{majorCmd, minorCmd, patchCmd} {
 		cmd.Flags().String("file", "CHANGELOG.md", "Changelog file name")
 		cmd.Flags().String("rrp", "github", "Remote repository provider (github, bitbucket)")
@@ -103,9 +123,12 @@ func init() {
 			log.Fatal().Err(err).Msg("Failed to bind 'allow-any-branch' flag")
 		}
 
-		// Add command to RootCmd
-		RootCmd.AddCommand(cmd)
+		// Add as subcommand of bump
+		bumpCmd.AddCommand(cmd)
 	}
+
+	// Add bump command to root
+	RootCmd.AddCommand(bumpCmd)
 }
 
 // runVersionBump is a thin wrapper that constructs configuration and delegates
