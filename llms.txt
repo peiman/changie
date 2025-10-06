@@ -1,0 +1,358 @@
+# Changie - Changelog Management CLI
+
+> Professional tool for managing changelogs following Keep a Changelog format and Semantic Versioning
+
+## Purpose
+
+Changie automates changelog management and version bumping for software projects. It:
+- Creates and maintains CHANGELOG.md following Keep a Changelog format
+- Manages semantic versioning (major.minor.patch)
+- Integrates with Git for tagging and committing
+- Generates structured, consistent changelog entries
+
+## Core Concepts
+
+**Semantic Versioning (SemVer):**
+- MAJOR (X.0.0): Breaking changes, incompatible API changes
+- MINOR (0.X.0): New features, backwards-compatible
+- PATCH (0.0.X): Bug fixes, backwards-compatible
+
+**Keep a Changelog Sections:**
+- Added: New features
+- Changed: Changes to existing functionality
+- Deprecated: Soon-to-be removed features
+- Removed: Removed features
+- Fixed: Bug fixes
+- Security: Vulnerability fixes
+
+## Installation
+
+```bash
+go install github.com/peiman/changie@latest
+```
+
+## Quick Start
+
+```bash
+# 1. Initialize a new project
+changie init
+
+# 2. Add changelog entries
+changie changelog added "New user authentication feature"
+changie changelog fixed "Login form validation bug"
+
+# 3. Release a new version
+changie bump minor  # or major, patch
+```
+
+## Commands
+
+### Initialize Project
+
+```bash
+changie init [--file CHANGELOG.md]
+```
+
+Creates a new CHANGELOG.md file with proper structure.
+
+**Example:**
+```bash
+changie init
+changie init --file HISTORY.md
+```
+
+### Add Changelog Entries
+
+```bash
+changie changelog <section> "<entry>"
+```
+
+Adds an entry to the Unreleased section of the changelog.
+
+**Sections:** added, changed, deprecated, removed, fixed, security
+
+**Examples:**
+```bash
+changie changelog added "Support for OAuth2 authentication"
+changie changelog changed "Improved error messages for API calls"
+changie changelog deprecated "Legacy v1 API endpoints"
+changie changelog removed "Deprecated authentication methods"
+changie changelog fixed "Race condition in session handling"
+changie changelog security "Patched SQL injection vulnerability"
+```
+
+### Bump Version
+
+```bash
+changie bump <major|minor|patch> [flags]
+```
+
+Bumps the version number and updates the changelog.
+
+**Flags:**
+- `--auto-push`: Automatically push changes and tags to remote
+- `--allow-any-branch`: Allow version bumping on any branch (default: main/master only)
+- `--file`: Changelog file path (default: CHANGELOG.md)
+- `--rrp`: Remote repository provider (github, bitbucket)
+
+**Examples:**
+```bash
+# Breaking changes: 1.2.3 → 2.0.0
+changie bump major
+
+# New features: 1.2.3 → 1.3.0
+changie bump minor
+
+# Bug fixes: 1.2.3 → 1.2.4
+changie bump patch
+
+# With automatic push
+changie bump minor --auto-push
+
+# On a release branch
+changie bump patch --allow-any-branch
+```
+
+**What bump does:**
+1. Gets current version from git tags
+2. Bumps version according to type (major/minor/patch)
+3. Updates CHANGELOG.md (moves Unreleased → versioned section)
+4. Commits the changelog
+5. Creates a git tag (e.g., v1.2.0)
+6. Optionally pushes to remote (with --auto-push)
+
+## Common Workflows
+
+### Starting a New Project
+
+```bash
+cd your-project/
+changie init
+git add CHANGELOG.md
+git commit -m "Initialize changelog"
+```
+
+### Development Workflow
+
+```bash
+# As you work, add changelog entries
+changie changelog added "New dashboard widget"
+changie changelog changed "Updated API response format"
+changie changelog fixed "Memory leak in background job"
+
+# Commit your code changes normally
+git add .
+git commit -m "feat: add dashboard widget"
+
+# When ready to release
+changie bump minor --auto-push
+```
+
+### Release Branch Workflow
+
+```bash
+# Create release branch
+git checkout -b release/v2.0.0
+
+# Bump version on release branch
+changie bump major --allow-any-branch
+
+# Merge to main
+git checkout main
+git merge release/v2.0.0
+git push
+```
+
+### Hotfix Workflow
+
+```bash
+# Create hotfix branch from main
+git checkout -b hotfix/critical-bug
+
+# Add fix and changelog entry
+changie changelog fixed "Critical security vulnerability"
+git commit -am "fix: patch security issue"
+
+# Bump patch version
+changie bump patch --allow-any-branch --auto-push
+```
+
+## Configuration
+
+Configuration is loaded from (in order of precedence):
+1. Command-line flags
+2. Environment variables (APP_* prefix)
+3. Config file (~/.changie.yaml)
+4. Defaults
+
+**Config File Example (~/.changie.yaml):**
+
+```yaml
+app:
+  log_level: "info"
+  changelog:
+    file: "CHANGELOG.md"
+  version:
+    use_v_prefix: true
+    auto_push: false
+    allow_any_branch: false
+    remote_repository_provider: "github"
+```
+
+**Environment Variables:**
+
+```bash
+export APP_LOG_LEVEL="debug"
+export APP_CHANGELOG_FILE="HISTORY.md"
+export APP_VERSION_USE_V_PREFIX="true"
+export APP_VERSION_AUTO_PUSH="true"
+```
+
+## Output Format
+
+Changie follows the Keep a Changelog format:
+
+```markdown
+# Changelog
+
+## [Unreleased]
+
+### Added
+- New feature descriptions
+
+### Fixed
+- Bug fix descriptions
+
+## [v1.2.0] - 2025-10-06
+
+### Added
+- Feature that was added in v1.2.0
+
+### Changed
+- Changes made in v1.2.0
+
+[Unreleased]: https://github.com/user/repo/compare/v1.2.0...HEAD
+[v1.2.0]: https://github.com/user/repo/compare/v1.1.0...v1.2.0
+```
+
+## Important Notes
+
+### Branch Protection
+By default, `changie bump` only works on `main` or `master` branches. Use `--allow-any-branch` for release or hotfix branches.
+
+### Git Requirements
+- Clean working directory (no uncommitted changes) required for version bumping
+- Git must be installed and repository initialized
+- Git tags determine current version
+
+### Version Detection
+- First version defaults to v0.1.0 (or 0.1.0 without v prefix)
+- Version prefix (v) is detected from existing tags or prompted interactively
+- Can be explicitly set with `--use-v-prefix` flag
+
+### Changelog Structure
+- Unreleased section is required for version bumping
+- Entries must exist in Unreleased section before bumping
+- Empty releases are not allowed
+
+## Error Handling
+
+Common errors and solutions:
+
+**"no git tags found"**
+→ Run `changie bump patch` to create initial version (v0.1.0)
+
+**"not on main or master branch"**
+→ Checkout main/master or use `--allow-any-branch` flag
+
+**"uncommitted changes detected"**
+→ Commit or stash changes before bumping version
+
+**"CHANGELOG.md not found"**
+→ Run `changie init` first
+
+**"no unreleased entries"**
+→ Add at least one changelog entry with `changie changelog <section> "<entry>"`
+
+## Advanced Usage
+
+### Custom Changelog File
+
+```bash
+changie init --file HISTORY.md
+changie changelog added "Feature" --file HISTORY.md
+changie bump minor --file HISTORY.md
+```
+
+### Bitbucket Integration
+
+```bash
+changie bump minor --rrp bitbucket
+```
+
+### Verbose Logging
+
+```bash
+changie --log-level debug bump minor
+changie --log-format json --log-caller bump minor
+```
+
+## Integration with CI/CD
+
+### GitHub Actions Example
+
+```yaml
+- name: Bump version
+  run: |
+    changie changelog added "Automated feature"
+    changie bump minor --auto-push
+  env:
+    APP_VERSION_AUTO_PUSH: "true"
+```
+
+### GitLab CI Example
+
+```yaml
+release:
+  script:
+    - changie bump patch --auto-push
+  only:
+    - main
+```
+
+## Best Practices
+
+1. **Add changelog entries with each PR/commit** - Keep Unreleased section up-to-date
+2. **Use semantic versioning consistently** - Follow SemVer guidelines
+3. **Group related changes** - Multiple changes can go in one release
+4. **Write clear, user-focused entries** - Describe impact, not implementation
+5. **Review changelog before bumping** - Ensure all changes are documented
+6. **Use descriptive entries** - Bad: "Fixed bug", Good: "Fixed memory leak in background job processor"
+7. **Tag releases consistently** - Stick with or without 'v' prefix
+
+## Technical Details
+
+- **Language:** Go 1.20+
+- **CLI Framework:** Cobra
+- **Config Management:** Viper
+- **Logging:** Zerolog
+- **Git Integration:** Native git commands via exec
+- **Version Parsing:** Masterminds semver library
+
+## Getting Help
+
+```bash
+changie --help
+changie bump --help
+changie changelog --help
+```
+
+## Project Repository
+
+https://github.com/peiman/changie
+
+---
+
+**Version:** 1.1.0
+**Last Updated:** 2025-10-06
+**Format:** llms.txt specification for LLM consumption

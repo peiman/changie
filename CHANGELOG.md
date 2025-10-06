@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- llms.txt file for LLM-optimized documentation and MCP integration
+
+
 ## [v1.1.0] - 2025-10-06
 
 ### Changed
