@@ -27,6 +27,7 @@ go.work
 .idea/
 .vscode/
 .cursorrules
+.claude/settings.local.json
 *.swp
 *.swo
 *~
