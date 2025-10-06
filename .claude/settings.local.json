@@ -7,7 +7,14 @@
       "Read(//tmp/ckeletin-go/cmd/**)",
       "Read(//private/tmp/ckeletin-go/scripts/**)",
       "Read(//tmp/ckeletin-go/scripts/**)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "Bash(go tool cover:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:mcpgolang.com)",
+      "WebFetch(domain:www.bytesizego.com)",
+      "WebSearch",
+      "Bash(task build:mcp)",
+      "Bash(task check)"
     ],
     "deny": [],
     "ask": []

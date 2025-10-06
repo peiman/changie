@@ -276,6 +276,12 @@ issues:
         - revive
       text: "unused-parameter.*cmd.*args"
 
+    # Allow command execution in MCP tools (changie validates inputs)
+    - path: internal/mcp/
+      linters:
+        - gosec
+      text: "G204"
+
   # Maximum issues count per one linter. Set to 0 to disable
   max-issues-per-linter: 0
 

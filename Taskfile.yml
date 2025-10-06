@@ -152,6 +152,11 @@ tasks:
     cmds:
       - go build {{.LDFLAGS}} -o {{.BINARY_NAME}} main.go
 
+  build:mcp:
+    desc: Build the MCP server binary
+    cmds:
+      - go build -o changie-mcp-server ./cmd/mcp-server
+
   run:
     desc: Run the application
     deps: [build]
@@ -167,7 +172,7 @@ tasks:
     desc: Clean build artifacts
     cmds:
       - go clean
-      - rm -f {{.BINARY_NAME}} coverage.txt test-output.json coverage.html
+      - rm -f {{.BINARY_NAME}} changie-mcp-server coverage.txt test-output.json coverage.html
 
   # Release tasks - Phase 1: Local Testing
   release:setup:

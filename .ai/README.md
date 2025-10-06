@@ -134,62 +134,91 @@ else:
 
 ## For MCP (Model Context Protocol)
 
-This directory structure is designed to support MCP integration:
+Changie includes an **official MCP server** that exposes changelog operations as tools for AI agents.
 
-### MCP Tool Definitions
+### MCP Server (Go Implementation)
 
-Based on the content here, changie can be exposed as MCP tools:
+**Built with:** Official MCP Go SDK v1.0.0 (`github.com/modelcontextprotocol/go-sdk`)
 
-**Tool: `changie_init`**
-- Creates CHANGELOG.md
-- Returns: `{created: bool, file: string}`
+**Available Tools:**
 
-**Tool: `changie_add_entry`**
-- Params: `{section: enum, content: string}`
-- Returns: `{success: bool, section: string, content: string}`
+1. **`changie_bump_version`**
+   - Bump semantic version (major, minor, or patch)
+   - Params: `{type: "major"|"minor"|"patch", auto_push?: bool}`
+   - Returns: `{success, old_version, new_version, tag, pushed, error?}`
 
-**Tool: `changie_bump_version`**
-- Params: `{type: enum[major,minor,patch], auto_push: bool}`
-- Returns: `{success: bool, old_version: string, new_version: string, error?: string}`
+2. **`changie_add_changelog`**
+   - Add entry to changelog
+   - Params: `{section: "added"|"changed"|"deprecated"|"removed"|"fixed"|"security", content: string}`
+   - Returns: `{success, section, content, changelog_file, added, error?}`
 
-### Context for MCP Servers
+3. **`changie_init`**
+   - Initialize new changie project
+   - Params: `{changelog_file?: string}`
+   - Returns: `{success, changelog_file, created, error?}`
 
-MCP servers should:
-1. Load `context.md` as tool context
-2. Use prompts as tool documentation
-3. Reference workflows for complex operations
-4. Parse JSON output from changie commands
+4. **`changie_get_version`**
+   - Get current version from git tags
+   - Params: `{}`
+   - Returns: `{success, version, error?}`
 
-### Example MCP Server Usage
+### Running the MCP Server
 
-```typescript
-// MCP server using changie
-import { Tool } from '@modelcontextprotocol/sdk';
+**Option 1: Build from source**
+```bash
+go build -o changie-mcp-server ./cmd/mcp-server
+./changie-mcp-server
+```
 
-const changieTools: Tool[] = [
-  {
-    name: 'changie_bump_version',
-    description: 'Release a new version (read from .ai/context.md)',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        bump_type: {
-          type: 'string',
-          enum: ['major', 'minor', 'patch'],
-          description: 'major=breaking, minor=features, patch=fixes'
-        },
-        auto_push: { type: 'boolean', default: false }
-      }
-    },
-    handler: async (input) => {
-      const result = await exec(
-        `changie bump ${input.bump_type} ${input.auto_push ? '--auto-push' : ''} --json`
-      );
-      return JSON.parse(result);
+**Option 2: Docker**
+```bash
+# Build image
+docker build -f Dockerfile.mcp -t changie-mcp .
+
+# Run server
+docker run -i changie-mcp
+```
+
+**Option 3: With Claude Desktop**
+
+Add to Claude Desktop config (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "changie": {
+      "command": "/path/to/changie-mcp-server"
     }
   }
-];
+}
 ```
+
+### Architecture
+
+- **Transport**: stdio (standard for MCP)
+- **Protocol**: JSON-RPC 2.0
+- **Implementation**: Go using official SDK
+- **CLI Integration**: Calls `changie` binary with `--json` flag
+
+### For Developers
+
+**Source:**
+- Server: `cmd/mcp-server/main.go`
+- Tool handlers: `internal/mcp/tools.go`
+- Dockerfile: `Dockerfile.mcp`
+
+**Adding New Tools:**
+1. Add handler function in `internal/mcp/tools.go`
+2. Register tool in `cmd/mcp-server/main.go`
+3. Ensure changie command supports `--json` output
+
+### Context for MCP Integration
+
+MCP servers and agents should:
+1. Load `context.md` for tool context
+2. Use prompts as tool documentation
+3. Reference workflows for complex operations
+4. Always check `success` field in responses
+5. Use error messages for actionable hints
 
 ## Design Principles
 

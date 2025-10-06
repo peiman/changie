@@ -5,6 +5,7 @@
 *.so
 *.dylib
 changie
+changie-mcp-server
 
 # Task artifacts
 .task
