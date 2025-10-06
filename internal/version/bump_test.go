@@ -352,7 +352,7 @@ func TestBump(t *testing.T) {
 			var output bytes.Buffer
 
 			// Run the bump function
-			_, err := Bump(tt.cfg, &output)
+			err := Bump(tt.cfg, &output)
 
 			// Check error expectations
 			if tt.expectError {
@@ -431,7 +431,7 @@ func TestBump_GitNotInstalled(t *testing.T) {
 	os.WriteFile("CHANGELOG.md", []byte("# Changelog\n\n## [Unreleased]\n"), 0o644)
 
 	// This should fail because we're not in a git repo
-	_, err = Bump(cfg, &output)
+	err = Bump(cfg, &output)
 	require.Error(t, err, "Expected error when not in git repo")
 }
 
@@ -452,7 +452,7 @@ func TestBump_InvalidChangelogFile(t *testing.T) {
 
 	var output bytes.Buffer
 
-	_, err := Bump(cfg, &output)
+	err := Bump(cfg, &output)
 	require.Error(t, err, "Expected error with nonexistent changelog file")
 	assert.Contains(t, err.Error(), "failed to update changelog",
 		"Error should mention changelog update failure")
@@ -513,7 +513,7 @@ func TestBump_Integration(t *testing.T) {
 			UseVPrefix:         true,
 		}
 
-		_, err := Bump(cfg, &output)
+		err := Bump(cfg, &output)
 		require.NoError(t, err, "Bump %s failed", bump.bumpType)
 
 		// Verify the version in output
