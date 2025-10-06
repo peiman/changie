@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - llms.txt file for LLM-optimized documentation and MCP integration
 
 
+
+### Fixed
+
+- Table of contents in README.md now correctly references 'bump' command
+
+
 ## [v1.1.0] - 2025-10-06
 
 ### Changed

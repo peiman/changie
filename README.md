@@ -36,7 +36,7 @@
       - [Subcommands](#subcommands)
       - [Flags](#flags-1)
       - [Examples](#examples-1)
-    - [`major`, `minor`, `patch` Commands](#major-minor-patch-commands)
+    - [`bump` Command](#bump-command)
       - [Usage](#usage-2)
       - [Flags](#flags-2)
       - [Examples](#examples-2)
