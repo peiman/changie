@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 - Table of contents in README.md now correctly references 'bump' command
 
 
+
+### Changed
+
+- Enhanced help text for bump commands with detailed examples, use cases, and step-by-step explanations
+
+
 ## [v1.1.0] - 2025-10-06
 
 ### Changed
