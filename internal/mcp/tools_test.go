@@ -2,9 +2,11 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/peiman/changie/internal/output"
 )
@@ -515,5 +517,99 @@ func TestOutputStructures(t *testing.T) {
 		}
 		assert.True(t, out.Success)
 		assert.Equal(t, "v2.0.0", out.Version)
+	})
+}
+
+func TestJSONUnmarshaling(t *testing.T) {
+	t.Run("BumpOutput success JSON", func(t *testing.T) {
+		jsonData := `{
+			"success": true,
+			"old_version": "v1.0.0",
+			"new_version": "v1.1.0",
+			"tag": "v1.1.0",
+			"changelog_file": "CHANGELOG.md",
+			"pushed": false,
+			"bump_type": "minor"
+		}`
+
+		var result output.BumpOutput
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.Equal(t, "v1.0.0", result.OldVersion)
+		assert.Equal(t, "v1.1.0", result.NewVersion)
+		assert.Equal(t, "v1.1.0", result.Tag)
+		assert.Equal(t, "CHANGELOG.md", result.ChangelogFile)
+		assert.False(t, result.Pushed)
+		assert.Equal(t, "minor", result.BumpType)
+	})
+
+	t.Run("ChangelogOutput success JSON", func(t *testing.T) {
+		jsonData := `{
+			"success": true,
+			"section": "added",
+			"content": "New feature added",
+			"changelog_file": "CHANGELOG.md"
+		}`
+
+		var result output.ChangelogOutput
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.Equal(t, "added", result.Section)
+		assert.Equal(t, "New feature added", result.Content)
+		assert.Equal(t, "CHANGELOG.md", result.ChangelogFile)
+	})
+
+	t.Run("InitOutput success JSON", func(t *testing.T) {
+		jsonData := `{
+			"success": true,
+			"changelog_file": "CHANGELOG.md",
+			"created": true
+		}`
+
+		var result output.InitOutput
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.Equal(t, "CHANGELOG.md", result.ChangelogFile)
+		assert.True(t, result.Created)
+	})
+
+	t.Run("GetVersionOutput success JSON", func(t *testing.T) {
+		jsonData := `{
+			"success": true,
+			"version": "v2.3.1"
+		}`
+
+		var result GetVersionOutput
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+		assert.True(t, result.Success)
+		assert.Equal(t, "v2.3.1", result.Version)
+	})
+
+	t.Run("BumpOutput invalid JSON", func(t *testing.T) {
+		jsonData := `{invalid json`
+
+		var result output.BumpOutput
+		err := json.Unmarshal([]byte(jsonData), &result)
+		assert.Error(t, err)
+	})
+
+	t.Run("ChangelogOutput invalid JSON", func(t *testing.T) {
+		jsonData := `not json at all`
+
+		var result output.ChangelogOutput
+		err := json.Unmarshal([]byte(jsonData), &result)
+		assert.Error(t, err)
+	})
+
+	t.Run("InitOutput invalid JSON", func(t *testing.T) {
+		jsonData := `{"incomplete": `
+
+		var result output.InitOutput
+		err := json.Unmarshal([]byte(jsonData), &result)
+		assert.Error(t, err)
 	})
 }
