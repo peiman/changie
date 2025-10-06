@@ -9,21 +9,15 @@ and this project adheres to [Semantic Versioning (SemVer)](https://semver.org).
 
 ### Added
 
-- llms.txt file for LLM-optimized documentation and MCP integration
-- JSON output support with --json flag for machine-readable command results
-- examples/ directory with comprehensive usage scripts for basic workflows, CI/CD integration, and release strategies
-- .ai/ directory with AI agent resources, prompts, workflows, and MCP integration guidance
-- feat: add MCP server for AI agent integration with official Go SDK v1.0.0
-- chore: add Task commands for MCP Docker operations (build, run, test, clean)
-
-### Fixed
-
-- Table of contents in README.md now correctly references 'bump' command
-- fix: update Dockerfile.mcp to use golang:1.24-alpine for Go 1.24.0 compatibility
+- JSON output support with `--json` flag for CI/CD integration
+- MCP server for AI assistant integration (Claude Desktop, Cursor, etc.)
+- Integration guide for setting up with AI coding tools
+- LLM-optimized documentation (llms.txt)
+- Examples directory with CI/CD workflow scripts
 
 ### Changed
 
-- Enhanced help text for bump commands with detailed examples, use cases, and step-by-step explanations
+- Enhanced help text with detailed examples and use cases
 
 
 ## [v1.1.0] - 2025-10-06

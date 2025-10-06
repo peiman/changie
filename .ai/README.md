@@ -7,6 +7,7 @@ This directory contains resources specifically designed for AI agents, LLMs, and
 ```
 .ai/
 ├── README.md                          # This file
+├── integration-guide.md               # Setup guide for Claude Desktop, Cursor, Claude Code
 ├── context.md                         # Project context and agent guidance
 ├── prompts/                           # Task-specific prompts
 │   ├── release-new-version.md        # Guide for releasing versions
@@ -24,6 +25,22 @@ The `.ai/` directory follows emerging 2025 patterns for AI-augmented development
 3. **Workflows** - Step-by-step guides for complex processes
 
 ## Files
+
+### `integration-guide.md`
+
+**Purpose:** Step-by-step setup instructions for AI coding tools
+
+**Contains:**
+- Prerequisites and installation steps
+- Claude Desktop configuration (manual + Docker)
+- Claude Code CLI setup (wizard + manual)
+- Cursor IDE integration (project + global)
+- Verification steps
+- Usage examples
+- Comprehensive troubleshooting
+- Advanced configurations
+
+**Use this:** When setting up changie MCP server with your AI assistant
 
 ### `context.md`
 
@@ -85,11 +102,12 @@ The `.ai/` directory follows emerging 2025 patterns for AI-augmented development
 
 ### Quick Start
 
-1. **Read `context.md` first** - Understand changie capabilities
-2. **Use appropriate prompt** - Select based on task
-3. **Follow workflow if complex** - Use workflows for multi-step tasks
-4. **Always use `--json` flag** - For reliable output parsing
-5. **Check success field** - Before proceeding with results
+1. **Setup MCP server** - Follow `integration-guide.md` for your tool (Claude Desktop, Cursor, Claude Code)
+2. **Read `context.md` first** - Understand changie capabilities
+3. **Use appropriate prompt** - Select based on task
+4. **Follow workflow if complex** - Use workflows for multi-step tasks
+5. **Always use `--json` flag** - For reliable output parsing (MCP tools do this automatically)
+6. **Check success field** - Before proceeding with results
 
 ### Integration Pattern
 

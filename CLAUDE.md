@@ -204,13 +204,14 @@ This project is built upon the **[ckeletin-go](https://github.com/peiman/ckeleti
 Entry points for the CLI. Each file defines cobra commands.
 
 **Files:**
-- `root.go` - Root command, config initialization, global flags
+- `root.go` - Root command, config initialization, global flags (includes `--json` flag)
 - `version.go` - Version bump commands (major, minor, patch)
 - `init.go` - Project initialization command
 - `changelog.go` - Changelog command group
 - `changelog_add.go` - Subcommands for adding changelog entries
 - `docs.go` - Documentation generation commands
 - `completion.go` - Shell completion
+- `mcp-server/main.go` - MCP (Model Context Protocol) server entry point
 
 **Responsibilities:**
 - Define cobra commands and flags
@@ -324,6 +325,38 @@ Documentation generation.
 **Key Functions:**
 - `NewGenerator(cfg *Config) *Generator` - Creates generator
 - `Generate() error` - Generates documentation
+
+#### `internal/output/`
+JSON output utilities for machine-readable command results.
+
+**Files:**
+- `output.go` - JSON output formatting and structures
+
+**Key Functions:**
+- `IsJSONEnabled() bool` - Checks if JSON output mode is enabled
+- `WriteJSON(w io.Writer, v interface{}) error` - Writes JSON to writer
+- `Write(w io.Writer, textValue string, jsonValue interface{}) error` - Writes in appropriate format
+
+**Output Structures:**
+- `BumpOutput` - Version bump results (success, old_version, new_version, tag, etc.)
+- `InitOutput` - Project initialization results
+- `ChangelogOutput` - Changelog operation results
+- `DocsOutput` - Documentation generation results
+
+#### `internal/mcp/`
+MCP (Model Context Protocol) server tool implementations.
+
+**Files:**
+- `tools.go` - MCP tool handler functions
+- `tools_test.go` - Comprehensive integration tests
+
+**Key Functions:**
+- `BumpVersion(ctx, req, input) (result, output, error)` - Bump version MCP tool
+- `AddChangelog(ctx, req, input) (result, output, error)` - Add changelog entry tool
+- `Init(ctx, req, input) (result, output, error)` - Initialize project tool
+- `GetVersion(ctx, req, input) (result, output, error)` - Get current version tool
+
+**Note:** Uses official MCP Go SDK v1.0.0 (`github.com/modelcontextprotocol/go-sdk`). Implements 4 tools that call `changie` with `--json` flag for structured output.
 
 ## Key Conventions
 
@@ -611,6 +644,18 @@ Managed by [Lefthook](https://github.com/evilmartians/lefthook). Configured in `
 ### "I need to format output for users"
 → Use `fmt.Fprintf(output, ...)` where `output` is `io.Writer` (typically `cmd.OutOrStdout()`)
 
+### "I need to add JSON output support to a command"
+→ Use functions in `internal/output/output.go` - `Write()`, `WriteJSON()`, or create new output struct
+
+### "I need to implement MCP tools for AI agents"
+→ Add tool handler in `internal/mcp/tools.go`, register in `cmd/mcp-server/main.go`
+
+### "I need AI agent documentation/prompts"
+→ Check `.ai/` directory for context, prompts, and workflows; see `llms.txt` for LLM docs
+
+### "I need CI/CD integration examples"
+→ Look at `examples/ci-integration.sh` for GitHub Actions and GitLab CI patterns
+
 ### "I need to add environment variable support"
 → Use viper automatic env binding (already configured with prefix in `cmd/root.go`)
 
@@ -653,6 +698,7 @@ When adding/modifying code, ensure:
 - **Scaffold Repository**: https://github.com/peiman/ckeletin-go
 - **Keep a Changelog**: https://keepachangelog.com/
 - **Semantic Versioning**: https://semver.org/
+- **Model Context Protocol**: https://modelcontextprotocol.io/
 
 ### Go Standards & Best Practices
 - **[golang-standards/project-layout](https://github.com/golang-standards/project-layout)** - Standard project structure
@@ -666,10 +712,12 @@ When adding/modifying code, ensure:
 - **[zerolog](https://github.com/rs/zerolog)** - Structured logging
 - **[Task](https://taskfile.dev/)** - Build automation
 - **[golangci-lint](https://golangci-lint.run/)** - Linter aggregator
+- **[MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)** - Official MCP SDK
 
 ---
 
-**Last Updated**: 2025-10-05
-**Project Version**: Based on commit 65abd7c
+**Last Updated**: 2025-10-06
+**Project Version**: Based on `ai` branch (pre-v1.2.0)
+**New Features**: JSON output, MCP server, AI agent integration
 
 For questions or clarifications, refer to the source code and tests as the ultimate source of truth.

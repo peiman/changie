@@ -55,6 +55,12 @@ changie.json
 # Test coverage
 coverage.txt
 test-output.json
+mcp-coverage.html
+mcp-coverage.txt
+
+# AI-generated analysis files
+AI-BRANCH-CODE-REVIEW.md
+MCP-COVERAGE-ANALYSIS.md
 
 # Environment variables
 .env

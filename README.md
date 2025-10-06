@@ -76,7 +76,9 @@ Built on solid engineering principles, changie includes:
 - **Standardized Changelog Management**: Follow "Keep a Changelog" best practices without manual formatting
 - **Semantic Versioning Support**: Automatic version bumping following SemVer principles
 - **Git Integration**: Seamless interaction with Git for tagging and committing changes
-- **Flexible Output Format**: Generate consistent, well-formatted changelog files
+- **JSON Output**: Machine-readable output with `--json` flag for automation and CI/CD integration
+- **MCP Server**: Model Context Protocol server for AI agent integration (Claude Desktop, etc.)
+- **AI-Ready**: Comprehensive documentation and tools for AI agents (`llms.txt`, `.ai/` directory)
 
 ---
 
@@ -114,7 +116,11 @@ Built on solid engineering principles, changie includes:
 - **Entry Management**: Add standardized changelog entries by type (added, changed, fixed, etc.)
 - **Version Control**: Bump versions following Semantic Versioning (major, minor, patch)
 - **Git Integration**: Commit changes and create version tags automatically
-- **Structured Output**: Ensure consistency and readability of changelog files
+- **JSON Output Mode**: Machine-readable output for automation and CI/CD pipelines
+- **MCP Server**: AI agent integration via Model Context Protocol
+- **AI Agent Resources**: Comprehensive guides, prompts, and workflows in `.ai/` directory
+- **LLM-Optimized Docs**: `llms.txt` file for AI assistant integration
+- **Usage Examples**: Ready-to-use scripts for common workflows and CI/CD integration
 
 ---
 
@@ -255,6 +261,7 @@ changie bump [major|minor|patch] [flags]
 - `--rrp`: Remote repository provider (github, bitbucket) (default: "github")
 - `--auto-push`: Automatically push changes and tags
 - `--allow-any-branch`: Allow version bumping on any branch (bypasses main/master branch check)
+- `--json`: Output results in JSON format for machine parsing
 
 #### Examples
 
@@ -263,6 +270,10 @@ changie bump major
 changie bump minor --auto-push
 changie bump patch --file HISTORY.md
 changie bump minor --allow-any-branch  # For release branches or hotfixes
+
+# JSON output for automation
+changie bump patch --json
+# Returns: {"success":true,"old_version":"1.0.0","new_version":"1.0.1",...}
 ```
 
 **Note:** By default, version bump commands check that you're on the `main` or `master` branch. This is a best practice to maintain a clean release history. Use `--allow-any-branch` when you need to bump versions on other branches (e.g., release branches, hotfix branches).
@@ -304,6 +315,195 @@ Override at runtime:
 ```bash
 changie init --file HISTORY.md
 ```
+
+---
+
+## JSON Output & Automation
+
+changie supports machine-readable JSON output for all bump commands, making it easy to integrate with CI/CD pipelines, scripts, and automation tools.
+
+### Using JSON Output
+
+Add the `--json` flag to any bump command:
+
+```bash
+changie bump patch --json
+```
+
+**Example Output:**
+```json
+{
+  "success": true,
+  "old_version": "1.2.3",
+  "new_version": "1.2.4",
+  "tag": "v1.2.4",
+  "changelog_file": "CHANGELOG.md",
+  "commit_hash": "abc123",
+  "pushed": false,
+  "bump_type": "patch"
+}
+```
+
+**Error Output:**
+```json
+{
+  "success": false,
+  "error": "uncommitted changes detected - commit or stash changes first",
+  "bump_type": "patch"
+}
+```
+
+### CI/CD Integration Examples
+
+**GitHub Actions:**
+```yaml
+- name: Bump version
+  id: bump
+  run: |
+    OUTPUT=$(changie bump patch --json)
+    echo "version=$(echo $OUTPUT | jq -r '.new_version')" >> $GITHUB_OUTPUT
+
+- name: Use version
+  run: echo "Released version ${{ steps.bump.outputs.version }}"
+```
+
+**GitLab CI:**
+```yaml
+bump_version:
+  script:
+    - changie bump patch --json | tee release.json
+    - export VERSION=$(jq -r '.new_version' release.json)
+    - echo "VERSION=$VERSION" >> variables.env
+  artifacts:
+    reports:
+      dotenv: variables.env
+```
+
+**Shell Scripts:**
+```bash
+#!/bin/bash
+RESULT=$(changie bump patch --json)
+if [[ $(echo "$RESULT" | jq -r '.success') == "true" ]]; then
+  VERSION=$(echo "$RESULT" | jq -r '.new_version')
+  echo "✓ Released version $VERSION"
+else
+  ERROR=$(echo "$RESULT" | jq -r '.error')
+  echo "✗ Release failed: $ERROR"
+  exit 1
+fi
+```
+
+See the `examples/` directory for more complete CI/CD integration examples.
+
+---
+
+## MCP Server (AI Agent Integration)
+
+changie includes an **MCP (Model Context Protocol) server** that exposes changelog operations as tools for AI agents like Claude Desktop.
+
+### What is MCP?
+
+[Model Context Protocol](https://modelcontextprotocol.io/) is an open standard for connecting AI assistants to external tools and data sources. changie's MCP server allows AI agents to manage your changelog autonomously.
+
+### Available Tools
+
+The MCP server exposes 4 tools:
+
+1. **`changie_bump_version`** - Bump semantic version (major/minor/patch)
+2. **`changie_add_changelog`** - Add changelog entries
+3. **`changie_init`** - Initialize new projects
+4. **`changie_get_version`** - Get current version from git tags
+
+### Running the MCP Server
+
+**Option 1: Build from source**
+```bash
+# Build MCP server binary
+task build:mcp
+
+# Run server (stdio mode for MCP)
+./changie-mcp-server
+```
+
+**Option 2: Docker (recommended)**
+```bash
+# Build Docker image
+task docker:build:mcp
+
+# Run in Docker
+task docker:run:mcp
+```
+
+**Option 3: With Claude Desktop**
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "changie": {
+      "command": "/path/to/changie-mcp-server"
+    }
+  }
+}
+```
+
+Then restart Claude Desktop. The changie tools will appear in Claude's available tools.
+
+### MCP Architecture
+
+- **Transport**: stdio (standard for MCP)
+- **Protocol**: JSON-RPC 2.0
+- **SDK**: Official MCP Go SDK v1.0.0
+- **Integration**: Calls `changie` binary with `--json` flag
+
+### Example Usage with AI Agents
+
+Once configured, you can ask Claude:
+
+> "Please bump the patch version and push the changes"
+
+Claude will use the `changie_bump_version` tool to execute the release.
+
+---
+
+## AI Agent Resources
+
+changie includes comprehensive resources for AI agents and LLM integration:
+
+### `.ai/` Directory
+
+Structured resources for AI agents:
+
+- **`context.md`** - Project capabilities, constraints, and best practices
+- **`prompts/release-new-version.md`** - Guide for releasing versions
+- **`prompts/add-changelog-entry.md`** - Guide for adding changelog entries
+- **`workflows/complete-release-workflow.md`** - End-to-end release process
+
+These files help AI agents understand changie's capabilities and execute tasks correctly.
+
+### `llms.txt`
+
+LLM-optimized documentation following the [llms.txt standard](https://llmstxt.org/). This file provides:
+
+- Quick reference for all commands
+- Decision trees for choosing bump types
+- JSON output examples
+- Common workflows and error handling
+- Integration patterns
+
+AI assistants can reference this file to understand how to use changie effectively.
+
+### `examples/` Directory
+
+Ready-to-use scripts and comprehensive guides:
+
+- **`basic-workflow.sh`** - Daily development workflow
+- **`ci-integration.sh`** - GitHub Actions and GitLab CI examples
+- **`release-workflow.sh`** - Complete release automation
+- **`README.md`** - Detailed usage guide with troubleshooting
+
+These examples serve as templates for both humans and AI agents.
 
 ---
 
