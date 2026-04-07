@@ -50,13 +50,10 @@ func init() {
 func runInit(cmd *cobra.Command, _ []string) error {
 	log.Debug().Msg("Starting runInit execution")
 
-	file := viper.GetString("app.changelog.file")
-	if cmd.Flags().Changed("file") {
-		file, _ = cmd.Flags().GetString("file")
-	}
+	file := getConfigValueWithFlags[string](cmd, "file", "app.changelog.file")
 
 	// Determine if we should use 'v' prefix for versions
-	useVPrefix := viper.GetBool("app.version.use_v_prefix")
+	useVPrefix := getConfigValueWithFlags[bool](cmd, "use-v-prefix", "app.version.use_v_prefix")
 	explicitPrefixSet := cmd.Flags().Changed("use-v-prefix")
 
 	// Check if git is installed
@@ -70,9 +67,9 @@ func runInit(cmd *cobra.Command, _ []string) error {
 			if explicitPrefixSet {
 				// User explicitly set the preference, inform them if it differs from existing tags
 				if hasPrefix != useVPrefix {
-					fmt.Fprintf(cmd.OutOrStdout(), "Note: Your specified version prefix setting (%v) differs from existing tags (%v).\n",
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Note: Your specified version prefix setting (%v) differs from existing tags (%v).\n",
 						useVPrefix, hasPrefix)
-					fmt.Fprintf(cmd.OutOrStdout(), "Using your specified preference: %v\n", useVPrefix)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using your specified preference: %v\n", useVPrefix)
 				}
 			} else {
 				// No explicit preference, adopt existing convention
@@ -81,12 +78,12 @@ func runInit(cmd *cobra.Command, _ []string) error {
 				if !hasPrefix {
 					withoutText = "out"
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Detected existing version tags with%s 'v' prefix. Using this convention.\n",
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Detected existing version tags with%s 'v' prefix. Using this convention.\n",
 					withoutText)
 			}
 		} else if currentVersion == "" && !explicitPrefixSet {
 			// No tags found and no explicit preference, ask user
-			fmt.Fprintf(cmd.OutOrStdout(), "No existing version tags found.\n")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No existing version tags found.\n")
 			result, err := ui.AskYesNo("Would you like to use 'v' prefix for version tags? (e.g., v1.0.0 vs 1.0.0)", true, cmd.OutOrStdout())
 			if err != nil {
 				log.Warn().Err(err).Msg("Error reading input, defaulting to use 'v' prefix")
@@ -104,17 +101,17 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	if !useVPrefix {
 		prefixText = "not "
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Version tags will %suse 'v' prefix.\n", prefixText)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Version tags will %suse 'v' prefix.\n", prefixText)
 
 	// Initialize the changelog
 	log.Info().Str("file", file).Msg("Initializing project with changelog file")
 
 	if err := changelog.InitProject(file); err != nil {
-		log.Error().Err(err).Str("file", file).Msg("Failed to initialize project")
+		log.Debug().Err(err).Str("file", file).Msg("Failed to initialize project")
 		return fmt.Errorf("failed to initialize project: %w", err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Project initialized with changelog file: %s\n", file)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Project initialized with changelog file: %s\n", file)
 
 	// If git is available and there are no tags, create initial commit and tag
 	if git.IsInstalled() {
@@ -136,7 +133,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 				if err := git.TagVersion(initialTag); err != nil {
 					log.Warn().Err(err).Str("tag", initialTag).Msg("Failed to create initial tag, continuing anyway")
 				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "Created initial git tag: %s\n", initialTag)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created initial git tag: %s\n", initialTag)
 					log.Info().Str("tag", initialTag).Msg("Created initial git tag")
 				}
 			}

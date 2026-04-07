@@ -1,276 +1,263 @@
 # GoReleaser configuration for changie
-# Documentation: https://goreleaser.com
+# See: https://goreleaser.com
+#
+# ============================================================================
+# OWNERSHIP MODEL (Framework Separation)
+# ============================================================================
+#
+# This file has MIXED OWNERSHIP:
+#
+# PROJECT-MANAGED (line ~30):
+#   - project_name: Must match BINARY_NAME in Taskfile.yml
+#   - Updated by `task init` during scaffold initialization
+#
+# FRAMEWORK-MANAGED (everything else):
+#   - Build configuration, archives, checksums, SBOM
+#   - Changelog, Homebrew, release settings
+#   - These use templates ({{ .ProjectName }}) and auto-detection
+#
+# When running `task ckeletin:update`:
+# - This file is NOT automatically updated (it's in project root)
+# - Check framework CHANGELOG for release configuration changes
+# - Manually incorporate framework improvements if needed
+#
+# ============================================================================
+#
+# Optional (Homebrew tap):
+#   - Set HOMEBREW_TAP_OWNER env var in CI to your GitHub username
+#   - Create a 'homebrew-tap' repository in your GitHub account
+#   - If not set, Homebrew tap updates are automatically skipped
+#
+# Auto-detected (no changes needed):
+#   - Module path (from go.mod via .ModulePath)
+#   - Repository owner/name (from git remote)
+#   - Repository URLs (from git config)
 
 version: 2
 
+# -------------------------------------------------------------------------
+# PROJECT-MANAGED: Binary/Project Name
+# -------------------------------------------------------------------------
+# IMPORTANT: Must match BINARY_NAME in Taskfile.yml
+# Updated by `task init` during scaffold initialization
+project_name: changie
+
+# -------------------------------------------------------------------------
+# FRAMEWORK-MANAGED: Build, Archive, Release Configuration
+# -------------------------------------------------------------------------
+# Everything below uses templates ({{ .ProjectName }}) and auto-detection.
+# Rarely needs modification. Check framework CHANGELOG for updates.
+
 # Build configuration
+# Binary name automatically uses 'project_name' defined above
+#
+# IMPORTANT: Production builds only (dev commands excluded)
+# - No build tags specified = dev commands automatically excluded
+# - Dev builds use: go build -tags dev (adds dev config, dev doctor commands)
+# - Release binaries ship without dev tools for clean user experience
 builds:
-  - id: changie
-    binary: changie
-    main: ./main.go
-    env:
-      - CGO_ENABLED=0
+  - main: ./main.go
+
+    # Build for multiple platforms
     goos:
       - linux
       - darwin
       - windows
-      - freebsd
-      - openbsd
-      - netbsd
+
     goarch:
       - amd64
       - arm64
-      - arm
-      - "386"
-    goarm:
-      - "6"
-      - "7"
+
+    # Exclude unsupported combinations
     ignore:
-      # Skip 386 on darwin (not supported)
-      - goos: darwin
-        goarch: "386"
-      # Skip arm on darwin (not supported)
-      - goos: darwin
-        goarch: arm
-      # Skip Windows ARM (not well supported)
       - goos: windows
-        goarch: arm
-        goarm: "6"
-      - goos: windows
-        goarch: arm
-        goarm: "7"
+        goarch: arm64
+
+    # Inject version information (matching Taskfile.yml pattern)
+    # Uses .ModulePath to automatically detect module from go.mod (single source of truth)
     ldflags:
       - -s -w
-      - -X github.com/peiman/changie/cmd.Version={{.Version}}
-      - -X github.com/peiman/changie/cmd.Commit={{.Commit}}
-      - -X github.com/peiman/changie/cmd.Date={{.Date}}
-      - -X github.com/peiman/changie/cmd.BuiltBy=goreleaser
+      - -X '{{ .ModulePath }}/cmd.binaryName={{ .ProjectName }}'
+      - -X '{{ .ModulePath }}/cmd.Version={{ .Version }}'
+      - -X '{{ .ModulePath }}/cmd.Commit={{ .Commit }}'
+      - -X '{{ .ModulePath }}/cmd.Date={{ .Date }}'
+
+    # Ensure reproducible builds
+    env:
+      - CGO_ENABLED=0
+
+    # Build flags
     flags:
       - -trimpath
 
-# Universal macOS binary
-universal_binaries:
-  - id: changie-universal
-    name_template: changie
-    replace: true
-
 # Archive configuration
 archives:
-  - id: changie-archive
+  - id: default
+    format: tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
+      {{- .Os }}_
+      {{- .Arch }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    files:
-      - README.md
-      - LICENSE
-      - CHANGELOG.md
 
-# Checksums
+    # Use zip for Windows
+    format_overrides:
+      - goos: windows
+        format: zip
+
+    # Include additional files in archives
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - docs/**/*
+
+# Checksums for verification
 checksum:
-  name_template: "checksums.txt"
+  name_template: 'checksums.txt'
   algorithm: sha256
 
-# Snapshot configuration (for unreleased builds)
-snapshot:
-  version_template: "{{ incpatch .Version }}-next"
+# Sign release checksums with cosign (keyless via OIDC)
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    output: true
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
 
-# Release notes from changelog
+# Generate SBOM (Software Bill of Materials) for security compliance
+sboms:
+  - id: default
+    artifacts: archive
+    documents:
+      - >-
+        {{ .ProjectName }}_
+        {{- .Version }}_
+        {{- .Os }}_
+        {{- .Arch }}_sbom.spdx.json
+
+# Snapshot builds (for testing without tags)
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# Changelog configuration
 changelog:
   use: github
   sort: asc
-  abbrev: 7
-  groups:
-    - title: Features
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 0
-    - title: "Bug Fixes"
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
-      order: 1
-    - title: "Documentation"
-      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
-      order: 2
-    - title: "Dependency Updates"
-      regexp: '^.*?(feat|fix)\(deps\)!?:.+$'
-      order: 3
-    - title: Others
-      order: 999
   filters:
     exclude:
-      - "^test:"
-      - "^chore:"
-      - "merge conflict"
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - typo
       - Merge pull request
-      - Merge remote-tracking branch
       - Merge branch
+  groups:
+    - title: 'Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Refactors'
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: 'Others'
+      order: 999
 
-# Homebrew tap (for macOS/Linux installation via brew)
+# Homebrew tap (macOS package manager)
+# NOTE: Homebrew tap is OPTIONAL. To enable:
+#   1. Create a homebrew-tap repository in your GitHub account
+#   2. Set HOMEBREW_TAP_OWNER environment variable to your GitHub username
+#   3. Set HOMEBREW_TAP_GITHUB_TOKEN secret in CI
+# If HOMEBREW_TAP_OWNER is not set, Homebrew tap updates are skipped
 brews:
-  - name: changie
+  - name: "{{ .ProjectName }}"
+
+    # Skip upload if HOMEBREW_TAP_OWNER is not set (makes Homebrew optional)
+    skip_upload: '{{ if index .Env "HOMEBREW_TAP_OWNER" }}false{{ else }}true{{ end }}'
+
     repository:
-      owner: peiman
+      owner: '{{ if index .Env "HOMEBREW_TAP_OWNER" }}{{ .Env.HOMEBREW_TAP_OWNER }}{{ else }}SKIP{{ end }}'
       name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: '{{ if index .Env "HOMEBREW_TAP_GITHUB_TOKEN" }}{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}{{ else }}{{ end }}'
+
+    # Folder inside the repository
     directory: Formula
-    homepage: https://github.com/peiman/changie
-    description: "Professional changelog management CLI for SemVer projects"
-    license: MIT
+
+    # Git author used to commit to the repository
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+
+    # Template for the commit message
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+
+    # Description for Homebrew
+    description: "A professional Golang CLI scaffold for building beautiful, robust, and modular command-line applications"
+
+    homepage: "{{ .GitURL }}"
+
+    license: "MIT"
+
+    # Install instructions for Homebrew
     install: |
-      bin.install "changie"
+      bin.install "{{ .ProjectName }}"
 
-      # Generate and install shell completions
-      generate_completions_from_executable(bin/"changie", "completion")
+    # Test instructions
     test: |
-      system "#{bin}/changie", "version"
+      system "#{bin}/{{ .ProjectName }}", "--version"
 
-# Snapcraft (for Linux snap packages) - DISABLED for now
-# Uncomment when snapcraft is installed
-# snapcrafts:
-#   - id: changie-snap
-#     name: changie
-#     summary: Professional changelog management CLI
-#     description: |
-#       changie is a professional changelog management CLI tool for SemVer projects
-#       that follows the Keep a Changelog format. It helps automate version bumping,
-#       changelog updates, and release workflows.
-#     grade: stable
-#     confinement: strict
-#     license: MIT
-#     base: core22
-#     publish: false  # Set to true after setting up snapcraft credentials
-#     apps:
-#       changie:
-#         command: changie
-#         plugs: ["home", "network", "removable-media"]
-
-# AUR (Arch User Repository) - DISABLED (requires AUR_PRIVATE_KEY)
-# Uncomment when you have AUR credentials set up
-# See: https://goreleaser.com/customization/aur/
-# aurs:
-#   - name: changie-bin
-#     homepage: https://github.com/peiman/changie
-#     description: "Professional changelog management CLI for SemVer projects"
-#     maintainers:
-#       - "Peiman Zabih <peiman at peimanzabih dot com>"
-#     license: MIT
-#     private_key: "{{ .Env.AUR_PRIVATE_KEY }}"
-#     git_url: "ssh://aur@aur.archlinux.org/changie-bin.git"
-#     package: |-
-#       # bin
-#       install -Dm755 "./changie" "${pkgdir}/usr/bin/changie"
-#
-#       # license
-#       install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/changie/LICENSE"
-#
-#       # completions
-#       mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
-#       mkdir -p "${pkgdir}/usr/share/zsh/site-functions/"
-#       mkdir -p "${pkgdir}/usr/share/fish/vendor_completions.d/"
-#
-#       install -Dm644 "./completions/changie.bash" "${pkgdir}/usr/share/bash-completion/completions/changie"
-#       install -Dm644 "./completions/changie.zsh" "${pkgdir}/usr/share/zsh/site-functions/_changie"
-#       install -Dm644 "./completions/changie.fish" "${pkgdir}/usr/share/fish/vendor_completions.d/changie.fish"
-
-# nFPM (for deb, rpm, apk packages)
-nfpms:
-  - id: changie-packages
-    package_name: changie
-    homepage: https://github.com/peiman/changie
-    maintainer: Peiman Zabih <peiman@peimanzabih.com>
-    description: Professional changelog management CLI for SemVer projects
-    license: MIT
-    formats:
-      - deb
-      - rpm
-      - apk
-    bindir: /usr/bin
-    contents:
-      - src: ./LICENSE
-        dst: /usr/share/doc/changie/LICENSE
-      - src: ./README.md
-        dst: /usr/share/doc/changie/README.md
-      - src: ./CHANGELOG.md
-        dst: /usr/share/doc/changie/CHANGELOG.md
-
-# GitHub Release configuration
+# Release configuration
+# GitHub repository is auto-detected from git remote
 release:
-  github:
-    owner: peiman
-    name: changie
+  # Draft release (set to false for automatic release)
   draft: false
+
+  # Prerelease detection
   prerelease: auto
-  mode: append
-  header: |
-    ## Release {{ .Tag }}
 
-    Welcome to this new release!
-  footer: |
-    ## Installation
-
-    ### Homebrew (macOS/Linux)
-    ```bash
-    brew install peiman/tap/changie
-    ```
-
-    ### Go Install
-    ```bash
-    go install github.com/peiman/changie@latest
-    ```
-
-    ### Linux Packages
-
-    **DEB (Debian/Ubuntu):**
-    ```bash
-    # Download and install
-    wget https://github.com/peiman/changie/releases/download/{{ .Tag }}/changie_{{ .Version }}_linux_amd64.deb
-    sudo dpkg -i changie_{{ .Version }}_linux_amd64.deb
-    ```
-
-    **RPM (RedHat/Fedora/CentOS):**
-    ```bash
-    # Download and install
-    wget https://github.com/peiman/changie/releases/download/{{ .Tag }}/changie_{{ .Version }}_linux_amd64.rpm
-    sudo rpm -i changie_{{ .Version }}_linux_amd64.rpm
-    ```
-
-    **APK (Alpine):**
-    ```bash
-    # Download and install
-    wget https://github.com/peiman/changie/releases/download/{{ .Tag }}/changie_{{ .Version }}_linux_amd64.apk
-    apk add --allow-untrusted changie_{{ .Version }}_linux_amd64.apk
-    ```
-
-    ### Direct Download
-    Download the appropriate archive for your platform from the assets below, extract, and move the binary to your PATH.
+  # Release name template
   name_template: "Release {{.Version}}"
 
-# Announce to various platforms (optional)
-announce:
-  skip: "{{gt .Patch 0}}"  # Only announce major/minor releases
+  # Header template for release notes
+  header: |
+    ## Release {{.Version}} ({{ .Date }})
 
-  # Twitter (requires Twitter API credentials)
-  # twitter:
-  #   enabled: true
-  #   message_template: "changie {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}"
+    Thank you for using {{ .ProjectName }}!
 
-  # Slack (requires Slack webhook)
-  # slack:
-  #   enabled: true
-  #   message_template: "changie {{ .Tag }} has been released! {{ .ReleaseURL }}"
+  # Footer template for release notes
+  footer: |
+    ---
 
-# Docker images (optional - add if you want Docker distribution)
-# dockers:
-#   - image_templates:
-#       - "ghcr.io/peiman/changie:{{ .Tag }}"
-#       - "ghcr.io/peiman/changie:latest"
-#     dockerfile: Dockerfile
-#     build_flag_templates:
-#       - "--pull"
-#       - "--label=org.opencontainers.image.created={{.Date}}"
-#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
-#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-#       - "--label=org.opencontainers.image.version={{.Version}}"
+    **Full Changelog**: {{ .ReleaseURL }}/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    ## Installation
+
+    ### Download Binary
+    Download the appropriate binary for your platform from the assets below.
+    {{ if index .Env "HOMEBREW_TAP_OWNER" }}
+    ### Homebrew (macOS/Linux)
+    ```bash
+    brew install {{ .Env.HOMEBREW_TAP_OWNER }}/tap/{{ .ProjectName }}
+    ```
+    {{ end }}
+    ### Verify Checksums
+    ```bash
+    sha256sum -c checksums.txt
+    ```
+
+# Announce (optional - can be enabled later)
+# announce:
+#   twitter:
+#     enabled: false
+#   discord:
+#     enabled: false

@@ -206,7 +206,7 @@ func TestRunInit(t *testing.T) {
 					if tc.hasVPrefix {
 						tagName = "v1.0.0"
 					}
-					tagCmd := exec.Command("git", "tag", tagName)
+					tagCmd := exec.Command("git", "tag", "-a", tagName, "-m", tagName)
 					tagCmd.Dir = tempDir
 					if err := tagCmd.Run(); err != nil {
 						t.Fatalf("Failed to create tag: %v", err)

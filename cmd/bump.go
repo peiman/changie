@@ -108,6 +108,7 @@ func init() {
 		cmd.Flags().String("rrp", "github", "Remote repository provider (github, bitbucket)")
 		cmd.Flags().Bool("auto-push", false, "Automatically push changes and tags")
 		cmd.Flags().Bool("allow-any-branch", false, "Allow version bumping on any branch (bypasses main/master branch check)")
+		cmd.Flags().Bool("use-v-prefix", true, "Use 'v' prefix for version tags (e.g., v1.0.0)")
 
 		// Bind flags to Viper
 		if err := viper.BindPFlag("app.changelog.file", cmd.Flags().Lookup("file")); err != nil {
@@ -131,56 +132,14 @@ func init() {
 	RootCmd.AddCommand(bumpCmd)
 }
 
-// runVersionBump is a thin wrapper that constructs configuration and delegates
-// to the version.Bump function in the internal/version package.
-//
-// This function is responsible only for:
-// 1. Reading configuration from viper and flags
-// 2. Constructing the BumpConfig struct
-// 3. Calling version.Bump with the appropriate output writer
-//
-// All business logic resides in internal/version/bump.go
-//
-// Parameters:
-//   - cmd: The cobra command being executed
-//   - bumpType: Type of version bump ("major", "minor", or "patch")
-//
-// Returns:
-//   - error: Any error that occurred during execution
 func runVersionBump(cmd *cobra.Command, bumpType string) error {
-	// Get configuration values from viper/flags
-	allowAnyBranch := viper.GetBool("app.version.allow_any_branch")
-	if cmd.Flags().Changed("allow-any-branch") {
-		allowAnyBranch, _ = cmd.Flags().GetBool("allow-any-branch")
-	}
-
-	file := viper.GetString("app.changelog.file")
-	if cmd.Flags().Changed("file") {
-		file, _ = cmd.Flags().GetString("file")
-	}
-
-	repositoryProvider := viper.GetString("app.changelog.repository_provider")
-	if cmd.Flags().Changed("rrp") {
-		repositoryProvider, _ = cmd.Flags().GetString("rrp")
-	}
-
-	autoPush := viper.GetBool("app.changelog.auto_push")
-	if cmd.Flags().Changed("auto-push") {
-		autoPush, _ = cmd.Flags().GetBool("auto-push")
-	}
-
-	useVPrefix := viper.GetBool("app.version.use_v_prefix")
-
-	// Construct configuration
 	cfg := version.BumpConfig{
 		BumpType:           bumpType,
-		AllowAnyBranch:     allowAnyBranch,
-		AutoPush:           autoPush,
-		ChangelogFile:      file,
-		RepositoryProvider: repositoryProvider,
-		UseVPrefix:         useVPrefix,
+		AllowAnyBranch:     getConfigValueWithFlags[bool](cmd, "allow-any-branch", "app.version.allow_any_branch"),
+		AutoPush:           getConfigValueWithFlags[bool](cmd, "auto-push", "app.changelog.auto_push"),
+		ChangelogFile:      getConfigValueWithFlags[string](cmd, "file", "app.changelog.file"),
+		RepositoryProvider: getConfigValueWithFlags[string](cmd, "rrp", "app.changelog.repository_provider"),
+		UseVPrefix:         getConfigValueWithFlags[bool](cmd, "use-v-prefix", "app.version.use_v_prefix"),
 	}
-
-	// Delegate to the version package
 	return version.Bump(cfg, cmd.OutOrStdout())
 }

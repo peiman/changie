@@ -1,120 +1,183 @@
-# changie
+<div align="center">
 
+![ckeletin-go](logo/ckeletin-go-banner.png)
+
+**AI-first Go development framework. Ship production CLIs that AI agents build correctly.**
+
+<!-- Row 1: Build Quality & Security -->
 [![Build Status](https://github.com/peiman/changie/actions/workflows/ci.yml/badge.svg)](https://github.com/peiman/changie/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/codecov/c/github/peiman/changie)](https://codecov.io/gh/peiman/changie)
+[![Coverage](https://img.shields.io/codecov/c/github/peiman/ckeletin-go)](https://codecov.io/gh/peiman/ckeletin-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/peiman/changie)](https://goreportcard.com/report/github.com/peiman/changie)
-[![Version](https://img.shields.io/github/v/release/peiman/changie)](https://github.com/peiman/changie/releases)
-[![Go Reference](https://pkg.go.dev/badge/github.com/peiman/changie.svg)](https://pkg.go.dev/github.com/peiman/changie)
-[![License](https://img.shields.io/github/license/peiman/changie)](LICENSE)
 [![CodeQL](https://github.com/peiman/changie/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/peiman/changie/security/code-scanning)
-[![Made with Go](https://img.shields.io/badge/made%20with-Go-brightgreen.svg)](https://go.dev)
 
-**A professional Golang CLI tool for managing changelogs following the "Keep a Changelog" format and Semantic Versioning.**
+<!-- Row 2: Project Metadata -->
+[![Version](https://img.shields.io/github/v/release/peiman/ckeletin-go)](https://github.com/peiman/changie/releases)
+[![License](https://img.shields.io/github/license/peiman/ckeletin-go)](LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/peiman/changie.svg)](https://pkg.go.dev/github.com/peiman/changie)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/peiman/ckeletin-go)](https://github.com/peiman/changie/blob/main/go.mod)
 
----
+<!-- Row 3: Community & Activity -->
+[![GitHub stars](https://img.shields.io/github/stars/peiman/ckeletin-go?style=social)](https://github.com/peiman/changie/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/peiman/ckeletin-go)](https://github.com/peiman/changie/commits/main)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-## Table of Contents
-
-- [changie](#changie)
-  - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [Key Highlights](#key-highlights)
-  - [Quick Start](#quick-start)
-  - [Features](#features)
-  - [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-    - [Using changie](#using-changie)
-    - [Important: Single Source of Truth for Names](#important-single-source-of-truth-for-names)
-  - [Commands](#commands)
-    - [`init` Command](#init-command)
-      - [Usage](#usage)
-      - [Flags](#flags)
-      - [Examples](#examples)
-    - [`changelog` Command](#changelog-command)
-      - [Usage](#usage-1)
-      - [Subcommands](#subcommands)
-      - [Flags](#flags-1)
-      - [Examples](#examples-1)
-    - [`major`, `minor`, `patch` Commands](#major-minor-patch-commands)
-      - [Usage](#usage-2)
-      - [Flags](#flags-2)
-      - [Examples](#examples-2)
-  - [Configuration](#configuration)
-    - [Configuration File](#configuration-file)
-    - [Environment Variables](#environment-variables)
-    - [Command-Line Flags](#command-line-flags)
-  - [Development Workflow](#development-workflow)
-    - [Taskfile Tasks](#taskfile-tasks)
-    - [Pre-Commit Hooks with Lefthook](#pre-commit-hooks-with-lefthook)
-    - [Continuous Integration](#continuous-integration)
-  - [Dependency Management](#dependency-management)
-    - [Available Tasks](#available-tasks)
-    - [Automated Checks](#automated-checks)
-    - [Best Practices](#best-practices)
-  - [Contributing](#contributing)
-  - [License](#license)
-  - [Additional Notes](#additional-notes)
-  
----
-
-## Introduction
-
-**changie** is a professional Go command-line application designed to help developers manage changelogs according to the [Keep a Changelog](https://keepachangelog.com/) format and [Semantic Versioning](https://semver.org/) principles. It provides a structured workflow for adding, organizing, and releasing changelog entries while integrating seamlessly with Git.
-
-Built on solid engineering principles, changie includes:
-
-- Modular command structure with [Cobra](https://github.com/spf13/cobra)
-- Configuration management via [Viper](https://github.com/spf13/viper)
-- Structured logging with [Zerolog](https://github.com/rs/zerolog)
-- Comprehensive testing and code quality checks
+</div>
 
 ---
 
-## Key Highlights
+## TL;DR
 
-- **Standardized Changelog Management**: Follow "Keep a Changelog" best practices without manual formatting
-- **Semantic Versioning Support**: Automatic version bumping following SemVer principles
-- **Git Integration**: Seamless interaction with Git for tagging and committing changes
-- **Flexible Output Format**: Generate consistent, well-formatted changelog files
+ckeletin-go is an AI-first Go CLI framework — every architectural rule is machine-checkable, so AI coding agents produce correct, well-structured code from day one. You get production-ready infrastructure with an updatable framework layer, so you can focus on your feature.
+
+- **AI agents build correctly here** — `AGENTS.md`, `CLAUDE.md`, hooks, and automated enforcement mean agents follow your architecture, not fight it
+- **Updatable framework** — `.ckeletin/` updates independently via `task ckeletin:update`. Your code is never touched. AI agent infrastructure improves automatically
+- **Read the code in 5 minutes** — Ultra-thin commands (~20 lines each). No framework magic to decode
+- **Ship with confidence** — ≥85% test coverage, automated architecture validation, GPL/AGPL blocking. Every rule is machine-checkable
+- **One command setup** — `task init name=myapp module=...` updates 40+ files. Start coding in 2 minutes
+
+```bash
+git clone https://github.com/peiman/changie.git && cd ckeletin-go
+task setup && task init name=myapp module=github.com/you/myapp
+task build && ./myapp ping
+```
+
+Or [open in GitHub Codespaces](https://github.com/codespaces/new?hide_repo_select=true&repo=peiman/ckeletin-go) for a pre-configured environment with all tools installed.
+
+---
+
+## Who Is This For?
+
+**You use AI coding agents and need them to produce correct code.**
+The layered AI configuration — `AGENTS.md`, `CLAUDE.md`, hooks, enforcement — means agents work within your architecture, not around it. This is what "agent-ready" actually looks like.
+
+**You want to make your own codebase agent-ready.**
+Study the pattern: `AGENTS.md` → behavioral rules → automated hooks → machine-checkable enforcement. It works in any project.
+
+**Your boss needs a CLI tool by next sprint. You've never built one.**
+Clone, `task init`, and you have production-ready infrastructure in 2 minutes. The ADRs teach you the patterns as you build.
+
+**You're a senior dev who's tired of rebuilding the same scaffolding.**
+The updatable framework means you set up once and receive improvements over time. The enforced patterns mean your code stays clean even as the team grows.
+
+---
+
+## Agent-Ready Architecture
+
+Most scaffolds produce code that AI agents can write *in* but not write *well in*. Agents guess at conventions, misconfigure flags, and drift from intended patterns. ckeletin-go solves this with **enforcement by automation** — every architectural rule is machine-checkable, so violations are caught whether the code comes from a human or an AI.
+
+### The AI Configuration Stack
+
+```
+AGENTS.md          → Universal project guide (any AI assistant)
+CLAUDE.md          → Claude Code-specific behavioral rules
+.claude/rules/     → Granular rules loaded automatically
+.claude/hooks.json → Auto-installs tools, validates commits
+task check         → Single gateway that catches all violations
+```
+
+**`AGENTS.md`** gives any AI agent complete project context: architecture, commands, conventions, testing thresholds, and decision trees. It's structured as a specification, not prose — designed for machine consumption.
+
+**`CLAUDE.md`** adds Claude Code-specific rules: mandatory task commands, code placement decision trees, priority cascade (Security → License → Correctness → Coverage → Style).
+
+**Hooks and enforcement** close the loop. SessionStart hooks auto-install tools. Pre-commit hooks validate changes. `task check` runs the same quality gates regardless of who wrote the code.
+
+### Why This Matters
+
+- **Determinism**: `task test` always runs the right flags. Agents don't guess `go test -race -coverprofile=... -count=1 ./...`
+- **Architectural memory**: ADRs explain *why* patterns exist, preventing agents from optimizing away guardrails they don't understand
+- **Automated enforcement**: 14 ADRs, each with machine-checkable validation. No honor system
+- **Framework evolution**: `task ckeletin:update` improves the AI configuration alongside everything else
+
+### Using With AI Agents
+
+**Claude Code**: Reads `CLAUDE.md` and `.claude/rules/` automatically. Hooks fire on session start. No configuration needed.
+
+**Cursor / Copilot / Codex**: Point your agent at `AGENTS.md` for full project context. The task-based workflow and automated enforcement work with any tool.
+
+**The pattern is reusable.** The `AGENTS.md` → rules → hooks → enforcement approach works in any codebase. ckeletin-go is a reference implementation.
+
+---
+
+## What You Get
+
+ckeletin-go is both a **scaffold** (fork, customize, ship) and a **framework** (updatable infrastructure that keeps working for you):
+
+```
+myapp/
+├── .ckeletin/              # FRAMEWORK — updated via `task ckeletin:update`
+│   ├── Taskfile.yml        # Quality checks, build tasks, validation
+│   ├── pkg/                # Config registry, logger, testutil packages
+│   ├── scripts/            # Enforcement scripts (architecture, patterns, security)
+│   └── docs/adr/           # Framework ADRs (000-099)
+│
+├── cmd/                    # YOUR commands (ultra-thin, ≤30 lines)
+├── internal/               # YOUR business logic
+├── pkg/                    # YOUR public reusable packages
+├── docs/adr/               # YOUR ADRs (100+)
+├── Taskfile.yml            # YOUR task aliases + custom tasks
+└── .golangci.yml           # YOUR tool configs (customize freely)
+```
+
+**The scaffold** gets you started: clone, `task init`, customize `cmd/` and `internal/`, ship.
+
+**The framework** keeps working: enforced architecture, validated patterns, type-safe config, structured logging — all updated independently of your code via `task ckeletin:update`.
+
+**AI agents improve with the framework.** When `.ckeletin/` updates, the AI configuration stack — validation scripts, enforcement rules, task definitions — evolves with it. Your agent gets more effective over time without you changing anything.
 
 ---
 
 ## Quick Start
 
-1. **Install changie**:
-
+1. **Clone and set up tools:**
    ```bash
-   go install github.com/peiman/changie@latest
+   git clone https://github.com/peiman/changie.git
+   cd ckeletin-go
+   task setup
    ```
 
-2. **Initialize a project**:
-
+2. **Initialize with your project details:**
    ```bash
-   changie init
+   task init name=myapp module=github.com/you/myapp
+   ```
+   This updates module path, imports (40+ files), binary name, and config — automatically.
+
+3. **Build and run:**
+   ```bash
+   task build
+   ./myapp ping
    ```
 
-3. **Add a changelog entry**:
-
-   ```bash
-   changie changelog added "New feature: added user authentication"
-   ```
-
-4. **Release a new version**:
-
-   ```bash
-   changie bump minor
-   ```
+**Alternative:** [Open in GitHub Codespaces](https://github.com/codespaces/new?hide_repo_select=true&repo=peiman/ckeletin-go) — all tools pre-installed, ready to go.
 
 ---
 
-## Features
+## Architecture
 
-- **Project Initialization**: Generate a properly structured CHANGELOG.md file
-- **Entry Management**: Add standardized changelog entries by type (added, changed, fixed, etc.)
-- **Version Control**: Bump versions following Semantic Versioning (major, minor, patch)
-- **Git Integration**: Commit changes and create version tags automatically
-- **Structured Output**: Ensure consistency and readability of changelog files
+ckeletin-go follows a principled architecture with automated enforcement:
+
+- **Layered architecture** — 4-layer pattern (Entry → Command → Business Logic → Infrastructure) with validation ([ADR-009](.ckeletin/docs/adr/009-layered-architecture-pattern.md))
+- **Ultra-thin commands** — ~20-30 lines, delegate to business logic ([ADR-001](.ckeletin/docs/adr/001-ultra-thin-command-pattern.md))
+- **Centralized configuration** — Type-safe registry with auto-generated constants ([ADR-002](.ckeletin/docs/adr/002-centralized-configuration-registry.md))
+- **Dependency injection** — Over mocking, for testability ([ADR-003](.ckeletin/docs/adr/003-dependency-injection-over-mocking.md))
+- **Dual-tool license compliance** — Source + binary analysis ([ADR-011](.ckeletin/docs/adr/011-license-compliance.md))
+- **Dev-only commands** — Via build tags ([ADR-012](.ckeletin/docs/adr/012-dev-commands-build-tags.md))
+- **Enforcement by automation** — Every ADR has machine-checkable validation, catching violations from humans and AI agents alike ([ADR-014](.ckeletin/docs/adr/014-adr-enforcement-policy.md))
+
+All architectural decisions are documented in **[Architecture Decision Records](docs/adr/)**.
+
+---
+
+## Key Features
+
+- **Modular Command Structure**: Add, remove, or update commands without breaking the rest
+- **Layered Architecture**: Enforced 4-layer pattern with automated validation to prevent drift
+- **Structured Logging**: Zerolog dual output (console + file) for debugging and production
+- **Bubble Tea UI**: Optional interactive terminal UIs
+- **Single-Source Configuration**: Defaults in config files, overrides via env vars and flags
+- **Enterprise License Compliance**: Dual-tool checking with automatic GPL/AGPL blocking ([ADR-011](.ckeletin/docs/adr/011-license-compliance.md))
+- **Task Automation**: One Taskfile for all build, test, and lint commands
+- **High Test Coverage**: ≥85% enforced by CI. Hundreds of real tests
+- **Beautiful Check Output**: `pkg/checkmate` — thread-safe, TTY-aware terminal output library
 
 ---
 
@@ -122,257 +185,118 @@ Built on solid engineering principles, changie includes:
 
 ### Prerequisites
 
-- **Go**: 1.20+ recommended
-- **Git**: For version control and integration features
+- **Go**: Version specified in `.go-version` (currently 1.26.1)
+- **Task**: Install from [taskfile.dev](https://taskfile.dev/#/installation)
+- **Git**: For version control
 
-### Installation
-
-```bash
-go install github.com/peiman/changie@latest
-```
-
-Or build from source:
+### Build from Source
 
 ```bash
 git clone https://github.com/peiman/changie.git
-cd changie
-go install
+cd ckeletin-go
+task setup && task build
 ```
 
-### Using changie
-
-1. **Initialize a project**:
-
-   ```bash
-   changie init
-   ```
-
-   This creates a `CHANGELOG.md` file in your project root.
-
-2. **Add a changelog entry**:
-
-   ```bash
-   changie changelog added "New feature: added user authentication"
-   ```
-
-3. **Release a new version**:
-
-   ```bash
-   changie bump minor
-   ```
-
-   This will bump the minor version number and update the changelog.
-
-### Important: Single Source of Truth for Names
-
-This project uses a "single source of truth" approach for configuration:
-
-1. **Binary Name**: Defined only in `Taskfile.yml` as `BINARY_NAME`. This is propagated through the codebase via build flags and the `binaryName` variable in `cmd/root.go`.
-
-2. **Module Path**: Defined only in `go.mod` and referenced in `Taskfile.yml` as `MODULE_PATH`.
-
-When customizing this project:
-
-- Change `BINARY_NAME` in `Taskfile.yml` to your desired binary name
-- Change the module path in `go.mod` to your own repository path
-- Run `task build` to apply these changes throughout the codebase
-
----
-
-## Commands
-
-### `init` Command
-
-Initialize a project with a properly formatted CHANGELOG.md file.
-
-#### Usage
+### Using the Scaffold
 
 ```bash
-changie init [flags]
+task init name=myapp module=github.com/myuser/myapp
 ```
 
-#### Flags
-
-- `--file`: Changelog file name (default: "CHANGELOG.md")
-
-#### Examples
+This single command updates module path, imports (40+ files), binary name, and config. Then:
 
 ```bash
-changie init
-changie init --file HISTORY.md
+task check    # Run quality checks
+task build    # Build your binary
+./myapp --version
 ```
-
-### `changelog` Command
-
-Add entries to different sections of the changelog.
-
-#### Usage
-
-```bash
-changie changelog [subcommand] [content]
-```
-
-#### Subcommands
-
-- `added`: Add entry to the Added section
-- `changed`: Add entry to the Changed section
-- `deprecated`: Add entry to the Deprecated section
-- `removed`: Add entry to the Removed section
-- `fixed`: Add entry to the Fixed section
-- `security`: Add entry to the Security section
-
-#### Flags
-
-- `--file`: Changelog file name (default: "CHANGELOG.md")
-
-#### Examples
-
-```bash
-changie changelog added "New feature: added user authentication"
-changie changelog fixed "Bug in login form"
-changie changelog security "Patched XSS vulnerability"
-```
-
-### `bump` Command
-
-Bump the version number according to Semantic Versioning rules.
-
-#### Usage
-
-```bash
-changie bump [major|minor|patch] [flags]
-```
-
-#### Subcommands
-
-- `major`: Bump the major version (breaking changes, X.y.z → X+1.0.0)
-- `minor`: Bump the minor version (new features, x.Y.z → x.Y+1.0)
-- `patch`: Bump the patch version (bug fixes, x.y.Z → x.y.Z+1)
-
-#### Flags
-
-- `--file`: Changelog file name (default: "CHANGELOG.md")
-- `--rrp`: Remote repository provider (github, bitbucket) (default: "github")
-- `--auto-push`: Automatically push changes and tags
-- `--allow-any-branch`: Allow version bumping on any branch (bypasses main/master branch check)
-
-#### Examples
-
-```bash
-changie bump major
-changie bump minor --auto-push
-changie bump patch --file HISTORY.md
-changie bump minor --allow-any-branch  # For release branches or hotfixes
-```
-
-**Note:** By default, version bump commands check that you're on the `main` or `master` branch. This is a best practice to maintain a clean release history. Use `--allow-any-branch` when you need to bump versions on other branches (e.g., release branches, hotfix branches).
 
 ---
 
 ## Configuration
 
-changie uses Viper for flexible configuration:
-
-### Configuration File
-
-Default config file: `$HOME/.changie.yaml`
-
-Example:
+Viper-based configuration with a centralized registry ([ADR-002](.ckeletin/docs/adr/002-centralized-configuration-registry.md)). Precedence (highest to lowest): command-line flags → environment variables → config file → defaults.
 
 ```yaml
+# ~/.config/myapp/config.yaml
 app:
-  log_level: "info"
-  changelog:
-    file: "CHANGELOG.md"
-  version:
-    tag_prefix: "v"
+  log_level: "debug"
+  ping:
+    output_message: "Hello World!"
 ```
-
-### Environment Variables
-
-Override any config via environment variables:
 
 ```bash
-export APP_LOG_LEVEL="debug"
-export APP_CHANGELOG_FILE="HISTORY.md"
+export MYAPP_APP_LOG_LEVEL="debug"           # Environment override
+./myapp ping --message "Hi there!" --color yellow  # Flag override
 ```
 
-### Command-Line Flags
+See [Configuration Reference](docs/configuration.md) for all options, auto-generated docs, and config templates.
 
-Override at runtime:
+---
+
+## Commands
+
+Built-in commands: `ping` (demo), `config validate`, `check` (quality gates), `dev` (dev-only tools), and `doctor` (environment health).
 
 ```bash
-changie init --file HISTORY.md
+./myapp ping --message "Hello!" --color cyan
+./myapp config validate
+task doctor
 ```
+
+Add new commands with `task generate:command name=mycommand`. See [Command Reference](docs/commands.md) for details.
 
 ---
 
 ## Development Workflow
 
-### Taskfile Tasks
+All commands defined in `Taskfile.yml` — used identically in local dev, pre-commit hooks, and CI:
 
-- `task setup`: Install tools
-- `task format`: Format code
-- `task lint`: Run linters
-- `task test`: Run tests with coverage
-- `task build`: Build the binary
-- `task run`: Run the binary
-- `task check`: All checks (format, lint, deps, tests)
+```bash
+task check     # Run all quality checks (mandatory before commits)
+task test      # Run tests with coverage
+task build     # Build the binary
+task format    # Format all Go code
+task doctor    # Check environment health
+```
 
-### Pre-Commit Hooks with Lefthook
-
-`task setup` installs hooks that run `format`, `lint`, `test` on commit, ensuring code quality before changes land in the repository.
-
-### Continuous Integration
-
-GitHub Actions runs `task check` on each commit or pull request, maintaining code standards and reliability.
+See [Development Workflow](docs/development-workflow.md) for the full reference including tools, license compliance, CI, and releases.
 
 ---
 
-## Dependency Management
+## Framework Updates
 
-### Available Tasks
+Your project code and the framework layer are independent:
 
-- `task deps:verify`: Verifies that dependencies haven't been modified
-- `task deps:outdated`: Checks for outdated dependencies
-- `task deps:check`: Runs all dependency checks (verification, outdated, vulnerabilities)
+```bash
+task ckeletin:update:dry-run             # Preview changes (safe)
+task ckeletin:update:check-compatibility # Test build compatibility (safe)
+task ckeletin:update                     # Apply update (creates a commit)
+```
 
-### Automated Checks
+| Framework (`.ckeletin/`) | Project (yours) |
+|--------------------------|-----------------|
+| `Taskfile.yml` — Quality checks, build tasks | `Taskfile.yml` — Your aliases + custom tasks |
+| `pkg/config/` — Configuration registry | `cmd/*.go` — Your commands |
+| `pkg/logger/` — Zerolog dual-output logging | `internal/` — Your business logic |
+| `scripts/` — Validation and check scripts | `pkg/` — Your public packages |
+| `docs/adr/000-099` — Framework decisions | `docs/adr/100+` — Your decisions |
 
-Dependency verification is automatically included in:
-
-- Pre-commit hooks via Lefthook
-- CI workflow via GitHub Actions
-- The comprehensive quality check command: `task check`
-
-### Best Practices
-
-1. Run `task deps:check` before starting a new feature
-2. Update dependencies incrementally with `go get -u <package>` followed by `task tidy`
-3. Always run tests after dependency updates
-4. Document significant dependency changes in commit messages
+See [Framework Update Guide](docs/framework-updates.md) for the safe update workflow, breaking change handling, and how AI agents can manage updates.
 
 ---
 
 ## Contributing
 
-1. Fork & create a new branch
+1. Fork & create a feature branch
 2. Make changes, run `task check`
-3. Commit with descriptive messages following the project's commit convention
-4. Open a pull request against `main`
+3. Commit with [Conventional Commits](https://www.conventionalcommits.org/) format
+4. Open a PR against `main`
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
 ## License
 
 MIT License. See [LICENSE](LICENSE).
-
----
-
-## Additional Notes
-
-- Run `task test:coverage-text` to identify uncovered code paths for targeted testing improvements
-- Regularly run `task deps:check` to ensure dependencies are up-to-date and secure
-- For consistent formatting, run `task format` before committing changes
-
----

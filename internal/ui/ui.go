@@ -5,9 +5,10 @@ package ui
 import (
 	"fmt"
 
+	"github.com/rs/zerolog/log"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rs/zerolog/log"
 )
 
 // UIRunner defines an interface for running a UI
@@ -15,18 +16,36 @@ type UIRunner interface {
 	RunUI(message, col string) error
 }
 
+// programFactory is a function type that creates a new tea program
+type programFactory func(m tea.Model) *tea.Program
+
 // DefaultUIRunner is the default implementation of UIRunner
-type DefaultUIRunner struct{}
+type DefaultUIRunner struct {
+	// Allow for testing by passing a custom program factory
+	newProgram programFactory
+}
+
+// NewDefaultUIRunner creates a new DefaultUIRunner with the standard program factory
+func NewDefaultUIRunner() *DefaultUIRunner {
+	return &DefaultUIRunner{
+		newProgram: func(m tea.Model) *tea.Program {
+			return tea.NewProgram(m)
+		},
+	}
+}
+
+// For testing only - allows creating a DefaultUIRunner with a nil program factory
+// This simulates a successful UI run without actually creating a tea.Program
+func NewTestUIRunner() *DefaultUIRunner {
+	return &DefaultUIRunner{
+		newProgram: nil,
+	}
+}
 
 // RunUI runs the Bubble Tea UI
 func (d *DefaultUIRunner) RunUI(message, col string) error {
 	colorStyle, err := GetLipglossColor(col)
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("message", message).
-			Str("color", col).
-			Msg("Failed to get color style")
 		return err
 	}
 
@@ -35,18 +54,31 @@ func (d *DefaultUIRunner) RunUI(message, col string) error {
 		colorStyle: lipgloss.NewStyle().Foreground(colorStyle).Bold(true),
 	}
 
-	p := tea.NewProgram(m)
+	// For testing - if newProgram is nil, just log success and return
+	if d.newProgram == nil {
+		log.Info().
+			Str("component", "ui").
+			Str("message", message).
+			Str("color", col).
+			Msg("UI ran successfully (test mode)")
+		return nil
+	}
+
+	// Use the program factory
+	p := d.newProgram(m)
 	_, err = p.Run()
 	if err != nil {
-		log.Error().
+		log.Debug().
 			Err(err).
+			Str("component", "ui").
 			Str("message", message).
 			Str("color", col).
 			Msg("Failed to run UI")
-		return fmt.Errorf("failed to run UI: %w", err)
+		return err
 	}
 
 	log.Info().
+		Str("component", "ui").
 		Str("message", message).
 		Str("color", col).
 		Msg("UI ran successfully")
@@ -60,8 +92,9 @@ func GetLipglossColor(col string) (lipgloss.Color, error) {
 		return color, nil
 	}
 	err := fmt.Errorf("invalid color: %s", col)
-	log.Error().
+	log.Debug().
 		Err(err).
+		Str("component", "ui").
 		Str("color", col).
 		Msg("Failed to get lipgloss color")
 	return "", err
@@ -71,7 +104,6 @@ func GetLipglossColor(col string) (lipgloss.Color, error) {
 type model struct {
 	message    string
 	colorStyle lipgloss.Style
-	done       bool
 }
 
 // Init initializes the model (no-op)

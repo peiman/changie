@@ -1,0 +1,27 @@
+// cmd/template.go
+
+package cmd
+
+import (
+	"github.com/peiman/ckeletin-go/internal/config/commands"
+	"github.com/peiman/ckeletin-go/internal/template"
+	"github.com/spf13/cobra"
+)
+
+var templateCmd = MustNewCommand(commands.TemplateMetadata, runTemplate)
+
+func init() {
+	MustAddToRoot(templateCmd)
+}
+
+// runTemplate wires config to the executor. JSON output (--output json) is
+// handled automatically: the data passed to ui.RenderSuccess in your executor
+// becomes the envelope's "data" field. For custom JSON shapes, implement
+// ui.JSONResponder on your result type.
+func runTemplate(cmd *cobra.Command, args []string) error {
+	cfg := template.Config{
+		ExampleOption: getConfigValueWithFlags[string](cmd, "example-flag", "app.template.example_option"),
+		// Add more config fields as needed
+	}
+	return template.NewExecutor(cfg, cmd.OutOrStdout()).Execute()
+}

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peiman/changie/internal/config"
+	"github.com/peiman/changie/.ckeletin/pkg/config"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestGenerateYAMLDocs tests the YAML document generation
@@ -35,15 +37,19 @@ func TestGenerateYAMLDocs(t *testing.T) {
 	}
 
 	// Create generator with mock registry
-	cfg := NewConfig(&buf, WithOutputFormat(FormatYAML), WithRegistryFunc(mockRegistry))
+	cfg := Config{
+		Writer:       &buf,
+		OutputFormat: FormatYAML,
+		OutputFile:   "",
+		Registry:     mockRegistry,
+	}
 	generator := NewGenerator(cfg)
 
 	// EXECUTION PHASE
 	err := generator.GenerateYAMLDocs(&buf)
+
 	// ASSERTION PHASE
-	if err != nil {
-		t.Fatalf("GenerateYAMLDocs failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateYAMLDocs failed")
 
 	output := buf.String()
 
@@ -55,20 +61,15 @@ func TestGenerateYAMLDocs(t *testing.T) {
 	}
 
 	for _, line := range expectedLines {
-		if !strings.Contains(output, line) {
-			t.Errorf("Missing expected YAML line: %s", line)
-		}
+		assert.True(t, strings.Contains(output, line), "Missing expected YAML line: %s", line)
 	}
 
 	// Check that options have descriptions
-	if !strings.Contains(output, "  # ") {
-		t.Errorf("Missing option description comments")
-	}
+	assert.True(t, strings.Contains(output, "  # "), "Missing option description comments")
 
 	// Check that we have proper indentation for nested options
-	if !strings.Contains(output, "    ") { // 4-space indentation for nested options
-		t.Errorf("Missing proper indentation for nested options")
-	}
+	assert.True(t, strings.Contains(output, "    "), // 4-space indentation for nested options
+		"Missing proper indentation for nested options")
 }
 
 // TestGenerateYAMLContent tests the YAML content generator
@@ -100,10 +101,9 @@ func TestGenerateYAMLContent(t *testing.T) {
 
 	// EXECUTION PHASE
 	err := generateYAMLContent(&buf, mockConfigOptions)
+
 	// ASSERTION PHASE
-	if err != nil {
-		t.Fatalf("generateYAMLContent failed: %v", err)
-	}
+	require.NoError(t, err, "generateYAMLContent failed")
 
 	output := buf.String()
 
@@ -120,15 +120,12 @@ func TestGenerateYAMLContent(t *testing.T) {
 	}
 
 	for _, line := range expectedStructure {
-		if !strings.Contains(output, line) {
-			t.Errorf("Missing expected YAML content: %s", line)
-		}
+		assert.True(t, strings.Contains(output, line), "Missing expected YAML content: %s", line)
 	}
 
 	// Verify proper indentation logic
-	if strings.Contains(output, "app.simple") {
-		t.Errorf("Improper key formatting - did not properly convert dots to nesting")
-	}
+	assert.False(t, strings.Contains(output, "app.simple"),
+		"Improper key formatting - did not properly convert dots to nesting")
 }
 
 // TestGenerateYAMLDocs_EmptyRegistry tests handling of an empty registry
@@ -138,22 +135,24 @@ func TestGenerateYAMLDocs_EmptyRegistry(t *testing.T) {
 	var buf bytes.Buffer
 
 	// Create generator with empty registry
-	cfg := NewConfig(&buf, WithOutputFormat(FormatYAML), WithRegistryFunc(func() []config.ConfigOption {
-		return []config.ConfigOption{}
-	}))
+	cfg := Config{
+		Writer:       &buf,
+		OutputFormat: FormatYAML,
+		OutputFile:   "",
+		Registry: func() []config.ConfigOption {
+			return []config.ConfigOption{}
+		},
+	}
 	generator := NewGenerator(cfg)
 
 	// EXECUTION PHASE
 	err := generator.GenerateYAMLDocs(&buf)
+
 	// ASSERTION PHASE
-	if err != nil {
-		t.Fatalf("GenerateYAMLDocs failed with empty registry: %v", err)
-	}
+	require.NoError(t, err, "GenerateYAMLDocs failed with empty registry")
 
 	// For an empty registry, we expect an empty output (or just whitespace)
 	output := buf.String()
 	trimmed := strings.TrimSpace(output)
-	if len(trimmed) > 0 {
-		t.Errorf("Expected empty output for empty registry, got: %q", output)
-	}
+	assert.Empty(t, trimmed, "Expected empty output for empty registry, got: %q", output)
 }

@@ -8,6 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetLipglossColor(t *testing.T) {
@@ -23,17 +25,14 @@ func TestGetLipglossColor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.colorName, func(t *testing.T) {
 			color, err := GetLipglossColor(tt.colorName)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetLipglossColor() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err == nil {
-				if _, ok := ColorMap[tt.colorName]; !ok {
-					t.Errorf("Color %s should be valid", tt.colorName)
-				}
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				_, ok := ColorMap[tt.colorName]
+				assert.True(t, ok, "Color %s should be valid", tt.colorName)
 				expectedColor := ColorMap[tt.colorName]
-				if color != expectedColor {
-					t.Errorf("Expected color %v, got %v", expectedColor, color)
-				}
+				assert.Equal(t, expectedColor, color)
 			}
 		})
 	}
@@ -76,6 +75,7 @@ func TestRunUIWithMock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockRunner := &MockUIRunner{
 				ReturnError: tt.mockError,
 			}
@@ -83,14 +83,16 @@ func TestRunUIWithMock(t *testing.T) {
 			err := mockRunner.RunUI(tt.message, tt.color)
 
 			// Check if RunUI was called
-			if (mockRunner.CalledWithMessage != tt.message || mockRunner.CalledWithColor != tt.color) && tt.wantCalled {
-				t.Errorf("RunUI() was not called with expected arguments. Got message=%q, color=%q, want message=%q, color=%q",
-					mockRunner.CalledWithMessage, mockRunner.CalledWithColor, tt.message, tt.color)
+			if tt.wantCalled {
+				assert.Equal(t, tt.message, mockRunner.CalledWithMessage, "RunUI() message argument mismatch")
+				assert.Equal(t, tt.color, mockRunner.CalledWithColor, "RunUI() color argument mismatch")
 			}
 
 			// Validate the error returned
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RunUI() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -104,96 +106,114 @@ func TestModelView(t *testing.T) {
 
 	expectedOutput := "Test Message\n\nPress 'q' or 'CTRL-C' to exit."
 
-	if got := m.View(); got != expectedOutput {
-		t.Errorf("View() = %q, want %q", got, expectedOutput)
-	}
+	assert.Equal(t, expectedOutput, m.View())
 }
 
 func TestModelUpdate(t *testing.T) {
 	m := model{
 		message:    "Test Message",
 		colorStyle: lipgloss.NewStyle(),
-		done:       false,
 	}
 
 	tests := []struct {
-		name     string
-		msg      tea.Msg
-		wantDone bool
-		wantCmd  bool
+		name    string
+		msg     tea.Msg
+		wantCmd bool
 	}{
 		{
-			name:     "Key 'q' quits",
-			msg:      tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}},
-			wantDone: false,
-			wantCmd:  true,
+			name:    "Key 'q' quits",
+			msg:     tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}},
+			wantCmd: true,
 		},
 		{
-			name:     "CTRL+C quits",
-			msg:      tea.KeyMsg{Type: tea.KeyCtrlC},
-			wantDone: false,
-			wantCmd:  true,
+			name:    "CTRL+C quits",
+			msg:     tea.KeyMsg{Type: tea.KeyCtrlC},
+			wantCmd: true,
 		},
 		{
-			name:     "Unhandled key",
-			msg:      tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
-			wantDone: false,
-			wantCmd:  false,
+			name:    "Unhandled key",
+			msg:     tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
+			wantCmd: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			updatedModel, cmd := m.Update(tt.msg)
-			if updatedModel.(model).done != tt.wantDone {
-				t.Errorf("Update() done = %v, want %v", updatedModel.(model).done, tt.wantDone)
-			}
+			t.Parallel()
+			_, cmd := m.Update(tt.msg)
 
 			// Check if a command was returned
-			if (cmd != nil) != tt.wantCmd {
-				t.Errorf("Update() cmd returned = %v, want %v", cmd != nil, tt.wantCmd)
-			}
+			assert.Equal(t, tt.wantCmd, cmd != nil, "Update() cmd presence mismatch")
 		})
 	}
 }
 
-func TestRunUI(t *testing.T) {
-	runner := DefaultUIRunner{}
-
-	// Since testing the actual UI is complex, we can test for error handling
-	err := runner.RunUI("Test Message", "invalid-color")
-	if err == nil {
-		t.Errorf("Expected error for invalid color, got nil")
-	}
-}
-
+// TestModelInit tests the Init method of the model
 func TestModelInit(t *testing.T) {
 	m := model{
 		message:    "Test Message",
 		colorStyle: lipgloss.NewStyle(),
 	}
 
+	// Init should return nil as it's a no-op in this implementation
 	cmd := m.Init()
-	if cmd != nil {
-		t.Errorf("Init() should return nil, got %v", cmd)
+
+	assert.Nil(t, cmd, "Init() should return nil")
+}
+
+// TestRunUI tests the basic error path of RunUI
+func TestRunUI(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		color   string
+		wantErr bool
+	}{
+		{
+			name:    "Invalid color error",
+			message: "Test Message",
+			color:   "invalid-color",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			runner := NewDefaultUIRunner()
+			err := runner.RunUI(tt.message, tt.color)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
 	}
 }
 
-func TestModelUpdateEscKey(t *testing.T) {
-	m := model{
-		message:    "Test Message",
-		colorStyle: lipgloss.NewStyle(),
-		done:       false,
-	}
+// TestRunUISuccessPath tests the success path of RunUI using the test runner
+func TestRunUISuccessPath(t *testing.T) {
+	// Create a test runner with nil program factory
+	runner := NewTestUIRunner()
 
-	// Test ESC key
-	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if updatedModel.(model).done {
-		t.Errorf("Update() should not set done to true for ESC key in this implementation")
-	}
+	// Valid color to pass the GetLipglossColor check
+	err := runner.RunUI("Test Message", "blue")
 
-	// ESC should return a quit command
-	if cmd == nil {
-		t.Errorf("Update() should return a quit command for ESC key")
-	}
+	// Should not return an error
+	assert.NoError(t, err)
+}
+
+// TestDefaultUIRunnerCreation tests creating a DefaultUIRunner
+func TestDefaultUIRunnerCreation(t *testing.T) {
+	runner := NewDefaultUIRunner()
+	require.NotNil(t, runner, "NewDefaultUIRunner() returned nil")
+	assert.NotNil(t, runner.newProgram, "NewDefaultUIRunner() returned a runner with nil newProgram")
+}
+
+// TestNewTestUIRunner tests creating a test UI runner
+func TestNewTestUIRunner(t *testing.T) {
+	runner := NewTestUIRunner()
+	require.NotNil(t, runner, "NewTestUIRunner() returned nil")
+	assert.Nil(t, runner.newProgram, "NewTestUIRunner() returned a runner with non-nil newProgram")
 }

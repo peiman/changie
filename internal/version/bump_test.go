@@ -40,6 +40,8 @@ func setupTestGitRepo(t *testing.T, initialTag, branch string, addUncommitted bo
 	// Configure git
 	exec.Command("git", "config", "user.email", "test@example.com").Run()
 	exec.Command("git", "config", "user.name", "Test User").Run()
+	exec.Command("git", "config", "tag.gpgsign", "false").Run()
+	exec.Command("git", "config", "commit.gpgsign", "false").Run()
 
 	// Create initial changelog
 	changelogPath := filepath.Join(tempDir, "CHANGELOG.md")
