@@ -41,13 +41,6 @@ Exit codes:
 var validateConfigFile string
 
 func init() {
-	// Set Example after binaryName is resolved in init()
-	configValidateCmd.Example = fmt.Sprintf(`  # Validate default config file
-  %s config validate
-
-  # Validate specific config file
-  %s config validate --file /path/to/config.yaml`, binaryName, binaryName)
-
 	// Add validate command to config command
 	configCmd.AddCommand(configValidateCmd)
 

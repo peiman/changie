@@ -285,6 +285,25 @@ func init() {
 It initializes changelogs, adds entries to the correct section, bumps versions following
 semver, and updates the changelog, commits, tags, and optionally pushes — all in one command.`, binaryName)
 
+	// Set binaryName-dependent fields for sub-commands whose init() runs before root.go
+	// (Go executes init() in source file name alphabetical order within a package).
+	configValidateCmd.Example = fmt.Sprintf(`  # Validate default config file
+  %s config validate
+
+  # Validate specific config file
+  %s config validate --file /path/to/config.yaml`, binaryName, binaryName)
+	completionCmd.Long = fmt.Sprintf(`To load completions:
+
+Bash:
+  source <(%s completion bash)
+Zsh:
+  source <(%s completion zsh)
+Fish:
+  %s completion fish | source
+PowerShell:
+  %s completion powershell | Out-String | Invoke-Expression
+`, binaryName, binaryName, binaryName, binaryName)
+
 	configPaths := ConfigPaths()
 
 	// Define all persistent flags (flag definitions only - bindings happen in bindFlags())
