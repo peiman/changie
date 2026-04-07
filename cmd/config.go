@@ -35,17 +35,19 @@ This command checks:
 Exit codes:
   0 - Configuration is valid (no warnings)
   1 - Configuration has errors or warnings`,
-	Example: `  # Validate default config file
-  changie config validate
-
-  # Validate specific config file
-  changie config validate --file /path/to/config.yaml`,
 	RunE: runConfigValidate,
 }
 
 var validateConfigFile string
 
 func init() {
+	// Set Example after binaryName is resolved in init()
+	configValidateCmd.Example = fmt.Sprintf(`  # Validate default config file
+  %s config validate
+
+  # Validate specific config file
+  %s config validate --file /path/to/config.yaml`, binaryName, binaryName)
+
 	// Add validate command to config command
 	configCmd.AddCommand(configValidateCmd)
 
