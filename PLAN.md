@@ -1,411 +1,341 @@
-# PLAN: `changelog validate` Command
+# PLAN: `changie diff` Command
 
-## Overview
+## Summary
 
-Add a `changelog validate` subcommand that checks CHANGELOG.md for common problems and outputs a pass/fail report. The command follows the established ultra-thin command pattern: wiring in `cmd/`, business logic in `internal/changelog/`, configuration in `internal/config/commands/`.
+Add a `changie diff v1.0.0 v1.1.0` command that extracts and displays all changelog
+entries between two specified versions. This is a **root-level** command (like `bump`),
+not a `changelog` subcommand, matching the usage pattern in the task description.
+
+---
 
 ## Requirements Analysis
 
 ### Functional Requirements
 
-1. **Five validation rules**, each producing pass/fail:
-   - **Missing version headers**: Version lines must match `## [X.Y.Z] - YYYY-MM-DD` (the Keep a Changelog format)
-   - **Duplicate entries**: No identical bullet point text within the same section of the same version
-   - **Broken links**: Every `## [X.Y.Z]` header must have a matching `[X.Y.Z]: URL` reference link at the bottom, and vice versa (orphan links)
-   - **Entries without dates**: Version headers (non-Unreleased) must include a date in `YYYY-MM-DD` format
-   - **Versions not in semver order**: Versions must appear in descending semver order top-to-bottom
-
-2. **Report output**: Structured report showing each check name + pass/fail + details of failures
-3. **JSON mode**: Must work with `--output json` (inherited from root command)
-4. **Exit code**: Non-zero when any check fails
-5. **File flag**: Reuse existing `--file` flag from `changelogCmd` (defaults to `CHANGELOG.md`)
+1. **Usage:** `changie diff <from-version> <to-version>`
+2. **Behavior:** Extract and display all changelog sections/entries for versions
+   greater than `from-version` up to and including `to-version`
+3. **Version handling:** Support both `v`-prefixed (`v1.0.0`) and bare (`1.0.0`) versions
+4. **Output:** Print the extracted changelog content to stdout
+5. **File flag:** Respect `--file` flag for custom changelog paths (like `bump` does)
+6. **Error cases:**
+   - Changelog file not found → clear error message
+   - Version not found in changelog → specific error naming the missing version
+   - `from-version` is newer than `to-version` → error with guidance
+   - Invalid semver → error with format guidance
+   - No content between versions → informational message (not an error)
 
 ### Non-Functional Requirements
 
-- Unit tests for every validation rule (TDD — tests first)
+- Command file ≤30 lines (logic in `internal/changelog/`)
 - 85%+ test coverage
-- Command file ≤30 lines
+- TDD: tests first, then implementation
 - Uses `testify/assert` and table-driven tests
-- Uses existing `internal/semver` package for version comparison
-- Uses `ui.RenderSuccess()` for output (gets JSON for free)
+- Follows existing patterns (see `changelog_validate.go` + `bump.go`)
+
+---
 
 ## Architecture Decisions
 
-### AD-1: Subcommand of `changelog`, not top-level
+### AD-1: Root-level command, not `changelog` subcommand
 
-**Decision**: `changie changelog validate` (subcommand under existing `changelogCmd`)
+**Decision:** `changie diff` (root command), not `changie changelog diff`
 
-**Rationale**: The `changelog` command group already exists (`cmd/changelog.go:11-17`) with subcommands for each section type (`cmd/changelog_add.go`). Validation is a changelog operation, so it belongs here. This also gives us the `--file` flag for free since it's a persistent flag on `changelogCmd` (`cmd/changelog.go:21`).
+**Rationale:** The task specifies `changie diff v1.0.0 v1.1.0`. This also follows
+the pattern set by `bump` — which is a root command despite operating on changelogs.
+`diff` is a high-level workflow command, not a changelog management operation.
 
-**Trade-off**: Slightly longer command (`changelog validate` vs `validate`), but consistent grouping.
+**Trade-off:** Less organizational grouping under `changelog`, but better UX
+(shorter command, matches user's mental model).
 
-### AD-2: Validation logic in existing `internal/changelog/` package
+### AD-2: Logic placement — `internal/changelog/` (infrastructure layer)
 
-**Decision**: Add `validate.go` to the existing `internal/changelog/` package rather than creating a new `internal/validate/` package.
+**Decision:** Add `DiffVersions()` to `internal/changelog/diff.go`
 
-**Rationale**: The validation logic operates on changelog content and reuses concepts already in this package (version header parsing at `changelog.go:263-275`, section detection at `changelog.go:129-136`). Adding to the existing package avoids circular dependencies and enables reuse of existing helper functions.
+**Rationale:** The `internal/changelog/` package is classified as **infrastructure**
+in `.go-arch-lint.yml:84`. It already contains all changelog parsing/manipulation
+functions. The diff logic is pure changelog content parsing — no orchestration or
+external coordination needed. Unlike `bump` (which orchestrates git + changelog +
+semver), `diff` only parses changelog content, so it belongs in the infrastructure
+layer alongside `validate.go` and `changelog.go`.
 
-**Trade-off**: Makes the `internal/changelog/` package larger, but the validation code is cohesive with existing changelog operations.
+**Alternative considered:** `internal/diff/` as a business logic package. Rejected
+because it would create an unnecessary package for a single function that naturally
+belongs with the other changelog operations.
 
-### AD-3: Pure function validation with `io.Reader` input
+### AD-3: Semver comparison for version range
 
-**Decision**: Core validation function takes `string` content (not file path) to enable pure unit testing without filesystem.
+**Decision:** Use `internal/semver.Compare()` to validate version ordering and
+`internal/semver.ParseVersion()` to normalize version strings.
 
-**Rationale**: Following the dependency injection pattern (ADR-003). The cmd layer handles file reading; the business logic validates content. This makes tests fast and deterministic.
+**Rationale:** The existing `semver` package already handles v-prefix stripping
+and comparison. Reusing it avoids duplicating version parsing logic.
 
-### AD-4: Use `ui.RenderSuccess()` for output, not checkmate
+### AD-4: Command wiring pattern — direct `cobra.Command` (not `MustNewCommand`)
 
-**Decision**: Use `ui.RenderSuccess()` with a structured `ValidationReport` type that implements `output.JSONResponder`.
+**Decision:** Use direct `cobra.Command` definition like `bump.go`, not
+`MustNewCommand` like `ping.go`.
 
-**Rationale**: The `check` command uses checkmate because it runs long-running shell commands with progress tracking. Our validation is instantaneous (parse-only, no I/O). Using `ui.RenderSuccess()` gives us JSON mode for free and keeps the implementation simple. Text-mode output will format the report with pass/fail indicators.
+**Rationale:** `MustNewCommand` requires config registry metadata
+(`config.CommandMetadata`) and auto-registers flags from the config registry. The
+`diff` command has only the shared `--file` flag (from viper binding) and takes
+positional args — no command-specific config options needed. This matches `bump.go`'s
+pattern exactly.
 
-**Trade-off**: Less visually rich than checkmate output, but appropriate for the use case and significantly simpler to implement.
+---
 
 ## Module/File Structure
 
 ```
 cmd/
-  changelog_validate.go          # Thin command wiring (≤30 lines) — NEW
-  changelog_validate_test.go     # Command integration tests — NEW
+  diff.go              # Command wiring (≤30 lines) — NEW
+  diff_test.go         # Command-level tests — NEW
 
-internal/
-  changelog/
-    validate.go                  # Core validation logic (5 rules) — NEW
-    validate_test.go             # Unit tests for all validation rules — NEW
-
-internal/config/commands/
-    changelog_validate_config.go # Command metadata — NEW (minimal, no custom options)
+internal/changelog/
+  diff.go              # DiffVersions() business logic — NEW
+  diff_test.go         # Unit tests for diff logic — NEW
 ```
 
-### No new config keys needed
+No changes needed to:
+- `.go-arch-lint.yml` — `internal/changelog/` is already in the infrastructure layer
+- Config registry — no new config options
+- `keys_generated.go` — no new keys
 
-The only flag is `--file` which is already a persistent flag on `changelogCmd` (`cmd/changelog.go:21`). No new entries in the config registry, no regeneration of `keys_generated.go`.
-
-## Detailed Type Design
-
-### `internal/changelog/validate.go`
-
-```go
-// ValidationResult represents the outcome of a single validation check.
-type ValidationResult struct {
-    Name    string   `json:"name"`
-    Passed  bool     `json:"passed"`
-    Message string   `json:"message"`
-    Details []string `json:"details,omitempty"` // Individual failure descriptions
-}
-
-// ValidationReport represents the complete validation report for a changelog file.
-type ValidationReport struct {
-    File       string             `json:"file"`
-    Passed     bool               `json:"passed"`
-    TotalRules int                `json:"total_rules"`
-    PassCount  int                `json:"pass_count"`
-    FailCount  int                `json:"fail_count"`
-    Results    []ValidationResult `json:"results"`
-}
-
-// JSONResponse implements output.JSONResponder for clean JSON output.
-func (r *ValidationReport) JSONResponse() interface{} {
-    return r
-}
-
-// ValidateChangelog runs all validation checks against changelog content.
-// The filePath parameter is used for report metadata only (not for file I/O).
-func ValidateChangelog(content string, filePath string) *ValidationReport { ... }
-```
-
-### Five Validation Functions (internal, unexported)
-
-```go
-func checkVersionHeaders(lines []string) ValidationResult       // Rule 1: malformed version headers
-func checkDuplicateEntries(lines []string) ValidationResult     // Rule 2: duplicate bullet points
-func checkBrokenLinks(lines []string) ValidationResult          // Rule 3: header↔link mismatches
-func checkEntriesWithoutDates(lines []string) ValidationResult  // Rule 4: versions missing dates
-func checkSemverOrder(lines []string) ValidationResult          // Rule 5: descending semver order
-```
-
-### `cmd/changelog_validate.go`
-
-```go
-var validateCmd = &cobra.Command{
-    Use:   "validate",
-    Short: "Validate changelog for common problems",
-    ...
-    RunE: runValidateChangelog,
-}
-
-func init() {
-    changelogCmd.AddCommand(validateCmd)
-}
-
-func runValidateChangelog(cmd *cobra.Command, args []string) error {
-    file := getConfigValueWithFlags[string](cmd, "file", "app.changelog.file")
-    data, err := os.ReadFile(file)
-    // ... error handling ...
-    report := changelog.ValidateChangelog(string(data), file)
-    // ... render with ui.RenderSuccess or return error ...
-}
-```
+---
 
 ## Step-by-Step Implementation Tasks
 
-> **TDD is mandatory**: For each step, write failing tests FIRST, then implement to make them pass. Commit test + implementation together as one atomic unit.
+> **TDD required:** For each step, write the failing test first, then implement.
+> Commit test + implementation together atomically.
 
-### Step 1: Create validation types and stub (`internal/changelog/validate.go`)
+### Step 1: Create `internal/changelog/diff.go` + `internal/changelog/diff_test.go`
 
-**Files**: `internal/changelog/validate.go`, `internal/changelog/validate_test.go`
-
-1. Write tests for `ValidateChangelog` with a valid changelog (all checks pass)
-2. Write tests for `ValidationReport` struct (verify JSON serialization, `Passed` calculation)
-3. Implement the types (`ValidationResult`, `ValidationReport`) and `ValidateChangelog` stub that calls all five check functions (initially returning all-pass)
-4. Verify tests pass
-
-### Step 2: Implement Rule 1 — `checkVersionHeaders`
-
-**File**: `internal/changelog/validate.go`, `internal/changelog/validate_test.go`
-
-Tests to write first:
-- Valid changelog → pass
-- Version header missing brackets `## 1.0.0 - 2024-01-01` → fail with detail
-- Version with invalid semver `## [abc] - 2024-01-01` → fail with detail
-- `## [Unreleased]` is NOT flagged (it's valid without version/date)
-- Version with prerelease `## [1.0.0-beta.1] - 2024-01-01` → pass
-- Version with `v` prefix `## [v1.0.0] - 2024-01-01` → pass
-- Multiple valid versions → pass
-- Mix of valid and invalid → fail listing only the invalid ones
-
-Implementation:
-- Regex: `^## \[([^\]]+)\]` to find all version-like headers
-- Skip `[Unreleased]`
-- For remaining, validate the version portion parses as semver (use `internal/semver.ParseVersion`)
-
-### Step 3: Implement Rule 2 — `checkDuplicateEntries`
-
-**File**: `internal/changelog/validate.go`, `internal/changelog/validate_test.go`
-
-Tests to write first:
-- No duplicates → pass
-- Duplicate in same section → fail with detail showing the duplicate text and section
-- Same text in different sections → pass (not a duplicate)
-- Same text in different versions → pass (not a duplicate)
-- Case-sensitive comparison (not case-insensitive)
-- Whitespace-normalized comparison (leading/trailing spaces stripped)
-
-Implementation:
-- Walk through lines tracking current version + section
-- For each section, collect bullet entries (`- ` prefix) in a set
-- Flag any entry seen twice in the same version+section
-
-### Step 4: Implement Rule 3 — `checkBrokenLinks`
-
-**File**: `internal/changelog/validate.go`, `internal/changelog/validate_test.go`
-
-Tests to write first:
-- All version headers have matching links → pass
-- Version header without matching link → fail with detail
-- Link without matching version header (orphan link) → fail with detail
-- `[Unreleased]` header with `[Unreleased]: URL` link → pass
-- `[Unreleased]` header without link → fail
-- Extra link not matching any header → fail (orphan)
-- No links section at all → fail (if there are version headers)
-
-Implementation:
-- Collect all versions from `## [X]` headers → set A
-- Collect all versions from `[X]: URL` link references → set B
-- Report A - B as "missing links" and B - A as "orphan links"
-
-### Step 5: Implement Rule 4 — `checkEntriesWithoutDates`
-
-**File**: `internal/changelog/validate.go`, `internal/changelog/validate_test.go`
-
-Tests to write first:
-- All versions have dates → pass
-- Version without date `## [1.0.0]` → fail with detail
-- `## [Unreleased]` without date → pass (Unreleased doesn't need a date)
-- Invalid date format `## [1.0.0] - 01-01-2024` → fail
-- Valid date format `## [1.0.0] - 2024-01-01` → pass
-- Date with extra text `## [1.0.0] - 2024-01-01 [YANKED]` → pass (date is present)
-
-Implementation:
-- Find all version headers (non-Unreleased)
-- Check each has ` - YYYY-MM-DD` following the closing bracket
-- Use regex: `## \[[^\]]+\] - (\d{4}-\d{2}-\d{2})`
-
-### Step 6: Implement Rule 5 — `checkSemverOrder`
-
-**File**: `internal/changelog/validate.go`, `internal/changelog/validate_test.go`
-
-Tests to write first:
-- Descending order `1.2.0, 1.1.0, 1.0.0` → pass
-- Out of order `1.0.0, 1.2.0, 1.1.0` → fail with detail showing which pair is wrong
-- Single version → pass
-- No versions (only Unreleased) → pass
-- Versions with `v` prefix `v2.0.0, v1.0.0` → pass
-- Mixed `v` prefix and no prefix → handled correctly
-- Pre-release ordering `2.0.0, 1.1.0-beta.1, 1.0.0` → pass (1.1.0-beta.1 < 1.1.0 per semver)
-
-Implementation:
-- Extract version strings from headers (skip Unreleased)
-- Parse each with `internal/semver.ParseVersion`
-- Verify each version is strictly greater than the next (descending order)
-- Use `internal/semver.Compare` for comparison
-
-### Step 7: Implement text-mode report rendering
-
-**File**: `internal/changelog/validate.go`
-
-Add a `FormatReport` function to render the report as human-readable text:
-
-```
-Changelog Validation: CHANGELOG.md
-===================================
-
-  ✅ Version headers         All version headers are properly formatted
-  ✅ Duplicate entries        No duplicate entries found
-  ❌ Broken links            2 issues found
-     • Version [1.0.0] has no matching reference link
-     • Orphan link [0.5.0] has no matching version header
-  ✅ Entries without dates    All versions have dates
-  ✅ Semver order            Versions are in correct descending order
-
-Result: 4/5 checks passed, 1 failed
-```
-
-Tests:
-- All-pass report formats correctly
-- Mix of pass/fail formats correctly
-- Details are indented under failures
-- Summary line is accurate
-
-### Step 8: Create command configuration metadata
-
-**File**: `internal/config/commands/changelog_validate_config.go`
-
-Minimal metadata — no custom config options needed since we reuse the parent `--file` flag:
+**Tests first** in `internal/changelog/diff_test.go`:
 
 ```go
-var ChangelogValidateMetadata = config.CommandMetadata{
-    Use:          "validate",
-    Short:        "Validate changelog for common problems",
-    ConfigPrefix: "app.changelog.validate",
+package changelog
+
+// Test cases for DiffVersions():
+// 1. Happy path: two versions exist, content between them returned
+// 2. Multiple versions in range (v1.0.0 → v1.2.0 with v1.1.0 in between)
+// 3. Adjacent versions (nothing between them except the to-version itself)
+// 4. from-version not found → error
+// 5. to-version not found → error  
+// 6. from-version > to-version → error ("from must be older than to")
+// 7. Same version for both → error
+// 8. Versions with v-prefix work
+// 9. Versions without v-prefix work
+// 10. Mixed prefix (v1.0.0 and 1.1.0) works
+// 11. Empty changelog → error
+// 12. Changelog with only Unreleased → error (versions not found)
+```
+
+**Implementation** in `internal/changelog/diff.go`:
+
+```go
+package changelog
+
+// DiffVersions extracts changelog content between two versions.
+//
+// It returns all sections and entries for versions strictly greater than
+// fromVersion up to and including toVersion. Both versions must exist
+// in the changelog content.
+//
+// Version strings may include a 'v' prefix (e.g., "v1.0.0" or "1.0.0").
+//
+// Parameters:
+//   - content: The full changelog file content as a string
+//   - fromVersion: The older version (exclusive — its content is NOT included)
+//   - toVersion: The newer version (inclusive — its content IS included)
+//
+// Returns:
+//   - string: The extracted changelog content between the two versions
+//   - error: If versions are not found, invalid, or fromVersion >= toVersion
+func DiffVersions(content, fromVersion, toVersion string) (string, error)
+```
+
+**Algorithm:**
+1. Parse `fromVersion` and `toVersion` with `semver.ParseVersion()` → validate both
+2. Compare versions with `semver.Compare()` → ensure `fromVersion < toVersion`
+3. Scan changelog lines for `## [X.Y.Z]` headers using `reVersionHeader` regex (already compiled in `validate.go`)
+4. Find line indices for both version headers (normalize v-prefix for matching)
+5. Extract all lines from `toVersion` header (inclusive) to `fromVersion` header (exclusive)
+6. Return extracted content as a trimmed string
+
+**Key implementation details:**
+- Reuse the existing `reVersionHeader` regex from `validate.go` (it's package-level, already available)
+- Strip v-prefix before comparing with changelog headers (changelog may use `[1.0.0]` while user passes `v1.0.0`)
+- Handle both `## [1.0.0] - 2024-01-01` and `## [v1.0.0] - 2024-01-01` formats
+
+### Step 2: Create `cmd/diff.go` + `cmd/diff_test.go`
+
+**Tests first** in `cmd/diff_test.go`:
+
+```go
+package cmd
+
+// Test cases:
+// 1. Happy path: valid versions, output contains expected content
+// 2. Missing changelog file → error containing "failed to read changelog"
+// 3. Version not found → error containing version string
+// 4. Inverted versions → error about ordering
+// 5. Wrong number of args (0, 1, 3) → cobra arg validation error
+// 6. Custom --file flag works
+// 7. Command is registered on RootCmd
+```
+
+Follow the test pattern from `cmd/changelog_validate_test.go`:
+- Create temp dir with temp changelog file
+- Use `viper.Reset()` + `viper.Set("app.changelog.file", path)`
+- Create command with `RunE: runDiff`
+- Capture output with `bytes.Buffer` via `cmd.SetOut()`
+
+**Implementation** in `cmd/diff.go`:
+
+```go
+// cmd/diff.go
+package cmd
+
+import (
+    "fmt"
+    "os"
+
+    "github.com/peiman/changie/internal/changelog"
+    "github.com/rs/zerolog/log"
+    "github.com/spf13/cobra"
+    "github.com/spf13/viper"
+)
+
+var diffCmd = &cobra.Command{
+    Use:   "diff FROM TO",
+    Short: "Show changelog entries between two versions",
+    Long: `Compare two versions in the changelog and show what changed between them.
+
+Extracts and displays all changelog entries for versions after FROM up to
+and including TO. Both versions must exist in the changelog file.
+
+Examples:
+  changie diff 1.0.0 1.1.0
+  changie diff v1.0.0 v2.0.0
+  changie diff 0.9.0 0.9.1 --file HISTORY.md`,
+    Args: cobra.ExactArgs(2),
+    RunE: runDiff,
 }
-```
 
-Note: This step is optional. Since the validate command has no custom flags beyond the inherited `--file`, we may not need a separate config file. The command can be created directly as a `cobra.Command` in `cmd/changelog_validate.go` following the same pattern as `changelog_add.go` (which also doesn't use `MustNewCommand`).
+func init() {
+    diffCmd.Flags().String("file", "CHANGELOG.md", "Changelog file name")
+    if err := viper.BindPFlag("app.changelog.file", diffCmd.Flags().Lookup("file")); err != nil {
+        log.Fatal().Err(err).Msg("Failed to bind 'file' flag")
+    }
+    RootCmd.AddCommand(diffCmd)
+}
 
-**Decision**: Skip the config file. Create the command directly like `changelog_add.go` does, since there are no command-specific flags.
-
-### Step 9: Create the command wiring
-
-**File**: `cmd/changelog_validate.go`, `cmd/changelog_validate_test.go`
-
-Command wiring (must be ≤30 lines in `runValidateChangelog`):
-
-```go
-func runValidateChangelog(cmd *cobra.Command, args []string) error {
+func runDiff(cmd *cobra.Command, args []string) error {
     file := getConfigValueWithFlags[string](cmd, "file", "app.changelog.file")
     data, err := os.ReadFile(file)
     if err != nil {
         return fmt.Errorf("failed to read changelog: %w", err)
     }
-    report := changelog.ValidateChangelog(string(data), file)
-    if report.Passed {
-        return ui.RenderSuccess(cmd.OutOrStdout(), fmt.Sprintf("All %d checks passed", report.TotalRules), report)
+    result, err := changelog.DiffVersions(string(data), args[0], args[1])
+    if err != nil {
+        return err
     }
-    // Print the report even on failure
-    formatted := changelog.FormatReport(report)
-    fmt.Fprint(cmd.OutOrStdout(), formatted)
-    return fmt.Errorf("changelog validation failed: %d/%d checks failed", report.FailCount, report.TotalRules)
+    _, _ = fmt.Fprint(cmd.OutOrStdout(), result)
+    return nil
 }
 ```
 
-Command-level tests:
-- Valid changelog file → exit 0, success message
-- Invalid changelog file → exit non-zero, error details
-- Missing file → appropriate error message
-- `--output json` → JSON envelope with ValidationReport as data
-- `--file custom.md` → reads the custom file
+**Line count of `runDiff`:** ~10 lines ✅ (well under 30-line limit)
 
-### Step 10: Run `task check` and fix any issues
+### Step 3: Run `task check`
 
-- Run `task format` to fix formatting
-- Run `task lint` to fix lint issues
-- Run `task test` to verify all tests pass
-- Run `task check` to run the full quality gate
-- Fix any issues found
+Verify everything passes before committing. Fix any lint, format, or coverage issues.
+
+### Step 4: Commit atomically
+
+Single commit with all 4 files:
+- `internal/changelog/diff.go`
+- `internal/changelog/diff_test.go`
+- `cmd/diff.go`
+- `cmd/diff_test.go`
+
+---
 
 ## Testing Strategy
 
-### Unit Tests (`internal/changelog/validate_test.go`)
+### Unit Tests (`internal/changelog/diff_test.go`)
 
-Table-driven tests for each validation rule. Tests operate on string content (no filesystem):
+| # | Test Case | Input | Expected |
+|---|-----------|-------|----------|
+| 1 | Happy path — two adjacent versions | content with v1.0.0 and v1.1.0 | v1.1.0 section content |
+| 2 | Multiple versions in range | v1.0.0, v1.0.1, v1.1.0; diff(1.0.0, 1.1.0) | Both v1.0.1 and v1.1.0 sections |
+| 3 | Versions with v-prefix | `diff("v1.0.0", "v1.1.0")` | Works, same as bare |
+| 4 | Versions without v-prefix | `diff("1.0.0", "1.1.0")` | Works |
+| 5 | Mixed prefix user vs changelog | User passes `v1.0.0`, changelog has `[1.0.0]` | Works (normalized) |
+| 6 | from-version not found | `diff("0.5.0", "1.0.0")` where 0.5.0 doesn't exist | Error: "version 0.5.0 not found" |
+| 7 | to-version not found | `diff("1.0.0", "3.0.0")` where 3.0.0 doesn't exist | Error: "version 3.0.0 not found" |
+| 8 | from > to (inverted) | `diff("2.0.0", "1.0.0")` | Error: "from-version must be older" |
+| 9 | Same version | `diff("1.0.0", "1.0.0")` | Error: "versions must be different" |
+| 10 | Invalid semver (from) | `diff("not-a-version", "1.0.0")` | Error: "invalid version" |
+| 11 | Invalid semver (to) | `diff("1.0.0", "abc")` | Error: "invalid version" |
+| 12 | Empty content | `diff("1.0.0", "2.0.0")` on `""` | Error |
+| 13 | Content with multiple sections per version | v1.1.0 has Added + Fixed + Changed | All sections included in output |
+| 14 | Unreleased not included | diff(1.0.0, 1.1.0) with Unreleased present | Unreleased content excluded |
 
-| Test Group | Count | Description |
-|-----------|-------|-------------|
-| `TestCheckVersionHeaders` | ~8 cases | Valid/invalid version header formats |
-| `TestCheckDuplicateEntries` | ~6 cases | Duplicate detection across sections/versions |
-| `TestCheckBrokenLinks` | ~7 cases | Header↔link matching, orphans |
-| `TestCheckEntriesWithoutDates` | ~6 cases | Date presence and format |
-| `TestCheckSemverOrder` | ~7 cases | Descending order, edge cases |
-| `TestValidateChangelog` | ~4 cases | Integration: all rules together |
-| `TestFormatReport` | ~3 cases | Text rendering of reports |
-| `TestValidationReportJSONResponse` | ~2 cases | JSON serialization |
+### Command Tests (`cmd/diff_test.go`)
 
-**Total**: ~43 test cases
+| # | Test Case | Setup | Expected |
+|---|-----------|-------|----------|
+| 1 | Happy path | Temp file with valid changelog | No error, output contains version content |
+| 2 | File not found | Non-existent path | Error: "failed to read changelog" |
+| 3 | Version not found | Valid file, bad version | Error containing the version string |
+| 4 | Wrong arg count (0) | No args | Cobra error |
+| 5 | Wrong arg count (1) | One arg | Cobra error |
+| 6 | Custom file flag | `--file custom.md` | Uses custom file |
+| 7 | Command registered | Check RootCmd.Commands() | `diff` found |
 
-### Command Tests (`cmd/changelog_validate_test.go`)
-
-Test the command wiring with temp files:
-
-| Test | Description |
-|------|-------------|
-| `TestValidateCommand_ValidFile` | Valid changelog → success output |
-| `TestValidateCommand_InvalidFile` | Changelog with errors → failure output with details |
-| `TestValidateCommand_FileNotFound` | Missing file → error message |
-| `TestValidateCommand_CustomFile` | `--file` flag works |
-| `TestValidateCommand_EmptyFile` | Empty file → appropriate failures |
-
-### Coverage Target
-
-- `internal/changelog/validate.go`: 95%+ (pure logic, fully testable)
-- `cmd/changelog_validate.go`: 80%+ (command wiring)
-- Overall project coverage: maintained above 85%
+---
 
 ## Edge Cases
 
-1. **Empty changelog file**: Should fail version headers check (no headers), pass duplicates (nothing to duplicate), etc.
-2. **Changelog with only `[Unreleased]`**: All checks should pass (no versions to validate ordering on, no links needed for Unreleased if no versions exist — actually, `[Unreleased]` should have a link if there's a repo URL, but we'll be lenient here)
-3. **Yanked versions**: `## [1.0.0] - 2024-01-01 [YANKED]` — the date check should still pass
-4. **Pre-release versions**: `## [1.0.0-alpha.1] - 2024-01-01` — should be valid
-5. **`v`-prefixed versions**: `## [v1.0.0] - 2024-01-01` — should be valid
-6. **Windows line endings (`\r\n`)**: Normalize before processing
-7. **No link reference section**: If there are version headers, broken links check should fail
-8. **Changelog with content before first header**: Preamble text (title, description) is ignored
-9. **Duplicate entries across different versions**: NOT considered duplicates (only within same version+section)
-10. **Non-standard sections**: e.g., `### Custom` — not flagged (we only validate format, not section names)
+1. **Changelog uses v-prefix but user omits it (or vice versa):** Normalize both
+   the user input and changelog header by stripping `v` prefix before comparison.
 
-## Dependencies
+2. **Version exists in link references but not as header:** Only match `## [X.Y.Z]`
+   headers, not `[X.Y.Z]: URL` link references. The existing `reVersionHeader`
+   regex already anchors to `## [`.
 
-### Existing (no new dependencies)
-- `github.com/blang/semver/v4` — already used via `internal/semver`
-- `github.com/stretchr/testify` — test assertions
-- `internal/semver` — version parsing and comparison
-- `internal/ui` — output rendering
-- `.ckeletin/pkg/output` — JSON mode support
+3. **Trailing whitespace in version headers:** Use `strings.TrimSpace()` on lines
+   before matching, consistent with `validate.go` patterns.
 
-### No new external dependencies needed
+4. **Windows line endings (`\r\n`):** Normalize with `strings.ReplaceAll(content, "\r\n", "\n")`
+   before parsing, matching the pattern in `ValidateChangelog()` at `validate.go:51`.
 
-All validation is string parsing that can be done with the standard library (`regexp`, `strings`) plus the existing `internal/semver` package.
+5. **Changelog with no versions (only Unreleased):** Both versions will fail to
+   be found → return clear error for each.
 
-## Risk Assessment
+6. **from-version is the very first release:** All content from `to-version` down
+   to (but not including) `from-version` header is returned.
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Regex too strict (rejects valid changelogs) | Medium | High | Test against the project's own CHANGELOG.md as a golden test |
-| Regex too lenient (misses problems) | Low | Medium | Comprehensive edge case tests |
-| Performance on large files | Low | Low | Changelog files are typically <1000 lines |
-| Breaking existing `changelog` command group | Low | High | Only adding a new subcommand, not modifying existing ones |
+7. **to-version is the latest release:** Content starts right after the `[Unreleased]`
+   section boundary.
 
-## Validation Against Project CHANGELOG.md
+---
 
-The project's own `CHANGELOG.md` (484 lines, 12 versions) should pass all 5 checks. Use it as a smoke test during development.
+## References
+
+| File | Line(s) | Relevance |
+|------|---------|-----------|
+| `cmd/bump.go:20-42` | — | Pattern for root-level command with `--file` flag |
+| `cmd/bump.go:135-145` | — | `runVersionBump` pattern: read config, call internal |
+| `cmd/changelog_validate.go:33-51` | — | Pattern for reading changelog + calling internal |
+| `cmd/changelog_validate_test.go:64-79` | — | `setupValidateCmd` test helper pattern |
+| `internal/changelog/validate.go:40-45` | — | Compiled regex `reVersionHeader` — reuse for diff |
+| `internal/changelog/validate.go:49-51` | — | `\r\n` normalization pattern |
+| `internal/changelog/changelog.go:262-275` | — | `GetLatestChangelogVersion` — version header parsing |
+| `internal/semver/semver.go:34-54` | — | `ParseVersion()` — v-prefix handling |
+| `internal/semver/semver.go:120-137` | — | `Compare()` — version ordering |
+| `.go-arch-lint.yml:84` | — | `internal/changelog/` is infrastructure layer |
+| `.go-arch-lint.yml:104` | — | `internal/version/` is business layer |
+| `AGENTS.md:296-307` | — | New Command Checklist |
+| `CLAUDE.md` | — | TDD rule, `task check` rule, ≤30 lines rule |
