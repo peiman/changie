@@ -118,7 +118,7 @@ func CommitChangelog(file, version string) error {
 
 	// Commit the changes
 	commitMsg := fmt.Sprintf("Release %s", version)
-	cmd = exec.Command("git", "commit", "-m", commitMsg)
+	cmd = exec.Command("git", "commit", "-m", commitMsg) //nolint:gosec // G204: commitMsg is an internally constructed version string
 	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to commit changelog: %w (ensure git user.name and user.email are configured correctly with 'git config')", err)
@@ -145,7 +145,7 @@ func TagVersion(version string) error {
 
 	// Create the tag
 	tagMsg := fmt.Sprintf("Version %s", version)
-	cmd := exec.Command("git", "tag", "-a", tagName, "-m", tagMsg)
+	cmd := exec.Command("git", "tag", "-a", tagName, "-m", tagMsg) //nolint:gosec // G204: tagName/tagMsg are internally constructed version strings
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to create tag: %w (check if tag '%s' already exists, you can delete it with 'git tag -d %s')", err, tagName, tagName)

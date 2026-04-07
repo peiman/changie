@@ -3,60 +3,34 @@
 package cmd
 
 import (
+	"path/filepath"
+
+	"github.com/peiman/changie/.ckeletin/pkg/config"
+	"github.com/peiman/changie/.ckeletin/pkg/config/commands"
+	"github.com/peiman/changie/internal/docs"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
-	"github.com/peiman/changie/internal/docs"
 )
 
-// docsCmd represents the docs command
+// docsCmd represents the docs command (parent command)
 var docsCmd = &cobra.Command{
 	Use:   "docs",
 	Short: "Generate documentation",
 	Long:  `Generate documentation about the application, including configuration options.`,
 }
 
-// configCmd represents the config command
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Generate configuration documentation",
-	Long: `Generate documentation about all configuration options.
-
-This command generates detailed documentation about all available configuration
-options, including their default values, types, and environment variable names.
-
-The documentation can be output in various formats using the --format flag.`,
-	RunE: runDocsConfig,
-}
+var docsConfigCmd = MustNewCommand(commands.DocsConfigMetadata, runDocsConfig)
 
 func init() {
-	// Add the config subcommand to the docs command
-	docsCmd.AddCommand(configCmd)
-
-	// Add the docs command to the root command
-	RootCmd.AddCommand(docsCmd)
-
-	// Add flags to config command
-	configCmd.Flags().StringP("format", "f", docs.FormatMarkdown, "Output format (markdown, yaml)")
-	configCmd.Flags().StringP("output", "o", "", "Output file (defaults to stdout)")
-
-	// Bind flags to Viper using consistent naming convention
-	if err := viper.BindPFlag("app.docs.output_format", configCmd.Flags().Lookup("format")); err != nil {
-		log.Fatal().Err(err).Msg("Failed to bind 'format' flag")
-	}
-	if err := viper.BindPFlag("app.docs.output_file", configCmd.Flags().Lookup("output")); err != nil {
-		log.Fatal().Err(err).Msg("Failed to bind 'output' flag")
-	}
-
-	// Setup command configuration inheritance
-	setupCommandConfig(configCmd)
+	docsCmd.AddCommand(docsConfigCmd)
+	setupCommandConfig(docsConfigCmd)
+	MustAddToRoot(docsCmd)
 }
 
-func runDocsConfig(cmd *cobra.Command, _ []string) error {
-	// Get configuration values from viper/flags
-	outputFormat := getConfigValue[string](cmd, "format", "app.docs.output_format")
-	outputFile := getConfigValue[string](cmd, "output", "app.docs.output_file")
+func runDocsConfig(cmd *cobra.Command, args []string) error {
+	// Get configuration values from Viper by key (flags already bound)
+	outputFormat := getKeyValue[string](config.KeyAppDocsOutputFormat)
+	outputFile := getKeyValue[string](config.KeyAppDocsOutputFile)
 
 	log.Debug().
 		Str("format", outputFormat).
@@ -71,15 +45,18 @@ func runDocsConfig(cmd *cobra.Command, _ []string) error {
 
 	// Set config paths
 	paths := ConfigPaths()
-	appInfo.ConfigPaths.DefaultPath = paths.DefaultPath
-	appInfo.ConfigPaths.DefaultFullName = paths.DefaultFullName
+	if defaultDir := defaultUserConfigDir(paths); defaultDir != "" {
+		appInfo.ConfigPaths.DefaultPath = filepath.Join(defaultDir, "config.yaml")
+	}
+	appInfo.ConfigPaths.DefaultFullName = "config.yaml" // local project config
 
 	// Create document generator configuration
-	cfg := docs.NewConfig(
-		cmd.OutOrStdout(),
-		docs.WithOutputFormat(outputFormat),
-		docs.WithOutputFile(outputFile),
-	)
+	cfg := docs.Config{
+		Writer:       cmd.OutOrStdout(),
+		OutputFormat: outputFormat,
+		OutputFile:   outputFile,
+		Registry:     config.Registry,
+	}
 
 	// Create generator and generate documentation
 	generator := docs.NewGenerator(cfg)

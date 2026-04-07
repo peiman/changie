@@ -64,9 +64,9 @@ func runAddChangelogSection(cmd *cobra.Command, args []string, section string) e
 	}
 
 	if isDuplicate {
-		fmt.Fprintf(cmd.OutOrStdout(), "Entry already exists in the %s section, not added again.\n", section)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Entry already exists in the %s section, not added again.\n", section)
 	} else {
-		fmt.Fprintf(cmd.OutOrStdout(), "Added to %s section: %s\n", section, content)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added to %s section: %s\n", section, content)
 	}
 
 	log.Debug().Msg("Changelog entry added successfully")

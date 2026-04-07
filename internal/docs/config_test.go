@@ -5,75 +5,74 @@ package docs
 import (
 	"bytes"
 	"testing"
+
+	"github.com/peiman/changie/.ckeletin/pkg/config"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestNewConfig(t *testing.T) {
-	// SETUP PHASE
-	writer := &bytes.Buffer{}
-
-	// EXECUTION PHASE
-	cfg := NewConfig(writer)
-
-	// ASSERTION PHASE
-	if cfg.OutputFormat != FormatMarkdown {
-		t.Errorf("Expected default format to be %s, got %s", FormatMarkdown, cfg.OutputFormat)
-	}
-	if cfg.OutputFile != "" {
-		t.Errorf("Expected default output file to be empty, got %s", cfg.OutputFile)
-	}
-	if cfg.Writer != writer {
-		t.Errorf("Expected writer to be set correctly")
-	}
-}
-
-func TestConfigOptions(t *testing.T) {
+func TestConfig(t *testing.T) {
 	// SETUP PHASE
 	writer := &bytes.Buffer{}
 
 	tests := []struct {
 		name           string
-		options        []Option
+		cfg            Config
 		wantFormat     string
 		wantOutputFile string
 	}{
 		{
-			name:           "WithOutputFormat option",
-			options:        []Option{WithOutputFormat(FormatYAML)},
+			name: "Default config",
+			cfg: Config{
+				Writer:       writer,
+				OutputFormat: FormatMarkdown,
+				OutputFile:   "",
+				Registry:     config.Registry,
+			},
+			wantFormat:     FormatMarkdown,
+			wantOutputFile: "",
+		},
+		{
+			name: "YAML format",
+			cfg: Config{
+				Writer:       writer,
+				OutputFormat: FormatYAML,
+				OutputFile:   "",
+				Registry:     config.Registry,
+			},
 			wantFormat:     FormatYAML,
 			wantOutputFile: "",
 		},
 		{
-			name:           "WithOutputFile option",
-			options:        []Option{WithOutputFile("test.md")},
-			wantFormat:     FormatMarkdown, // Default
+			name: "With output file",
+			cfg: Config{
+				Writer:       writer,
+				OutputFormat: FormatMarkdown,
+				OutputFile:   "test.md",
+				Registry:     config.Registry,
+			},
+			wantFormat:     FormatMarkdown,
 			wantOutputFile: "test.md",
 		},
 		{
-			name:           "Multiple options",
-			options:        []Option{WithOutputFormat(FormatYAML), WithOutputFile("test.yaml")},
+			name: "YAML with output file",
+			cfg: Config{
+				Writer:       writer,
+				OutputFormat: FormatYAML,
+				OutputFile:   "test.yaml",
+				Registry:     config.Registry,
+			},
 			wantFormat:     FormatYAML,
 			wantOutputFile: "test.yaml",
-		},
-		{
-			name:           "WithWriter option",
-			options:        []Option{WithWriter(new(bytes.Buffer))},
-			wantFormat:     FormatMarkdown, // Default
-			wantOutputFile: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// EXECUTION PHASE
-			cfg := NewConfig(writer, tt.options...)
-
+			t.Parallel()
 			// ASSERTION PHASE
-			if cfg.OutputFormat != tt.wantFormat {
-				t.Errorf("Expected format %s, got %s", tt.wantFormat, cfg.OutputFormat)
-			}
-			if cfg.OutputFile != tt.wantOutputFile {
-				t.Errorf("Expected output file %s, got %s", tt.wantOutputFile, cfg.OutputFile)
-			}
+			assert.Equal(t, tt.wantFormat, tt.cfg.OutputFormat)
+			assert.Equal(t, tt.wantOutputFile, tt.cfg.OutputFile)
+			assert.Equal(t, writer, tt.cfg.Writer)
 		})
 	}
 }

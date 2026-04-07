@@ -104,9 +104,9 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	// Log current version
 	if currentVersion == "" {
 		currentVersion = "0.0.0" // Default if no tag exists
-		fmt.Fprintf(output, "No version tag found, starting from %s\n", currentVersion)
+		_, _ = fmt.Fprintf(output, "No version tag found, starting from %s\n", currentVersion)
 	} else {
-		fmt.Fprintf(output, "Current version: %s\n", currentVersion)
+		_, _ = fmt.Fprintf(output, "Current version: %s\n", currentVersion)
 	}
 
 	// Bump version according to type
@@ -127,10 +127,10 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 		return fmt.Errorf("failed to bump version: %w - check if the current version (%s) is a valid semantic version in the format X.Y.Z", err, currentVersion)
 	}
 
-	fmt.Fprintf(output, "New version: %s\n", newVersion)
+	_, _ = fmt.Fprintf(output, "New version: %s\n", newVersion)
 
 	// Update changelog
-	fmt.Fprintf(output, "Updating changelog file: %s\n", cfg.ChangelogFile)
+	_, _ = fmt.Fprintf(output, "Updating changelog file: %s\n", cfg.ChangelogFile)
 	err = changelog.UpdateChangelog(cfg.ChangelogFile, newVersion, cfg.RepositoryProvider)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("file", cfg.ChangelogFile).Str("version", newVersion).Msg("Failed to update changelog")
@@ -145,26 +145,26 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	}
 
 	// Tag version
-	fmt.Fprintf(output, "Tagging version: %s\n", newVersion)
+	_, _ = fmt.Fprintf(output, "Tagging version: %s\n", newVersion)
 	err = git.TagVersion(newVersion)
 	if err != nil {
 		logger.Version.Error().Err(err).Str("version", newVersion).Msg("Failed to tag version")
 		return fmt.Errorf("failed to tag version: %w - check if the tag already exists (use 'git tag' to list existing tags)", err)
 	}
 
-	fmt.Fprintf(output, "%s release %s done.\n", cfg.BumpType, newVersion)
+	_, _ = fmt.Fprintf(output, "%s release %s done.\n", cfg.BumpType, newVersion)
 
 	// Auto-push if enabled
 	if cfg.AutoPush {
-		fmt.Fprintf(output, "Pushing changes and tags...\n")
+		_, _ = fmt.Fprintf(output, "Pushing changes and tags...\n")
 		err = git.PushChanges()
 		if err != nil {
 			logger.Version.Error().Err(err).Msg("Failed to push changes")
 			return fmt.Errorf("failed to push changes: %w - check network connection and remote repository permissions", err)
 		}
-		fmt.Fprintf(output, "Automatically pushed changes and tags to remote repository.\n")
+		_, _ = fmt.Fprintf(output, "Automatically pushed changes and tags to remote repository.\n")
 	} else {
-		fmt.Fprintf(output, "Don't forget to git push and git push --tags.\n")
+		_, _ = fmt.Fprintf(output, "Don't forget to git push and git push --tags.\n")
 	}
 
 	logger.Version.Debug().Str("type", cfg.BumpType).Str("version", newVersion).Msg("Version bump completed successfully")

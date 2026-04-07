@@ -166,6 +166,8 @@ func TestVersionBumpCommands(t *testing.T) {
 			// Configure git
 			exec.Command("git", "config", "user.email", "test@example.com").Run()
 			exec.Command("git", "config", "user.name", "Test User").Run()
+			exec.Command("git", "config", "tag.gpgsign", "false").Run()
+			exec.Command("git", "config", "commit.gpgsign", "false").Run()
 
 			// Create initial changelog
 			changelogPath := filepath.Join(tempDir, "CHANGELOG.md")
@@ -386,6 +388,8 @@ func TestVersionBumpFlagPrecedence(t *testing.T) {
 	exec.Command("git", "init").Run()
 	exec.Command("git", "config", "user.email", "test@example.com").Run()
 	exec.Command("git", "config", "user.name", "Test User").Run()
+	exec.Command("git", "config", "tag.gpgsign", "false").Run()
+	exec.Command("git", "config", "commit.gpgsign", "false").Run()
 
 	// Create changelog
 	changelogPath := filepath.Join(tempDir, "CHANGELOG.md")

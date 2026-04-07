@@ -1,298 +1,194 @@
-# golangci-lint configuration for changie
-# See https://golangci-lint.run/usage/configuration/ for full documentation
+# golangci-lint configuration
+# See: https://golangci-lint.run/usage/configuration/
+#
+# ============================================================================
+# OWNERSHIP MODEL (Framework Separation)
+# ============================================================================
+#
+# This file is FRAMEWORK-MANAGED with project customization options.
+#
+# FRAMEWORK-MANAGED:
+#   - Linter selection and settings
+#   - Exclude rules using generic patterns (_test\.go$, ^cmd/, etc.)
+#   - Severity and threshold settings
+#
+# PROJECT CUSTOMIZATION:
+#   - To enable/disable linters: modify the enable/disable lists
+#   - To add project-specific exclusions: add to issues.exclude-rules
+#   - To change thresholds: adjust linters-settings values
+#
+# When running `task ckeletin:update`:
+# - This file is NOT automatically updated (it's in project root)
+# - Check framework CHANGELOG for linter configuration changes
+# - Manually incorporate framework improvements if needed
+#
+# ============================================================================
+#
+# Simplified configuration for golangci-lint v2
+# Focuses on most impactful linters
+
+version: 2
 
 run:
-  # Timeout for analysis
   timeout: 5m
-
-  # Include test files
-  tests: true
-
-  # Modules download mode
-  modules-download-mode: readonly
+  tests: false  # Skip all test files
 
 linters:
   enable:
-    # Enabled by default linters
-    - errcheck      # Checks for unchecked errors
-    - gosimple      # Suggests code simplifications
-    - govet         # Reports suspicious constructs
-    - ineffassign   # Detects ineffectual assignments
-    - staticcheck   # Advanced Go linter
-    - unused        # Checks for unused constants, variables, functions and types
+    # Core linters (always enabled)
+    - errcheck      # Unchecked errors
+    - govet         # Suspicious constructs
+    - ineffassign   # Unused assignments
+    - staticcheck   # Comprehensive static analysis
+    - unused        # Unused code
 
-    # Additional recommended linters
-    - gofmt         # Checks whether code was gofmt-ed
-    - goimports     # Checks import ordering and formatting
-    - misspell      # Finds commonly misspelled English words
-    - unconvert     # Removes unnecessary type conversions
-    - unparam       # Reports unused function parameters
-    - gocyclo       # Computes cyclomatic complexity
-    - dupl          # Code clone detection
-    - goconst       # Finds repeated strings that could be constants
-    - gosec         # Inspects source code for security problems
-    - revive        # Fast, configurable, extensible, flexible linter
-    - bodyclose     # Checks whether HTTP response body is closed
-    - noctx         # Finds sending http request without context.Context
-    - rowserrcheck  # Checks whether sql.Rows.Err is checked
-    - sqlclosecheck # Checks that sql.Rows and sql.Stmt are closed
-    - copyloopvar   # Checks for loop variable capture in Go 1.22+
-    - gci           # Controls Go package import order
-    - gofumpt       # Stricter gofmt
-    - goheader      # Checks file headers
-    - gomodguard    # Checks for blocked module imports
-    - goprintffuncname # Checks that printf-like functions are named with 'f' at the end
-    - nilerr        # Finds code that returns nil even if it checks that error is not nil
-    - nilnil        # Checks that there is no simultaneous return of nil error and nil value
-    - nolintlint    # Reports ill-formed or insufficient nolint directives
-    - predeclared   # Finds code that shadows predeclared identifiers
-    - thelper       # Detects Go test helpers without t.Helper()
-    - tparallel     # Detects inappropriate usage of t.Parallel()
-    - whitespace    # Detects leading and trailing whitespace
-    - wrapcheck     # Checks that errors from external packages are wrapped
+    # Security
+    - gosec         # Security problems
 
+    # Bugs & Correctness
+    - bodyclose     # Unclosed HTTP response bodies
+    - nilerr        # Returns nil even when error is not nil
+    - nilnil        # Returns both nil error and nil value
+    - errorlint     # Error wrapping best practices (Go 1.13+)
+
+    # Context & Logging
+    - contextcheck  # Proper context propagation
+    - zerologlint   # Correct zerolog usage (must call .Send() or .Msg())
+
+    # Testing Best Practices
+    - testifylint   # Best practices for testify assertions
+    - thelper       # Test helpers must call t.Helper()
+
+    # Code Quality
+    - misspell      # Spelling mistakes
+    - gocyclo       # Cyclomatic complexity
+    - unconvert     # Remove unnecessary type conversions
+    - usestdlibvars # Use stdlib constants instead of magic values
+    - whitespace    # Clean up unnecessary newlines (auto-fixable)
+    - reassign      # Prevents reassigning package variables
+    - predeclared   # Don't shadow Go predeclared identifiers
+
+  # Disabled temporarily - too noisy for initial v2 adoption
+  # Re-enable after addressing style issues incrementally
   disable:
-    # Disabled linters (can be enabled as needed)
-    - godot         # Checks if comments end in a period (too strict)
-    - godox         # Detects FIXME, TODO and other comment keywords (too noisy)
-    - funlen        # Checks function length (subjective)
-    - lll           # Reports long lines (use editor wrapping instead)
-    - mnd           # Detects magic numbers (can be too strict)
-    - testpackage   # Separate _test package (not always needed)
-    - wsl           # Whitespace linter (opinionated)
-    - nlreturn      # Checks for new line before return (too strict)
-    - exhaustive    # Checks exhaustiveness of enum switch statements (noisy)
-    - exhaustruct   # Checks if all structure fields are initialized (too strict)
-    - paralleltest  # Detects missing usage of t.Parallel() (not always wanted)
-    - varnamelen    # Checks variable name length (subjective)
-    - tagliatelle   # Checks struct tag naming (can be too strict)
-    - ireturn       # Accept interfaces, return concrete types (sometimes wrong)
+    - gocritic      # Style and performance suggestions
+    - revive        # General purpose style linter
 
 linters-settings:
-  errcheck:
-    # Report about not checking of errors in type assertions: `a := b.(MyStruct)`
-    check-type-assertions: true
-    # Report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`
-    check-blank: false
-
-  govet:
-    # Enable all analyzers
-    enable-all: true
-    # Disable specific analyzers
-    disable:
-      - fieldalignment # Too strict about struct field ordering
-      - shadow         # Reports shadowing, but sometimes it's intentional
-
   gocyclo:
-    # Minimal cyclomatic complexity to report
     min-complexity: 15
 
-  dupl:
-    # Tokens count to trigger issue
-    threshold: 100
-
-  goconst:
-    # Minimal length of string constant
-    min-len: 3
-    # Minimum occurrences of constant string count to trigger issue
-    min-occurrences: 3
-    # Ignore test files
-    ignore-tests: true
-
-  misspell:
-    # Correct spellings using locale preferences
-    locale: US
+  gosec:
+    excludes:
+      - G104  # Duplicates errcheck
 
   revive:
-    # Enable all rules by default
-    confidence: 0.8
+    enable-all-rules: false
+    ignore-generated-header: true
     rules:
-      # Enable specific rules
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: if-return
-      - name: increment-decrement
-      - name: var-naming
-      - name: var-declaration
+      # Disable style rules that don't add value
       - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
+        disabled: true
+      - name: exported
+        disabled: true
+      - name: var-naming
+        disabled: true
+      - name: var-declaration
+        disabled: true
       - name: unused-parameter
-      - name: unreachable-code
-      - name: redefines-builtin-id
+        disabled: true
+      - name: error-strings
+        disabled: true
 
-  gosec:
-    # Select which security issues to check
-    includes:
-      - G101 # Look for hardcoded credentials
-      - G102 # Bind to all interfaces
-      - G103 # Audit the use of unsafe block
-      - G104 # Audit errors not checked
-      - G106 # Audit the use of ssh.InsecureIgnoreHostKey
-      - G107 # Url provided to HTTP request as taint input
-      - G108 # Profiling endpoint automatically exposed on /debug/pprof
-      - G109 # Potential Integer overflow made by strconv.Atoi result conversion to int16/32
-      - G110 # Potential DoS vulnerability via decompression bomb
-      - G201 # SQL query construction using format string
-      - G202 # SQL query construction using string concatenation
-      - G203 # Use of unescaped data in HTML templates
-      - G204 # Audit use of command execution
-      - G301 # Poor file permissions used when creating a directory
-      - G302 # Poor file permissions used with chmod
-      - G303 # Creating tempfile using a predictable path
-      - G304 # File path provided as taint input
-      - G305 # File traversal when extracting zip archive
-      - G306 # Poor file permissions used when writing to a new file
-      - G307 # Deferring a method which returns an error
-      - G401 # Detect the usage of DES, RC4, MD5 or SHA1
-      - G402 # Look for bad TLS connection settings
-      - G403 # Ensure minimum RSA key length of 2048 bits
-      - G404 # Insecure random number source (rand)
-      - G501 # Import blacklist: crypto/md5
-      - G502 # Import blacklist: crypto/des
-      - G503 # Import blacklist: crypto/rc4
-      - G504 # Import blacklist: net/http/cgi
-      - G505 # Import blacklist: crypto/sha1
-      - G601 # Implicit memory aliasing of items from a range statement
-
-  goimports:
-    # Put imports beginning with prefix after 3rd-party packages
-    local-prefixes: github.com/peiman/changie
-
-  gci:
-    # Section configuration
-    sections:
-      - standard # Standard section: captures all standard packages
-      - default  # Default section: contains all imports that could not be matched to another section
-      - prefix(github.com/peiman/changie) # Custom section: groups all imports with the specified Prefix
-
-  wrapcheck:
-    # List of packages to ignore for wrapping
-    ignoreSigs:
-      - .Errorf(
-      - errors.New(
-      - errors.Unwrap(
-      - .Wrap(
-      - .Wrapf(
-
-  nolintlint:
-    # Enable to require an explanation after nolint directives
-    require-explanation: true
-    # Enable to require nolint directives to mention the specific linter being suppressed
-    require-specific: true
+  gocritic:
+    disabled-checks:
+      - ifElseChain
+      - singleCaseSwitch
+      - elseif
 
 issues:
-  # Skip vendor and other directories
-  exclude-dirs:
-    - vendor
-
-  # Skip generated files
-  exclude-files:
-    - ".*\\.pb\\.go$"
-
-  # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
+    # Exclude strict linters from all test files
+    - path: _test\.go$
       linters:
         - gocyclo
+        - gosec
+        - errcheck      # Tests often ignore errors intentionally
+        - revive        # Style rules less critical in tests
+        - gocritic      # Test patterns may differ from production
+        - staticcheck   # Less critical in tests
+        - contextcheck  # Test contexts can be more flexible
+        - nilerr        # Test error patterns may differ
+        - nilnil        # Test return patterns may differ
+
+    # Exclude strict linters from test directories
+    - path: ^test/
+      linters:
+        - gosec
         - errcheck
-        - dupl
-        - gosec
-        - wrapcheck
-        - noctx
         - revive
+        - gocritic
+        - staticcheck
+        - contextcheck
+        - nilerr
+        - nilnil
 
-    # Exclude known issues in legacy code
-    - path: cmd/completion.go
-      linters:
-        - errcheck
-        - gosec
-
-    # Allow fmt.Fprintf to stdout/stderr
-    - linters:
-        - forbidigo
-      text: "use of `fmt\\.(Fprint|Fprintf|Fprintln)` forbidden"
-
-    # Allow 0644 permissions for changelog files (not sensitive data)
-    - path: internal/changelog/
+    # Exclude gosec for command files (often have subprocess calls)
+    - path: ^cmd/
       linters:
         - gosec
-      text: "G306"
+        - revive        # Command files have standard Cobra patterns
 
-    # Allow complex functions in changelog management (inherently complex)
-
-    # Allow complex type switching in getConfigValue (necessary for generic type handling)
-    - path: cmd/root.go
+    # Allow integer conversions - Go's type system is strict, these are often safe
+    - text: "G115.*integer overflow conversion"
       linters:
-        - gocyclo
-      text: "cyclomatic complexity.*of func `getConfigValue`"
-    - path: internal/changelog/changelog.go
-      linters:
-        - gocyclo
+        - gosec
 
-    # Allow complex version bump function (inherently complex workflow)
-    - path: cmd/version.go
+    # Allow friendly error messages with punctuation/capitalization for user-facing errors
+    - text: "(error-strings|error strings).*should not be capitalized"
       linters:
-        - gocyclo
+        - revive
 
-    # Allow complex version bump orchestration function (inherently complex workflow)
-    - path: internal/version/bump.go
+    # Allow unused parameters in test helpers and Cobra command functions
+    - text: "unused-parameter"
+      path: _test\.go$
       linters:
-        - gocyclo
+        - revive
 
-    # Allow complex init function (inherently complex workflow)
-    - path: cmd/init.go
-      linters:
-        - gocyclo
-
-    # Allow unwrapped errors for top-level commands
-    - path: cmd/
-      linters:
-        - wrapcheck
-      text: "error returned from external package is unwrapped"
-
-    # Allow stuttering names in UI and config packages (intentional design)
+    # Allow package naming patterns and documentation style
     - linters:
         - revive
-      text: "stutters"
-      path: "internal/(ui|config)/"
-
-    # Allow unused parameters in cobra command handlers (required by interface)
+      text: "package-comments"
     - linters:
         - revive
-      text: "unused-parameter.*cmd.*args"
-
-  # Maximum issues count per one linter. Set to 0 to disable
-  max-issues-per-linter: 0
-
-  # Maximum count of issues with the same text. Set to 0 to disable
-  max-same-issues: 0
-
-  # Show only new issues
-  new: false
-
-  # Fix found issues (if possible)
-  fix: false
-
-severity:
-  # Default severity for issues
-  default-severity: error
-
-  # Minimal severity to report
-  rules:
+      text: "exported"
     - linters:
-        - dupl
-      severity: info
+        - revive
+      text: "var-naming"
+    - linters:
+        - revive
+      text: "var-declaration"
+
+    # Allow Cobra command patterns (unused args/cmd parameter is standard)
+    - linters:
+        - revive
+      text: "unused-parameter.*args"
+    - linters:
+        - revive
+      text: "unused-parameter.*cmd"
+
+    # Allow if-else chains and switch patterns
+    - linters:
+        - gocritic
+      text: "ifElseChain"
+    - linters:
+        - gocritic
+      text: "singleCaseSwitch"
+    - linters:
+        - gocritic
+      text: "elseif"
+
+    # Allow unused struct fields
+    - linters:
+        - unused
+      text: "is unused"

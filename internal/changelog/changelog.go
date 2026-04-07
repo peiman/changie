@@ -75,7 +75,7 @@ func InitProject(filePath string) error {
 	}
 
 	// Create the file with the template content
-	err = os.WriteFile(filePath, []byte(changelogTemplate), 0o644)
+	err = os.WriteFile(filePath, []byte(changelogTemplate), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
 	if err != nil {
 		return fmt.Errorf("failed to create changelog file: %w (verify you have write permissions for the directory and sufficient disk space)", err)
 	}
@@ -105,7 +105,7 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 		return false, fmt.Errorf("invalid section: %s, must be one of: Added, Changed, Deprecated, Removed, Fixed, Security (section names are case-sensitive)", section)
 	}
 
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) //nolint:gosec // G304: filePath is a user-specified changelog path
 	if err != nil {
 		return false, fmt.Errorf("failed to read changelog file: %w (check if '%s' exists and you have read permissions)", err, filePath)
 	}
@@ -180,7 +180,7 @@ func createNewSection(filePath string, lines []string, unreleasedIndex, nextMajo
 		result = append(result, lines[nextMajorIndex:]...)
 	}
 
-	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
+	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
 	if err != nil {
 		return fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 	}
@@ -220,7 +220,7 @@ func addToExistingSection(filePath string, lines []string, sectionIndex, nextMaj
 		result = append(result, lines[nextSectionIndex:]...)
 	}
 
-	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644)
+	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
 	if err != nil {
 		return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 	}
@@ -289,7 +289,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	}
 
 	// Read the current changelog file
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) //nolint:gosec // G304: filePath is a user-specified changelog path
 	if err != nil {
 		return fmt.Errorf("failed to read changelog file: %w (verify that '%s' exists and you have read permissions)", err, filePath)
 	}
@@ -429,7 +429,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	}
 
 	// Write the updated content back to the file
-	err = os.WriteFile(filePath, []byte(content), 0o644)
+	err = os.WriteFile(filePath, []byte(content), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
 	if err != nil {
 		return fmt.Errorf("failed to write updated changelog: %w (check if you have write permissions for the file and sufficient disk space)", err)
 	}
