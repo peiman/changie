@@ -30,8 +30,13 @@ type timingHistory struct {
 func timingFilePath() string {
 	path, err := xdg.CacheFile("check-timings.json")
 	if err != nil {
-		// Fallback to temp dir if XDG not configured
-		return filepath.Join(os.TempDir(), "ckeletin-go-check-timings.json")
+		// Fallback to temp dir if XDG app name is not yet configured.
+		// Use the configured app name when available, or the binary name as a safe default.
+		appName := xdg.GetAppName()
+		if appName == "" {
+			appName = "changie"
+		}
+		return filepath.Join(os.TempDir(), appName+"-check-timings.json")
 	}
 	return path
 }

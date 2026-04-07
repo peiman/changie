@@ -8,11 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/peiman/changie/internal/xdg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewExecutor(t *testing.T) {
+	// Set xdg app name as it would be at startup in production.
+	origName := xdg.GetAppName()
+	xdg.SetAppName("changie")
+	t.Cleanup(func() { xdg.SetAppName(origName) })
+
 	var buf bytes.Buffer
 	cfg := Config{FailFast: true, Verbose: true}
 
@@ -21,7 +27,7 @@ func TestNewExecutor(t *testing.T) {
 	require.NotNil(t, executor)
 	assert.Equal(t, true, executor.cfg.FailFast)
 	assert.Equal(t, true, executor.cfg.Verbose)
-	assert.Equal(t, "ckeletin-go", executor.cfg.BinaryName, "empty BinaryName should default to ckeletin-go")
+	assert.Equal(t, "changie", executor.cfg.BinaryName, "empty BinaryName should default to xdg.GetAppName()")
 	assert.NotNil(t, executor.writer)
 	assert.NotNil(t, executor.timings)
 }

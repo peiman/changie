@@ -5,6 +5,7 @@ package ping
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/peiman/changie/internal/ui"
 	"github.com/rs/zerolog/log"
@@ -83,7 +84,7 @@ func (e *Executor) Execute() error {
 	response := PingResponse{
 		Message:   e.cfg.Message,
 		Color:     e.cfg.Color,
-		Timestamp: "now", // In a real app, use time.Now().Format(time.RFC3339)
+		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
 	// 3. Data Stream (Stdout) & Audit Stream (Log File)

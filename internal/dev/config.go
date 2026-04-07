@@ -192,9 +192,6 @@ func (ci *ConfigInspector) ValidateConfig() []error {
 				errors = append(errors, fmt.Errorf("required config key '%s' is not set", opt.Key))
 			}
 		}
-
-		// TODO: Add type validation if needed
-		// This would require type assertions based on opt.Type
 	}
 
 	return errors
