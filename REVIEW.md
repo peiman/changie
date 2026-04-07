@@ -1,11 +1,12 @@
-VERDICT: REQUEST CHANGES
+VERDICT: APPROVE
 
-# Code Review — Reviewer Fix Pass (coverage artifact, binaryName in config)
+# Code Review — Init Ordering Fix + Full Branch Assessment
 
-**Reviewed commits:** `2b18413..50d6e9d` (2 commits: reviewer fix pass + executor implementation pass)
-**Files changed:** 5 files (`cmd/config.go`, `cmd/config_test.go`, `.gitignore`, `coverage.tmp` removed, `REVIEW.md`)
+**Reviewed commits:** `c6ff157..67b420d` (8 commits: ckeletin-go port → production-ready → reviewer fixes → init ordering fix)
+**Focus commit:** `67b420d` fix: resolve init ordering bug — binaryName empty in config/completion help
+**Files changed (focus):** `cmd/root.go`, `cmd/completion.go`, `cmd/config.go`, `REVIEW.md`
 **Date:** 2026-04-07
-**Previous review:** REVIEW.md at `4f2b585` (REQUEST CHANGES — 1 HIGH, 2 MEDIUM, 3 LOW)
+**Previous review:** REVIEW.md at `50d6e9d` (REQUEST CHANGES — 1 HIGH: init ordering bug)
 
 ---
 
@@ -14,82 +15,87 @@ VERDICT: REQUEST CHANGES
 | Severity | Count |
 |----------|-------|
 | CRITICAL | 0 |
-| HIGH | 1 |
+| HIGH | 0 |
 | MEDIUM | 0 |
-| LOW | 2 |
+| LOW | 3 |
 
 ---
 
 ## Stage 1: Spec Compliance (PLAN.md)
 
-### PLAN.md Required Actions Checklist
+All PLAN.md requirements are satisfied.
 
-| # | Requirement | Status | Notes |
-|---|-------------|--------|-------|
-| 1 | Remove `coverage.tmp` from git tracking | ✅ DONE | `git ls-files coverage.tmp` returns nothing; file in `.gitignore` |
-| 2 | Add `coverage.tmp` to `.gitignore` | ✅ DONE | Added at line 63 alongside `coverage.txt` |
-| 3 | Fix `cmd/config.go:38-42` to use `binaryName` variable | ⚠️ BROKEN | Moved to `init()` per plan, but **init ordering bug** — see HIGH issue below |
-| 4 | Fix `cmd/config_test.go:153` to use `"changie"` | ✅ DONE | Line 153 now reads `binaryName = "changie"` |
-| 5 | Run `task check` | ✅ DONE | All 23 checks pass, 88.5% coverage |
+| # | Requirement | Status | Evidence |
+|---|-------------|--------|----------|
+| 1 | Fix test formatting (HIGH) | ✅ DONE | `task check` format gate passes |
+| 2 | Fix `cmd/root.go` — remove ckeletin-go from help | ✅ DONE | `./changie --help` shows no ckeletin references |
+| 3 | Fix `cmd/config.go` — use binaryName in Example | ✅ DONE | `./changie config validate --help` shows "changie config validate" |
+| 4 | Rewrite README.md for standalone changie identity | ✅ DONE | `grep ckeletin-go README.md` returns nothing |
+| 5 | Run quality checks | ✅ DONE | All 23 checks pass, 88.5% coverage |
 
-**Spec deviation:** PLAN.md AD-3 correctly identified the risk: "binaryName empty at var-declaration time — HIGH." The plan prescribed moving the `Example` assignment to `init()`. The implementation followed this advice, but `config.go`'s `init()` runs BEFORE `root.go`'s `init()` (Go processes init functions in filename alphabetical order within a package: "config" < "root"). The result is that `binaryName` is still `""` when `config.go`'s `init()` executes `fmt.Sprintf`.
+### Previous Review Required Actions (all resolved)
+
+| Action | Status | Evidence |
+|--------|--------|----------|
+| [HIGH] Init ordering bug — binaryName empty in config/completion | ✅ FIXED | `cmd/root.go:288-305` sets Example/Long after binaryName resolved |
+| [REC] Fix completion.go same bug class | ✅ FIXED | `cmd/completion.go` Long removed from var; set in `root.go:295-305` |
+| Remove `coverage.tmp` from git | ✅ DONE | `git ls-files coverage.tmp` returns nothing |
+| Fix `cmd/config_test.go` to use "changie" | ✅ DONE | Test uses `binaryName = "changie"` |
+
+---
+
+## Stage 2: Code Quality
+
+### Init Ordering Fix Verification (commit `67b420d`)
+
+The fix correctly consolidates all `binaryName`-dependent sub-command field assignments in `cmd/root.go` init() (lines 288-305), which runs AFTER `binaryName` is resolved at line 272-273. This works because:
+
+1. Go executes `init()` functions in source filename alphabetical order within a package
+2. `root.go` sorts after `completion.go` and `config.go`
+3. By the time `root.go`'s `init()` reaches line 288, `binaryName` is already `"changie"`
+4. The sub-command objects (`completionCmd`, `configValidateCmd`) are already created by their respective `init()` functions, so setting fields on them is valid
+
+The comment at line 288-289 accurately explains the ordering rationale. Clean approach.
+
+**`cmd/completion.go` refactor** — Correctly simplified: removed `fmt` import, removed `Long` from var declaration, added explanatory comment. The command is now created without `binaryName`-dependent text, which gets set by `root.go`.
+
+**`cmd/config.go` refactor** — Correctly removed the `Example` assignment from `init()`. The `init()` now only does command tree wiring (AddCommand, flags, MustAddToRoot).
+
+### No Issues Found in Changed Code
+
+- No type errors (Go compiles cleanly)
+- No logic errors (init ordering is correct per Go spec)
+- No security issues (no secrets, no user input in changed code)
+- Error handling: not applicable (init() code, no error paths)
 
 ---
 
-## Stage 2: Issues
-
-### [HIGH] Init ordering bug — `binaryName` is empty in `config.go` init()
-
-**File:** `cmd/config.go:44-49`
-**Issue:** The `configValidateCmd.Example` is set in `config.go`'s `init()` using `fmt.Sprintf(..., binaryName, binaryName)`. However, `binaryName` is initialized to `"changie"` in `root.go`'s `init()` (line 272-273). In Go, `init()` functions within a package execute in **source file name alphabetical order**. Since `config.go` sorts before `root.go`, `config.go`'s `init()` runs first — when `binaryName` is still `""`.
-
-**Verified by building and running:**
-```
-$ ./changie config validate --help
-Examples:
-  # Validate default config file
-   config validate          ← MISSING binary name
-
-  # Validate specific config file
-   config validate --file /path/to/config.yaml   ← MISSING binary name
-```
-
-**Impact:** Users see broken example text with missing binary name in `changie config validate --help`.
-
-**Fix:** Move the Example assignment to `root.go`'s `init()` function AFTER `binaryName` is resolved (around line 286), alongside the other `binaryName`-dependent assignments that are already there:
-
-```go
-// In cmd/root.go init(), after line 286:
-configValidateCmd.Example = fmt.Sprintf(`  # Validate default config file
-  %s config validate
-
-  # Validate specific config file
-  %s config validate --file /path/to/config.yaml`, binaryName, binaryName)
-```
-
-And remove the Example assignment from `cmd/config.go`'s `init()`.
-
-**Alternative fix:** Keep it in `config.go` but use a `cobra.OnInitialize` callback which runs after all `init()` functions complete. However, the simpler approach is consolidating all `binaryName`-dependent assignments in `root.go`'s `init()`, which already has the pattern at lines 282-286.
-
-**Note:** The pre-existing `cmd/completion.go:16-26` has the same bug — `binaryName` is captured at package-level `var` declaration time (even earlier than `init()`). The `completion --help` output also shows empty binary names. This was NOT introduced by the reviewed commits but is the same class of defect.
-
----
+## Carried-Forward LOW Issues (not blocking)
 
 ### [LOW] `cmd/dev_progress.go` exceeds 30-line command guidance (185 lines)
 
-**File:** `cmd/dev_progress.go` (185 lines)
+**File:** `cmd/dev_progress.go`
 **Issue:** AGENTS.md mandates "Commands ≤30 lines." Contains demo business logic directly in cmd layer.
-**Note:** Carried forward from previous reviews. Dev-only build-tagged file, not a production risk.
-**Fix:** Extract demo logic into `internal/dev/progress_demo.go`. Lower priority.
+**Note:** Dev-only build-tagged file, not a production risk. Not user-facing.
+**Fix:** Extract demo logic into `internal/dev/progress_demo.go`.
 
 ---
 
 ### [LOW] Hardcoded `"now"` timestamp in ping response
 
 **File:** `internal/ping/ping.go:86`
-**Issue:** `Timestamp: "now"` instead of `time.Now().Format(time.RFC3339)`.
-**Note:** Carried forward. Demo/example command.
+**Issue:** `Timestamp: "now"` instead of `time.Now().Format(time.RFC3339)`. Inline comment acknowledges this.
+**Note:** Demo/example command, not production logic.
 **Fix:** Replace with actual timestamp or remove the field.
+
+---
+
+### [LOW] `cmd/helpers.go` comments reference ckeletin-go
+
+**File:** `cmd/helpers.go:6,18`
+**Issue:** Developer-facing comments say "the ckeletin-go pattern" and "following ckeletin-go patterns."
+**Note:** Internal framework documentation, not user-facing. Framework marker file (line 3: "FRAMEWORK FILE - DO NOT EDIT").
+**Fix:** Optional — could rename to "the scaffold pattern" for consistency, but no user impact.
 
 ---
 
@@ -97,41 +103,31 @@ And remove the Example assignment from `cmd/config.go`'s `init()`.
 
 | Check | Result |
 |-------|--------|
-| `task test` (1794 tests, 12 skipped) | ✅ PASS |
-| `task lint` | ✅ PASS (no issues) |
 | `task check` (all 23 gates) | ✅ PASS |
 | Coverage | 88.5% (above 85% minimum) |
-| `goimports -l internal/ui/ui_test.go` | ✅ No output (clean) |
-| `git ls-files coverage.tmp` | ✅ Not tracked |
-| `.gitignore` includes `coverage.tmp` | ✅ Line 63 |
+| `./changie --help` | ✅ Shows "changie", no ckeletin references |
+| `./changie config validate --help` | ✅ Shows "changie config validate" in examples |
+| `./changie completion --help` | ✅ Shows "changie completion bash/zsh/fish" |
 | `grep ckeletin-go README.md` | ✅ No matches |
-| `./changie --help \| grep ckeletin` | ✅ No matches |
-| `./changie config validate --help` | ❌ Missing binary name in Example (see HIGH issue) |
-| `./changie completion --help` | ❌ Missing binary name (pre-existing, not from these commits) |
-| `cmd/config_test.go:153` uses `"changie"` | ✅ Confirmed |
-| Hardcoded secrets scan | ✅ PASS |
-| SAST scan | ✅ PASS |
+| `grep -rn ckeletin cmd/*.go` (non-import, non-test) | ✅ Only `helpers.go` comments + framework markers |
+| Hardcoded secrets scan (SAST) | ✅ PASS |
 | Vulnerability scan | ✅ PASS |
+| License compliance | ✅ PASS |
+| Working tree | ✅ Clean (`git status` shows nothing to commit) |
 
 ---
 
 ## Positive Observations
 
-- **Previous HIGH issue fully resolved:** `coverage.tmp` is removed from git tracking and properly added to `.gitignore`. Clean execution.
-- **Previous MEDIUM (config_test.go) resolved:** Test now uses `"changie"` matching production binary name.
-- **Correct approach for config.go:** The *strategy* of using `fmt.Sprintf` with `binaryName` in `init()` is exactly right per PLAN.md AD-3. The issue is solely the init ordering between files, not the approach.
-- **All quality gates green:** 1794 tests pass, lint clean, 88.5% coverage, security scans clear.
-- **Clean working tree:** `git status` shows no uncommitted changes.
+- **Clean init ordering fix**: The consolidation of `binaryName`-dependent assignments in `root.go` init() is the correct Go pattern. The explanatory comment prevents future developers from re-introducing the bug.
+- **Both bugs fixed together**: The commit fixed both `config.go` (reported HIGH) and `completion.go` (recommended) in the same change, eliminating the entire class of defect.
+- **Minimal, surgical change**: Only 3 files touched, no behavioral changes beyond the bug fix. No unnecessary refactoring.
+- **Excellent test infrastructure**: 88.5% coverage, 1794 tests, security scans, architecture validation — all green.
+- **README quality**: The standalone README is clean, accurate, well-structured, and correctly documents all user-facing commands.
+- **Security posture**: No hardcoded secrets, SAST clean, vulnerability scan clean, license compliance verified.
 
 ---
 
 ## Recommendation
 
-**VERDICT: REQUEST CHANGES** — 1 HIGH issue: the `binaryName` init ordering bug in `cmd/config.go:44-49` produces broken help text for `changie config validate --help`. The binary name is missing from the Example output.
-
-### Required Actions
-
-1. **[HIGH]** Move `configValidateCmd.Example` assignment from `cmd/config.go` init() to `cmd/root.go` init() (after line 286 where `binaryName` is resolved). Verify with: `go build -o ./changie . && ./changie config validate --help` — should show `changie config validate` in examples.
-2. **(Recommended)** Also fix `cmd/completion.go:16-26` — move `completionCmd.Long` assignment to `root.go` init() to fix the same pre-existing bug class.
-3. Run `task check` to verify all issues are resolved.
-4. Commit fixes.
+**VERDICT: APPROVE** — All previous HIGH and MEDIUM issues are resolved. The init ordering fix is correct and well-documented. All 23 quality gates pass. Only LOW issues remain (dev-only file length, demo command timestamp, internal comments), none of which affect production users. The branch is ready for merge.
