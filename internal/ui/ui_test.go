@@ -131,6 +131,11 @@ func TestModelUpdate(t *testing.T) {
 			wantCmd: true,
 		},
 		{
+			name:    "Esc quits",
+			msg:     tea.KeyMsg{Type: tea.KeyEsc},
+			wantCmd: true,
+		},
+		{
 			name:    "Unhandled key",
 			msg:     tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			wantCmd: false,
@@ -216,4 +221,14 @@ func TestNewTestUIRunner(t *testing.T) {
 	runner := NewTestUIRunner()
 	require.NotNil(t, runner, "NewTestUIRunner() returned nil")
 	assert.Nil(t, runner.newProgram, "NewTestUIRunner() returned a runner with non-nil newProgram")
+}
+
+// TestColorMap verifies that ColorMap contains the expected color names.
+func TestColorMap(t *testing.T) {
+	expectedColors := []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"}
+	assert.Len(t, ColorMap, len(expectedColors))
+	for _, name := range expectedColors {
+		_, ok := ColorMap[name]
+		assert.True(t, ok, "ColorMap should contain %s", name)
+	}
 }

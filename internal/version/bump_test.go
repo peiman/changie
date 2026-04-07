@@ -530,3 +530,144 @@ func TestBump_Integration(t *testing.T) {
 			"Tag %s should exist", bump.expectedVersion)
 	}
 }
+
+func TestBump_AutoPush(t *testing.T) {
+	// Create bare remote repo
+	remoteDir, err := os.MkdirTemp("", "version-remote-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(remoteDir)
+
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	require.NoError(t, cmd.Run())
+
+	// Setup test repo with tag
+	tempDir, cleanup := setupTestGitRepo(t, "v1.0.0", "main", false)
+	defer cleanup()
+	_ = tempDir
+
+	// Add bare repo as remote
+	cmd = exec.Command("git", "remote", "add", "origin", remoteDir)
+	require.NoError(t, cmd.Run())
+
+	// Push initial state to remote
+	cmd = exec.Command("git", "push", "-u", "origin", "main")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "push", "--tags")
+	require.NoError(t, cmd.Run())
+
+	var output bytes.Buffer
+	cfg := BumpConfig{
+		BumpType:           "patch",
+		AllowAnyBranch:     false,
+		AutoPush:           true,
+		ChangelogFile:      "CHANGELOG.md",
+		RepositoryProvider: "github",
+		UseVPrefix:         true,
+	}
+
+	err = Bump(cfg, &output)
+	require.NoError(t, err)
+
+	outputStr := output.String()
+	assert.Contains(t, outputStr, "Pushing changes and tags")
+	assert.Contains(t, outputStr, "Automatically pushed")
+	assert.Contains(t, outputStr, "v1.0.1")
+
+	// Verify the tag exists on the remote
+	cmd = exec.Command("git", "ls-remote", "--tags", "origin", "v1.0.1")
+	tagOutput, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Contains(t, string(tagOutput), "v1.0.1")
+}
+
+func TestBump_AutoPushFailure(t *testing.T) {
+	tempDir, cleanup := setupTestGitRepo(t, "v1.0.0", "main", false)
+	defer cleanup()
+	_ = tempDir
+
+	// Add a non-existent remote
+	cmd := exec.Command("git", "remote", "add", "origin", "/nonexistent/path")
+	require.NoError(t, cmd.Run())
+
+	var output bytes.Buffer
+	cfg := BumpConfig{
+		BumpType:           "patch",
+		AllowAnyBranch:     false,
+		AutoPush:           true,
+		ChangelogFile:      "CHANGELOG.md",
+		RepositoryProvider: "github",
+		UseVPrefix:         true,
+	}
+
+	err := Bump(cfg, &output)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to push")
+}
+
+func TestBump_TagVersionFailure(t *testing.T) {
+	// Build a repo where v1.0.1 exists on an older commit and v1.0.0 is on HEAD,
+	// so git describe reports v1.0.0 but Bump's attempt to create v1.0.1 fails.
+	tempDir, err := os.MkdirTemp("", "version-bump-test-*")
+	require.NoError(t, err)
+
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+
+	err = os.Chdir(tempDir)
+	require.NoError(t, err)
+
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Logf("Warning: Failed to change back to original directory: %v", err)
+		}
+		os.RemoveAll(tempDir)
+	}()
+
+	// Git init and config
+	exec.Command("git", "init").Run()
+	exec.Command("git", "config", "user.email", "test@example.com").Run()
+	exec.Command("git", "config", "user.name", "Test User").Run()
+	exec.Command("git", "config", "tag.gpgsign", "false").Run()
+	exec.Command("git", "config", "commit.gpgsign", "false").Run()
+
+	// First commit: tag it v1.0.1 (the tag Bump will try to create)
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "placeholder.txt"), []byte("placeholder"), 0o644))
+	exec.Command("git", "add", "placeholder.txt").Run()
+	exec.Command("git", "commit", "-m", "placeholder").Run()
+	exec.Command("git", "tag", "-a", "v1.0.1", "-m", "pre-existing").Run()
+
+	// Second commit: add changelog and tag it v1.0.0 (the "current" version)
+	changelog := `# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- New feature for testing
+
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "CHANGELOG.md"), []byte(changelog), 0o644))
+	exec.Command("git", "add", "CHANGELOG.md").Run()
+	exec.Command("git", "commit", "-m", "Initial commit").Run()
+	exec.Command("git", "tag", "-a", "v1.0.0", "-m", "v1.0.0").Run()
+
+	var output bytes.Buffer
+	cfg := BumpConfig{
+		BumpType:           "patch",
+		AllowAnyBranch:     false,
+		AutoPush:           false,
+		ChangelogFile:      "CHANGELOG.md",
+		RepositoryProvider: "github",
+		UseVPrefix:         true,
+	}
+
+	err = Bump(cfg, &output)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to tag version")
+}

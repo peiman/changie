@@ -422,3 +422,97 @@ func TestConfigOption_TypeValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestEnvPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "normal name",
+			input:    "changie",
+			expected: "CHANGIE",
+		},
+		{
+			name:     "hyphenated",
+			input:    "my-app",
+			expected: "MY_APP",
+		},
+		{
+			name:     "starts with number",
+			input:    "123app",
+			expected: "_123APP",
+		},
+		{
+			name:     "all special chars",
+			input:    "---",
+			expected: "_",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "underscores already",
+			input:    "my_app",
+			expected: "MY_APP",
+		},
+		{
+			name:     "mixed case",
+			input:    "MyApp",
+			expected: "MYAPP",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := EnvPrefix(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestDefaultPaths(t *testing.T) {
+	t.Run("normal binary name", func(t *testing.T) {
+		paths := DefaultPaths("changie")
+
+		assert.Equal(t, ".changie", paths.DefaultName)
+		assert.Equal(t, "yaml", paths.Extension)
+		assert.Equal(t, ".changie.yaml", paths.DefaultFullName)
+		assert.Equal(t, "changie.yaml", paths.IgnorePattern)
+
+		// DefaultPath should contain the DefaultFullName
+		assert.Contains(t, paths.DefaultPath, ".changie.yaml",
+			"DefaultPath should contain the full config filename")
+	})
+
+	t.Run("binary name with hyphen", func(t *testing.T) {
+		paths := DefaultPaths("my-tool")
+
+		assert.Equal(t, ".my-tool", paths.DefaultName)
+		assert.Equal(t, "yaml", paths.Extension)
+		assert.Equal(t, ".my-tool.yaml", paths.DefaultFullName)
+		assert.Equal(t, "my-tool.yaml", paths.IgnorePattern)
+		assert.Contains(t, paths.DefaultPath, ".my-tool.yaml")
+	})
+
+	t.Run("all fields are set", func(t *testing.T) {
+		paths := DefaultPaths("testbin")
+
+		require.NotEmpty(t, paths.DefaultName, "DefaultName should not be empty")
+		require.NotEmpty(t, paths.Extension, "Extension should not be empty")
+		require.NotEmpty(t, paths.DefaultFullName, "DefaultFullName should not be empty")
+		require.NotEmpty(t, paths.DefaultPath, "DefaultPath should not be empty")
+		require.NotEmpty(t, paths.IgnorePattern, "IgnorePattern should not be empty")
+
+		// DefaultFullName is DefaultName + "." + Extension
+		assert.Equal(t, paths.DefaultName+"."+paths.Extension, paths.DefaultFullName)
+
+		// IgnorePattern is binaryName + "." + Extension (no leading dot)
+		assert.Equal(t, "testbin.yaml", paths.IgnorePattern)
+		assert.False(t, len(paths.IgnorePattern) > 0 && paths.IgnorePattern[0] == '.',
+			"IgnorePattern should not start with a dot")
+	})
+}
