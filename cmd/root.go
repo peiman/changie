@@ -281,7 +281,9 @@ func init() {
 	// so we need to set these after the fallback is applied.
 	RootCmd.Use = binaryName
 	RootCmd.Long = fmt.Sprintf(`%s is a CLI tool for managing semantic versioning and Keep a Changelog format changelogs.
-Powered by the ckeletin-go framework with Cobra, Viper, and Zerolog.`, binaryName)
+
+It initializes changelogs, adds entries to the correct section, bumps versions following
+semver, and updates the changelog, commits, tags, and optionally pushes — all in one command.`, binaryName)
 
 	configPaths := ConfigPaths()
 

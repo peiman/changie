@@ -1,6 +1,6 @@
 # changie
 
-A CLI tool for managing semantic versioning and [Keep a Changelog](https://keepachangelog.com) format changelogs.
+Changelog management and semantic versioning, automated.
 
 [![Build Status](https://github.com/peiman/changie/actions/workflows/ci.yml/badge.svg)](https://github.com/peiman/changie/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/peiman/changie)](https://goreportcard.com/report/github.com/peiman/changie)
@@ -9,16 +9,13 @@ A CLI tool for managing semantic versioning and [Keep a Changelog](https://keepa
 
 ---
 
-## What it does
+## Why changie?
 
-changie automates the tedious parts of releasing software:
-
-- **Initializes** a project with a properly formatted CHANGELOG.md
-- **Adds** changelog entries to the correct section (Added, Changed, Fixed, etc.)
-- **Bumps** versions following [Semantic Versioning](https://semver.org) (major, minor, patch)
-- **Updates** the changelog, commits, tags, and optionally pushes -- all in one command
-
-No more hand-editing changelogs or forgetting to tag releases.
+- **No more hand-editing changelogs** — one command adds entries to the right section
+- **Semver done right** — bump major, minor, or patch; changie reads your git tags to determine the current version
+- **Atomic releases** — changelog update, commit, tag, and optional push in a single command
+- **Keep a Changelog format** — generates comparison links for GitHub, GitLab, and Bitbucket automatically
+- **CI/CD friendly** — `--output json` returns machine-readable results for scripted pipelines
 
 ## Install
 
@@ -36,7 +33,7 @@ cd changie
 task build
 ```
 
-Requires [Go 1.26+](https://go.dev/dl/) and [Task](https://taskfile.dev).
+Requires [Go 1.23+](https://go.dev/dl/) and [Task](https://taskfile.dev).
 
 ## Quick start
 
@@ -113,10 +110,21 @@ changie bump major --rrp gitlab        # Use GitLab-style comparison links
 
 ### `changie config validate`
 
-Validates the current configuration.
+Validates the configuration file for correctness, security, and completeness.
 
 ```bash
 changie config validate
+changie config validate --file /path/to/config.yaml
+```
+
+### `changie completion`
+
+Generates shell completion scripts.
+
+```bash
+changie completion bash   # Bash completion
+changie completion zsh    # Zsh completion
+changie completion fish   # Fish completion
 ```
 
 ## Configuration
@@ -205,8 +213,6 @@ All notable changes to this project will be documented in this file.
 Comparison links are generated automatically based on your git remote (supports GitHub, GitLab, and Bitbucket).
 
 ## Development
-
-changie is built on the [ckeletin-go](https://github.com/peiman/ckeletin-go) framework.
 
 ```bash
 task setup     # Install development tools

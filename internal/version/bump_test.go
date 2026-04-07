@@ -605,6 +605,36 @@ func TestBump_AutoPushFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to push")
 }
 
+// TestBump_CommitChangelogFailure verifies that Bump returns an error containing
+// "failed to commit changelog" when the git commit step cannot complete.
+// The .git/index.lock file is used to simulate a git index lock, which causes
+// git-add (the first step inside git.CommitChangelog) to fail.
+func TestBump_CommitChangelogFailure(t *testing.T) {
+	tempDir, cleanup := setupTestGitRepo(t, "v1.0.0", "main", false)
+	defer cleanup()
+
+	// Create .git/index.lock to prevent git from acquiring the index.
+	// git refuses to run operations that modify the index when this file exists.
+	lockFile := filepath.Join(tempDir, ".git", "index.lock")
+	err := os.WriteFile(lockFile, []byte("locked"), 0o644)
+	require.NoError(t, err)
+	defer os.Remove(lockFile)
+
+	cfg := BumpConfig{
+		BumpType:           "patch",
+		AllowAnyBranch:     false,
+		AutoPush:           false,
+		ChangelogFile:      "CHANGELOG.md",
+		RepositoryProvider: "github",
+		UseVPrefix:         true,
+	}
+
+	var out bytes.Buffer
+	err = Bump(cfg, &out)
+	require.Error(t, err, "Expected error when git commit step fails")
+	assert.Contains(t, err.Error(), "failed to commit changelog")
+}
+
 func TestBump_TagVersionFailure(t *testing.T) {
 	// Build a repo where v1.0.1 exists on an older commit and v1.0.0 is on HEAD,
 	// so git describe reports v1.0.0 but Bump's attempt to create v1.0.1 fails.
