@@ -207,3 +207,12 @@ func TestDiffVersions_UnreleasedNotIncluded(t *testing.T) {
 	assert.NotContains(t, result, "Unreleased")
 	assert.NotContains(t, result, "Upcoming feature")
 }
+
+func TestDiffVersions_WindowsLineEndings(t *testing.T) {
+	content := strings.ReplaceAll(sampleChangelog, "\n", "\r\n")
+	result, err := DiffVersions(content, "1.0.0", "1.2.0")
+
+	require.NoError(t, err)
+	assert.Contains(t, result, "Feature C")
+	assert.Contains(t, result, "Feature B")
+}

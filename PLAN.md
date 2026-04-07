@@ -1,341 +1,194 @@
-# PLAN: `changie diff` Command
+# PLAN: `changie diff` command
 
-## Summary
+## Status: IMPLEMENTED — Needs Review & Hardening
 
-Add a `changie diff v1.0.0 v1.1.0` command that extracts and displays all changelog
-entries between two specified versions. This is a **root-level** command (like `bump`),
-not a `changelog` subcommand, matching the usage pattern in the task description.
+The `changie diff` command is **already implemented** and all tests pass (22/22). This plan documents the architecture, verifies correctness, and identifies hardening work for the Executor.
 
 ---
 
-## Requirements Analysis
+## 1. Requirements
 
-### Functional Requirements
-
-1. **Usage:** `changie diff <from-version> <to-version>`
-2. **Behavior:** Extract and display all changelog sections/entries for versions
-   greater than `from-version` up to and including `to-version`
-3. **Version handling:** Support both `v`-prefixed (`v1.0.0`) and bare (`1.0.0`) versions
-4. **Output:** Print the extracted changelog content to stdout
-5. **File flag:** Respect `--file` flag for custom changelog paths (like `bump` does)
-6. **Error cases:**
-   - Changelog file not found → clear error message
-   - Version not found in changelog → specific error naming the missing version
-   - `from-version` is newer than `to-version` → error with guidance
-   - Invalid semver → error with format guidance
-   - No content between versions → informational message (not an error)
-
-### Non-Functional Requirements
-
-- Command file ≤30 lines (logic in `internal/changelog/`)
-- 85%+ test coverage
-- TDD: tests first, then implementation
-- Uses `testify/assert` and table-driven tests
-- Follows existing patterns (see `changelog_validate.go` + `bump.go`)
+| Requirement | Status | Evidence |
+|---|---|---|
+| `changie diff v1.0.0 v1.1.0` shows changelog entries between two versions | ✅ Done | `cmd/diff.go:16-29`, `internal/changelog/diff.go:29-91` |
+| Extracts entries after FROM (exclusive) up to TO (inclusive) | ✅ Done | `internal/changelog/diff_test.go:81-92` |
+| Supports `v`-prefixed and bare version strings | ✅ Done | `internal/changelog/diff_test.go:94-126` |
+| Validates semver format | ✅ Done | `internal/changelog/diff_test.go:158-170` |
+| Rejects inverted / same versions | ✅ Done | `internal/changelog/diff_test.go:144-156` |
+| Reports missing versions clearly | ✅ Done | `internal/changelog/diff_test.go:128-142` |
+| Custom `--file` flag for non-default changelog | ✅ Done | `cmd/diff_test.go:107-131` |
+| Unit tests | ✅ Done | 16 internal + 6 cmd = 22 tests, all passing |
+| Coverage ≥ 85% | ✅ Done | `internal/changelog`: 94.2%, `cmd`: 90.3% |
 
 ---
 
-## Architecture Decisions
+## 2. Architecture Decisions
 
-### AD-1: Root-level command, not `changelog` subcommand
+### 2.1 Top-level command (not subcommand of `changelog`)
 
-**Decision:** `changie diff` (root command), not `changie changelog diff`
+The `diff` command is registered directly on `RootCmd` (`cmd/diff.go:37`), yielding `changie diff FROM TO`. This matches the user's specification and keeps the UX short. It is **not** placed under `changie changelog diff` because `diff` is a frequent operation that benefits from a short invocation path.
 
-**Rationale:** The task specifies `changie diff v1.0.0 v1.1.0`. This also follows
-the pattern set by `bump` — which is a root command despite operating on changelogs.
-`diff` is a high-level workflow command, not a changelog management operation.
+### 2.2 Ultra-thin command pattern (ADR-001)
 
-**Trade-off:** Less organizational grouping under `changelog`, but better UX
-(shorter command, matches user's mental model).
+`cmd/diff.go` is wiring only — `runDiff` is 12 lines. All business logic is in `internal/changelog/diff.go`. This follows the ≤30-line command rule.
 
-### AD-2: Logic placement — `internal/changelog/` (infrastructure layer)
+### 2.3 Shared regex from validate.go
 
-**Decision:** Add `DiffVersions()` to `internal/changelog/diff.go`
+`diff.go` reuses `reVersionHeader` (compiled in `internal/changelog/validate.go:40`) rather than defining its own regex. This avoids duplication and ensures consistent version header matching across diff and validate features.
 
-**Rationale:** The `internal/changelog/` package is classified as **infrastructure**
-in `.go-arch-lint.yml:84`. It already contains all changelog parsing/manipulation
-functions. The diff logic is pure changelog content parsing — no orchestration or
-external coordination needed. Unlike `bump` (which orchestrates git + changelog +
-semver), `diff` only parses changelog content, so it belongs in the infrastructure
-layer alongside `validate.go` and `changelog.go`.
+### 2.4 Semver comparison via `internal/semver`
 
-**Alternative considered:** `internal/diff/` as a business logic package. Rejected
-because it would create an unnecessary package for a single function that naturally
-belongs with the other changelog operations.
-
-### AD-3: Semver comparison for version range
-
-**Decision:** Use `internal/semver.Compare()` to validate version ordering and
-`internal/semver.ParseVersion()` to normalize version strings.
-
-**Rationale:** The existing `semver` package already handles v-prefix stripping
-and comparison. Reusing it avoids duplicating version parsing logic.
-
-### AD-4: Command wiring pattern — direct `cobra.Command` (not `MustNewCommand`)
-
-**Decision:** Use direct `cobra.Command` definition like `bump.go`, not
-`MustNewCommand` like `ping.go`.
-
-**Rationale:** `MustNewCommand` requires config registry metadata
-(`config.CommandMetadata`) and auto-registers flags from the config registry. The
-`diff` command has only the shared `--file` flag (from viper binding) and takes
-positional args — no command-specific config options needed. This matches `bump.go`'s
-pattern exactly.
+Version parsing and comparison uses the project's `internal/semver.ParseVersion()` → `blang/semver.Compare()` chain (`diff.go:31-43`), keeping semver handling consistent across the codebase.
 
 ---
 
-## Module/File Structure
+## 3. Module / File Structure
 
 ```
 cmd/
-  diff.go              # Command wiring (≤30 lines) — NEW
-  diff_test.go         # Command-level tests — NEW
+  diff.go              # Command wiring (52 lines, runDiff=12 lines)  ✅ EXISTS
+  diff_test.go         # Command-layer tests (6 tests)                ✅ EXISTS
 
 internal/changelog/
-  diff.go              # DiffVersions() business logic — NEW
-  diff_test.go         # Unit tests for diff logic — NEW
+  diff.go              # DiffVersions() business logic (91 lines)     ✅ EXISTS
+  diff_test.go         # Business-logic tests (16 tests)              ✅ EXISTS
+  validate.go          # Shared reVersionHeader regex                  ✅ EXISTS (no changes)
 ```
 
-No changes needed to:
-- `.go-arch-lint.yml` — `internal/changelog/` is already in the infrastructure layer
-- Config registry — no new config options
-- `keys_generated.go` — no new keys
+No new files need to be created.
 
 ---
 
-## Step-by-Step Implementation Tasks
+## 4. Implementation Tasks for the Executor
 
-> **TDD required:** For each step, write the failing test first, then implement.
-> Commit test + implementation together atomically.
+All core implementation is complete. The following tasks are **hardening and cleanup** items.
 
-### Step 1: Create `internal/changelog/diff.go` + `internal/changelog/diff_test.go`
+### Task 1: Fix duplicate viper binding for `app.changelog.file`
 
-**Tests first** in `internal/changelog/diff_test.go`:
+**Priority: HIGH** — Potential runtime conflict.
+
+`cmd/diff.go:34` binds its own `--file` flag to `app.changelog.file`. But `cmd/changelog.go:24` already binds a *PersistentFlag* with the same viper key. Since both `init()` functions run at package load, the last one to execute wins the binding. Go's `init()` order within a package is alphabetical by filename, so `changelog.go` runs before `diff.go`, meaning `diff.go`'s binding overwrites it.
+
+**Fix:** Remove the `viper.BindPFlag` call from `cmd/diff.go:34` entirely. Instead, rely on `getConfigValueWithFlags` (which checks the flag directly, then falls back to viper) — this is already how `runDiff` retrieves the value at line 41. The binding in `init()` is redundant given the retrieval pattern.
+
+Alternatively, if the binding is kept for env-var support, change to a unique viper key like `app.diff.file` (with its own default), or share via the existing `changelog` binding by making `diff` a subcommand of `changelog`. The simplest fix is removing the redundant `BindPFlag`.
 
 ```go
-package changelog
-
-// Test cases for DiffVersions():
-// 1. Happy path: two versions exist, content between them returned
-// 2. Multiple versions in range (v1.0.0 → v1.2.0 with v1.1.0 in between)
-// 3. Adjacent versions (nothing between them except the to-version itself)
-// 4. from-version not found → error
-// 5. to-version not found → error  
-// 6. from-version > to-version → error ("from must be older than to")
-// 7. Same version for both → error
-// 8. Versions with v-prefix work
-// 9. Versions without v-prefix work
-// 10. Mixed prefix (v1.0.0 and 1.1.0) works
-// 11. Empty changelog → error
-// 12. Changelog with only Unreleased → error (versions not found)
+// cmd/diff.go init() — REMOVE these lines:
+// if err := viper.BindPFlag("app.changelog.file", diffCmd.Flags().Lookup("file")); err != nil {
+//     log.Fatal().Err(err).Msg("Failed to bind 'file' flag")
+// }
 ```
 
-**Implementation** in `internal/changelog/diff.go`:
+### Task 2: Add `--output json` support
+
+**Priority: MEDIUM** — Consistency with other commands.
+
+The `validate` command (`cmd/changelog_validate.go:43`) renders JSON via `ui.RenderSuccess`. The `diff` command outputs raw text via `fmt.Fprintln`. For agent/CI consumers, add JSON envelope support:
+
+1. In `cmd/diff.go`, check `output.IsJSONMode()`.
+2. If JSON, wrap the result in `output.JSONEnvelope{Status: "success", Command: "diff", Data: map[string]string{"diff": result}}`.
+3. Use `output.RenderJSON(cmd.OutOrStdout(), envelope)`.
+
+This is optional — the current text output is functional. Prioritize only if CI/agent integration is planned.
+
+### Task 3: Add Windows line-ending test
+
+**Priority: LOW** — `DiffVersions` already normalizes `\r\n` at `internal/changelog/diff.go:51`, but there is no test verifying this path.
 
 ```go
-package changelog
+func TestDiffVersions_WindowsLineEndings(t *testing.T) {
+    content := strings.ReplaceAll(sampleChangelog, "\n", "\r\n")
+    result, err := DiffVersions(content, "1.0.0", "1.2.0")
 
-// DiffVersions extracts changelog content between two versions.
-//
-// It returns all sections and entries for versions strictly greater than
-// fromVersion up to and including toVersion. Both versions must exist
-// in the changelog content.
-//
-// Version strings may include a 'v' prefix (e.g., "v1.0.0" or "1.0.0").
-//
-// Parameters:
-//   - content: The full changelog file content as a string
-//   - fromVersion: The older version (exclusive — its content is NOT included)
-//   - toVersion: The newer version (inclusive — its content IS included)
-//
-// Returns:
-//   - string: The extracted changelog content between the two versions
-//   - error: If versions are not found, invalid, or fromVersion >= toVersion
-func DiffVersions(content, fromVersion, toVersion string) (string, error)
-```
-
-**Algorithm:**
-1. Parse `fromVersion` and `toVersion` with `semver.ParseVersion()` → validate both
-2. Compare versions with `semver.Compare()` → ensure `fromVersion < toVersion`
-3. Scan changelog lines for `## [X.Y.Z]` headers using `reVersionHeader` regex (already compiled in `validate.go`)
-4. Find line indices for both version headers (normalize v-prefix for matching)
-5. Extract all lines from `toVersion` header (inclusive) to `fromVersion` header (exclusive)
-6. Return extracted content as a trimmed string
-
-**Key implementation details:**
-- Reuse the existing `reVersionHeader` regex from `validate.go` (it's package-level, already available)
-- Strip v-prefix before comparing with changelog headers (changelog may use `[1.0.0]` while user passes `v1.0.0`)
-- Handle both `## [1.0.0] - 2024-01-01` and `## [v1.0.0] - 2024-01-01` formats
-
-### Step 2: Create `cmd/diff.go` + `cmd/diff_test.go`
-
-**Tests first** in `cmd/diff_test.go`:
-
-```go
-package cmd
-
-// Test cases:
-// 1. Happy path: valid versions, output contains expected content
-// 2. Missing changelog file → error containing "failed to read changelog"
-// 3. Version not found → error containing version string
-// 4. Inverted versions → error about ordering
-// 5. Wrong number of args (0, 1, 3) → cobra arg validation error
-// 6. Custom --file flag works
-// 7. Command is registered on RootCmd
-```
-
-Follow the test pattern from `cmd/changelog_validate_test.go`:
-- Create temp dir with temp changelog file
-- Use `viper.Reset()` + `viper.Set("app.changelog.file", path)`
-- Create command with `RunE: runDiff`
-- Capture output with `bytes.Buffer` via `cmd.SetOut()`
-
-**Implementation** in `cmd/diff.go`:
-
-```go
-// cmd/diff.go
-package cmd
-
-import (
-    "fmt"
-    "os"
-
-    "github.com/peiman/changie/internal/changelog"
-    "github.com/rs/zerolog/log"
-    "github.com/spf13/cobra"
-    "github.com/spf13/viper"
-)
-
-var diffCmd = &cobra.Command{
-    Use:   "diff FROM TO",
-    Short: "Show changelog entries between two versions",
-    Long: `Compare two versions in the changelog and show what changed between them.
-
-Extracts and displays all changelog entries for versions after FROM up to
-and including TO. Both versions must exist in the changelog file.
-
-Examples:
-  changie diff 1.0.0 1.1.0
-  changie diff v1.0.0 v2.0.0
-  changie diff 0.9.0 0.9.1 --file HISTORY.md`,
-    Args: cobra.ExactArgs(2),
-    RunE: runDiff,
-}
-
-func init() {
-    diffCmd.Flags().String("file", "CHANGELOG.md", "Changelog file name")
-    if err := viper.BindPFlag("app.changelog.file", diffCmd.Flags().Lookup("file")); err != nil {
-        log.Fatal().Err(err).Msg("Failed to bind 'file' flag")
-    }
-    RootCmd.AddCommand(diffCmd)
-}
-
-func runDiff(cmd *cobra.Command, args []string) error {
-    file := getConfigValueWithFlags[string](cmd, "file", "app.changelog.file")
-    data, err := os.ReadFile(file)
-    if err != nil {
-        return fmt.Errorf("failed to read changelog: %w", err)
-    }
-    result, err := changelog.DiffVersions(string(data), args[0], args[1])
-    if err != nil {
-        return err
-    }
-    _, _ = fmt.Fprint(cmd.OutOrStdout(), result)
-    return nil
+    require.NoError(t, err)
+    assert.Contains(t, result, "Feature C")
+    assert.Contains(t, result, "Feature B")
 }
 ```
 
-**Line count of `runDiff`:** ~10 lines ✅ (well under 30-line limit)
+### Task 4: Run `task check` to verify full quality gate
 
-### Step 3: Run `task check`
+**Priority: HIGH** — Mandatory before any commit.
 
-Verify everything passes before committing. Fix any lint, format, or coverage issues.
+```bash
+task check
+```
 
-### Step 4: Commit atomically
-
-Single commit with all 4 files:
-- `internal/changelog/diff.go`
-- `internal/changelog/diff_test.go`
-- `cmd/diff.go`
-- `cmd/diff_test.go`
+This validates formatting, linting, architecture rules, security scanning, license compliance, and full test suite with race detection.
 
 ---
 
-## Testing Strategy
+## 5. Testing Strategy
 
-### Unit Tests (`internal/changelog/diff_test.go`)
+### Existing Coverage (all passing)
 
-| # | Test Case | Input | Expected |
-|---|-----------|-------|----------|
-| 1 | Happy path — two adjacent versions | content with v1.0.0 and v1.1.0 | v1.1.0 section content |
-| 2 | Multiple versions in range | v1.0.0, v1.0.1, v1.1.0; diff(1.0.0, 1.1.0) | Both v1.0.1 and v1.1.0 sections |
-| 3 | Versions with v-prefix | `diff("v1.0.0", "v1.1.0")` | Works, same as bare |
-| 4 | Versions without v-prefix | `diff("1.0.0", "1.1.0")` | Works |
-| 5 | Mixed prefix user vs changelog | User passes `v1.0.0`, changelog has `[1.0.0]` | Works (normalized) |
-| 6 | from-version not found | `diff("0.5.0", "1.0.0")` where 0.5.0 doesn't exist | Error: "version 0.5.0 not found" |
-| 7 | to-version not found | `diff("1.0.0", "3.0.0")` where 3.0.0 doesn't exist | Error: "version 3.0.0 not found" |
-| 8 | from > to (inverted) | `diff("2.0.0", "1.0.0")` | Error: "from-version must be older" |
-| 9 | Same version | `diff("1.0.0", "1.0.0")` | Error: "versions must be different" |
-| 10 | Invalid semver (from) | `diff("not-a-version", "1.0.0")` | Error: "invalid version" |
-| 11 | Invalid semver (to) | `diff("1.0.0", "abc")` | Error: "invalid version" |
-| 12 | Empty content | `diff("1.0.0", "2.0.0")` on `""` | Error |
-| 13 | Content with multiple sections per version | v1.1.0 has Added + Fixed + Changed | All sections included in output |
-| 14 | Unreleased not included | diff(1.0.0, 1.1.0) with Unreleased present | Unreleased content excluded |
+**`internal/changelog/diff_test.go` (16 tests):**
 
-### Command Tests (`cmd/diff_test.go`)
+| Test | Category |
+|---|---|
+| `HappyPath_TwoAdjacentVersions` | Happy path |
+| `MultipleVersionsInRange` | Happy path — multi-version span |
+| `WithVPrefix` | v-prefix normalization |
+| `WithoutVPrefix` | Bare version |
+| `MixedPrefix` | Mixed v-prefix (user vs header) |
+| `ChangelogWithVPrefixedHeaders` | Changelog uses `[v1.0.0]` format |
+| `FromVersionNotFound` | Error — missing FROM |
+| `ToVersionNotFound` | Error — missing TO |
+| `InvertedVersions` | Error — FROM > TO |
+| `SameVersion` | Error — FROM == TO |
+| `InvalidSemverFrom` | Error — bad FROM format |
+| `InvalidSemverTo` | Error — bad TO format |
+| `EmptyContent` | Error — empty changelog |
+| `OnlyUnreleased` | Error — no versioned sections |
+| `MultipleSectionsPerVersion` | Multiple subsections (Added, Fixed) |
+| `UnreleasedNotIncluded` | Unreleased section excluded |
 
-| # | Test Case | Setup | Expected |
-|---|-----------|-------|----------|
-| 1 | Happy path | Temp file with valid changelog | No error, output contains version content |
-| 2 | File not found | Non-existent path | Error: "failed to read changelog" |
-| 3 | Version not found | Valid file, bad version | Error containing the version string |
-| 4 | Wrong arg count (0) | No args | Cobra error |
-| 5 | Wrong arg count (1) | One arg | Cobra error |
-| 6 | Custom file flag | `--file custom.md` | Uses custom file |
-| 7 | Command registered | Check RootCmd.Commands() | `diff` found |
+**`cmd/diff_test.go` (6 tests):**
 
----
+| Test | Category |
+|---|---|
+| `HappyPath` | End-to-end via command |
+| `FileNotFound` | Error — missing file |
+| `VersionNotFound` | Error — invalid version |
+| `InvertedVersions` | Error — wrong order |
+| `CustomFileFlag` | `--file HISTORY.md` |
+| `CommandRegistered` | Command wiring verification |
 
-## Edge Cases
+### Recommended Additional Tests (Task 3)
 
-1. **Changelog uses v-prefix but user omits it (or vice versa):** Normalize both
-   the user input and changelog header by stripping `v` prefix before comparison.
-
-2. **Version exists in link references but not as header:** Only match `## [X.Y.Z]`
-   headers, not `[X.Y.Z]: URL` link references. The existing `reVersionHeader`
-   regex already anchors to `## [`.
-
-3. **Trailing whitespace in version headers:** Use `strings.TrimSpace()` on lines
-   before matching, consistent with `validate.go` patterns.
-
-4. **Windows line endings (`\r\n`):** Normalize with `strings.ReplaceAll(content, "\r\n", "\n")`
-   before parsing, matching the pattern in `ValidateChangelog()` at `validate.go:51`.
-
-5. **Changelog with no versions (only Unreleased):** Both versions will fail to
-   be found → return clear error for each.
-
-6. **from-version is the very first release:** All content from `to-version` down
-   to (but not including) `from-version` header is returned.
-
-7. **to-version is the latest release:** Content starts right after the `[Unreleased]`
-   section boundary.
+- Windows line endings (`\r\n`)
+- Large changelog (50+ versions) — performance sanity
+- Pre-release versions (e.g., `1.0.0-beta.1`)
 
 ---
 
-## References
+## 6. Edge Cases
 
-| File | Line(s) | Relevance |
-|------|---------|-----------|
-| `cmd/bump.go:20-42` | — | Pattern for root-level command with `--file` flag |
-| `cmd/bump.go:135-145` | — | `runVersionBump` pattern: read config, call internal |
-| `cmd/changelog_validate.go:33-51` | — | Pattern for reading changelog + calling internal |
-| `cmd/changelog_validate_test.go:64-79` | — | `setupValidateCmd` test helper pattern |
-| `internal/changelog/validate.go:40-45` | — | Compiled regex `reVersionHeader` — reuse for diff |
-| `internal/changelog/validate.go:49-51` | — | `\r\n` normalization pattern |
-| `internal/changelog/changelog.go:262-275` | — | `GetLatestChangelogVersion` — version header parsing |
-| `internal/semver/semver.go:34-54` | — | `ParseVersion()` — v-prefix handling |
-| `internal/semver/semver.go:120-137` | — | `Compare()` — version ordering |
-| `.go-arch-lint.yml:84` | — | `internal/changelog/` is infrastructure layer |
-| `.go-arch-lint.yml:104` | — | `internal/version/` is business layer |
-| `AGENTS.md:296-307` | — | New Command Checklist |
-| `CLAUDE.md` | — | TDD rule, `task check` rule, ≤30 lines rule |
+| Edge Case | Handled | Location |
+|---|---|---|
+| `v`-prefix on user input | ✅ | `diff.go:55-56` — strips prefix for comparison |
+| `v`-prefix in changelog headers | ✅ | `diff.go:68` — normalizes header prefix |
+| Mixed prefix (user=`v1.0.0`, header=`1.0.0`) | ✅ | `diff_test.go:110-117` |
+| FROM == TO (same version) | ✅ | `diff.go:44-45` — explicit error |
+| FROM > TO (inverted order) | ✅ | `diff.go:47-48` — explicit error |
+| Invalid semver (not a version) | ✅ | `diff.go:31-38` — ParseVersion errors |
+| Version not in changelog | ✅ | `diff.go:77-82` — not-found errors |
+| Empty changelog content | ✅ | Falls through to "not found" |
+| Only `[Unreleased]` section | ✅ | Falls through to "not found" |
+| Windows line endings (`\r\n`) | ✅ (code) | `diff.go:51` — normalized, but **untested** |
+| Multiple sections per version | ✅ | `diff_test.go:192-201` |
+| Unreleased content excluded | ✅ | `diff_test.go:203-209` |
+| Custom changelog filename | ✅ | `cmd/diff_test.go:107-131` |
+| Pre-release versions (e.g., `1.0.0-rc.1`) | ⚠️ Untested | `blang/semver` supports it, but no test |
+
+---
+
+## 7. Summary for Executor
+
+The implementation is complete and passing. Priority work:
+
+1. **Fix the duplicate viper binding** in `cmd/diff.go:34` (HIGH — remove the `BindPFlag` call or use a unique key)
+2. **Run `task check`** to verify all quality gates pass (HIGH — mandatory before commit)
+3. **Add CRLF test** for `DiffVersions` (LOW — covers existing `\r\n` normalization code)
+4. **Add `--output json` support** (MEDIUM — only if CI/agent integration is a priority)

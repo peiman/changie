@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
+	"github.com/peiman/changie/.ckeletin/pkg/output"
 	"github.com/peiman/changie/internal/changelog"
 )
 
@@ -31,9 +30,6 @@ Examples:
 
 func init() {
 	diffCmd.Flags().String("file", "CHANGELOG.md", "Changelog file name")
-	if err := viper.BindPFlag("app.changelog.file", diffCmd.Flags().Lookup("file")); err != nil {
-		log.Fatal().Err(err).Msg("Failed to bind 'file' flag")
-	}
 	RootCmd.AddCommand(diffCmd)
 }
 
@@ -46,6 +42,14 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	result, err := changelog.DiffVersions(string(data), args[0], args[1])
 	if err != nil {
 		return err
+	}
+	if output.IsJSONMode() {
+		return output.RenderJSON(cmd.OutOrStdout(), output.JSONEnvelope{
+			Status:  "success",
+			Command: output.CommandName(),
+			Data:    map[string]string{"diff": result},
+			Error:   nil,
+		})
 	}
 	_, _ = fmt.Fprintln(cmd.OutOrStdout(), result)
 	return nil

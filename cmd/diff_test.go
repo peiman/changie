@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/peiman/changie/.ckeletin/pkg/output"
 )
 
 // diffTestChangelog is a minimal valid changelog for diff command tests.
@@ -139,4 +141,26 @@ func TestDiffCommandRegistered(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "diff command should be registered on RootCmd")
+}
+
+func TestDiffCommand_JSONOutput(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "changie-diff-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	changelogPath := filepath.Join(tempDir, "CHANGELOG.md")
+	require.NoError(t, os.WriteFile(changelogPath, []byte(diffTestChangelog), 0o644))
+
+	output.SetOutputMode("json")
+	output.SetCommandName("diff")
+	defer output.SetOutputMode("")
+
+	cmd, buf := setupDiffCmd(t, changelogPath)
+	err = cmd.RunE(cmd, []string{"1.0.0", "1.1.0"})
+
+	assert.NoError(t, err)
+	out := buf.String()
+	assert.Contains(t, out, `"status": "success"`)
+	assert.Contains(t, out, `"command": "diff"`)
+	assert.Contains(t, out, "Feature B")
 }
