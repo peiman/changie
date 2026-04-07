@@ -50,13 +50,10 @@ func init() {
 func runInit(cmd *cobra.Command, _ []string) error {
 	log.Debug().Msg("Starting runInit execution")
 
-	file := viper.GetString("app.changelog.file")
-	if cmd.Flags().Changed("file") {
-		file, _ = cmd.Flags().GetString("file")
-	}
+	file := getConfigValueWithFlags[string](cmd, "file", "app.changelog.file")
 
 	// Determine if we should use 'v' prefix for versions
-	useVPrefix := viper.GetBool("app.version.use_v_prefix")
+	useVPrefix := getConfigValueWithFlags[bool](cmd, "use-v-prefix", "app.version.use_v_prefix")
 	explicitPrefixSet := cmd.Flags().Changed("use-v-prefix")
 
 	// Check if git is installed
@@ -110,7 +107,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	log.Info().Str("file", file).Msg("Initializing project with changelog file")
 
 	if err := changelog.InitProject(file); err != nil {
-		log.Error().Err(err).Str("file", file).Msg("Failed to initialize project")
+		log.Debug().Err(err).Str("file", file).Msg("Failed to initialize project")
 		return fmt.Errorf("failed to initialize project: %w", err)
 	}
 

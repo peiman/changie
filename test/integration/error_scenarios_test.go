@@ -343,7 +343,7 @@ func TestConfigPrecedenceWithErrors(t *testing.T) {
 		cmd.Stderr = &stderr
 
 		// Set env var
-		cmd.Env = append(os.Environ(), "CKELETIN_GO_APP_PING_OUTPUT_MESSAGE=Env Var Works")
+		cmd.Env = append(os.Environ(), "CHANGIE_APP_PING_OUTPUT_MESSAGE=Env Var Works")
 
 		err := cmd.Run()
 

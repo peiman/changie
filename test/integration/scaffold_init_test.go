@@ -30,7 +30,7 @@ import (
 // This constant is used to detect if we're in a derived project.
 // NOTE: This value should NOT be replaced by scaffold-init because it's
 // a const declaration, not a string in an import or go.mod.
-const upstreamModule = "github.com/peiman/changie"
+const upstreamModule = "github.com/peiman/ckeletin-go"
 
 // TestScaffoldInit tests the complete scaffold initialization workflow
 func TestScaffoldInit(t *testing.T) {

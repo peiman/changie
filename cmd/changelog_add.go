@@ -8,7 +8,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/peiman/changie/internal/changelog"
 )
@@ -40,10 +39,7 @@ func init() {
 func runAddChangelogSection(cmd *cobra.Command, args []string, section string) error {
 	log.Debug().Str("section", section).Msg("Adding changelog entry")
 
-	file := viper.GetString("app.changelog.file")
-	if cmd.Flags().Changed("file") {
-		file, _ = cmd.Flags().GetString("file")
-	}
+	file := getConfigValueWithFlags[string](cmd, "file", "app.changelog.file")
 
 	content := args[0]
 	log.Info().
@@ -54,7 +50,7 @@ func runAddChangelogSection(cmd *cobra.Command, args []string, section string) e
 
 	isDuplicate, err := changelog.AddChangelogSection(file, section, content)
 	if err != nil {
-		log.Error().
+		log.Debug().
 			Err(err).
 			Str("file", file).
 			Str("section", section).

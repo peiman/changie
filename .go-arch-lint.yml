@@ -75,9 +75,13 @@ components:
       - .ckeletin/pkg/logger/**
       - .ckeletin/pkg/output/**
       - .ckeletin/pkg/testutil/**
-      - internal/config/commands/**
+      - internal/config/**
+      - internal/logger/**
       - internal/ui/**
       - internal/xdg/**
+      - internal/git/**
+      - internal/semver/**
+      - internal/changelog/**
 
   # -------------------------------------------------------------------------
   # PROJECT-MANAGED: Business Logic Layer
@@ -97,8 +101,7 @@ components:
       - internal/dev/**
       - internal/progress/**
       - internal/check/**
-      # Add your business logic packages below:
-      # - internal/yourpackage/**
+      - internal/version/**
 
   # -------------------------------------------------------------------------
   # PUBLIC PACKAGES: Standalone Reusable Libraries

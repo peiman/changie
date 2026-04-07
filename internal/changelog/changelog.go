@@ -105,7 +105,7 @@ func AddChangelogSection(filePath, section, content string) (bool, error) {
 		return false, fmt.Errorf("invalid section: %s, must be one of: Added, Changed, Deprecated, Removed, Fixed, Security (section names are case-sensitive)", section)
 	}
 
-	data, err := os.ReadFile(filePath) //nolint:gosec // G304: filePath is a user-specified changelog path
+	data, err := os.ReadFile(filePath) //nolint:gosec // G304: filePath is a user-specified changelog path // nosemgrep: go-path-traversal
 	if err != nil {
 		return false, fmt.Errorf("failed to read changelog file: %w (check if '%s' exists and you have read permissions)", err, filePath)
 	}
@@ -289,7 +289,7 @@ func UpdateChangelog(filePath, version, repositoryProvider string) error {
 	}
 
 	// Read the current changelog file
-	data, err := os.ReadFile(filePath) //nolint:gosec // G304: filePath is a user-specified changelog path
+	data, err := os.ReadFile(filePath) //nolint:gosec // G304: filePath is a user-specified changelog path // nosemgrep: go-path-traversal
 	if err != nil {
 		return fmt.Errorf("failed to read changelog file: %w (verify that '%s' exists and you have read permissions)", err, filePath)
 	}

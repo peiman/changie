@@ -39,7 +39,7 @@ func buildDevBinary(t *testing.T) string {
 		return devBinaryPath
 	}
 
-	binaryName := "ckeletin-go-dev-test"
+	binaryName := "changie"
 	if runtime.GOOS == "windows" {
 		binaryName += ".exe"
 	}
