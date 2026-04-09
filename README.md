@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo/logo-changie.png" alt="changie logo" width="240">
+  <img src="logo/logo-changie.png" alt="changie logo" width="360">
 </p>
 
 # changie
