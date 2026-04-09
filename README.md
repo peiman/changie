@@ -1,25 +1,31 @@
+<p align="center">
+  <img src="logo/logo-changie.png" alt="changie logo" width="240">
+</p>
+
 # changie
 
-Changelog management and semantic versioning, automated.
-
 [![Build Status](https://github.com/peiman/changie/actions/workflows/ci.yml/badge.svg)](https://github.com/peiman/changie/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/peiman/changie)](https://codecov.io/gh/peiman/changie)
 [![Go Report Card](https://goreportcard.com/badge/github.com/peiman/changie)](https://goreportcard.com/report/github.com/peiman/changie)
+[![Version](https://img.shields.io/github/v/release/peiman/changie)](https://github.com/peiman/changie/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/peiman/changie.svg)](https://pkg.go.dev/github.com/peiman/changie)
 [![License](https://img.shields.io/github/license/peiman/changie)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/peiman/changie)](go.mod)
+[![CodeQL](https://github.com/peiman/changie/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/peiman/changie/security/code-scanning)
+[![Made with Go](https://img.shields.io/badge/made%20with-Go-brightgreen.svg)](https://go.dev)
 
----
+**changie** is a Go CLI for maintaining changelogs in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and shipping releases with [Semantic Versioning](https://semver.org/). It handles the everyday workflow around `CHANGELOG.md`: initializing the file, adding entries to the correct section, validating structure, comparing releases, and cutting versioned releases from git tags.
 
-## Why changie?
+## What changie does
 
-- **No more hand-editing changelogs** — one command adds entries to the right section
-- **Semver done right** — bump major, minor, or patch; changie reads your git tags to determine the current version
-- **Atomic releases** — changelog update, commit, tag, and optional push in a single command
-- **Keep a Changelog format** — generates comparison links for GitHub, GitLab, and Bitbucket automatically
-- **CI/CD friendly** — `--output json` returns machine-readable results for scripted pipelines
+- Initializes a changelog with an `Unreleased` section.
+- Adds entries to `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`.
+- Validates changelog structure, dates, duplicate entries, links, and version ordering.
+- Shows the entries between two released versions.
+- Bumps `major`, `minor`, or `patch`, updates the changelog, commits the release, tags it, and can optionally push it.
 
-## Install
+## Installation
 
-### From source
+### Install with Go
 
 ```bash
 go install github.com/peiman/changie@latest
@@ -31,199 +37,165 @@ go install github.com/peiman/changie@latest
 git clone https://github.com/peiman/changie.git
 cd changie
 task build
+./changie --help
 ```
 
-Requires [Go 1.23+](https://go.dev/dl/) and [Task](https://taskfile.dev).
+### Release binaries
+
+Prebuilt artifacts are published on the [GitHub Releases](https://github.com/peiman/changie/releases) page.
 
 ## Quick start
 
+Initialize a project, add entries under `Unreleased`, cut a release, and then validate the finished changelog:
+
 ```bash
-# Initialize a new project (creates CHANGELOG.md and v0.0.0 tag)
+# Create CHANGELOG.md and choose whether tags use a v-prefix.
 changie init
 
-# Add changelog entries as you work
-changie changelog added "User authentication via OAuth2"
-changie changelog fixed "Race condition in session handler"
+# Add entries to the right Keep a Changelog section.
+changie changelog added "Add support for release compare links"
+changie changelog fixed "Avoid duplicate entries in Unreleased"
 
-# Release a new version
-changie bump patch    # 0.0.0 -> 0.0.1
-changie bump minor    # 0.0.1 -> 0.1.0
-changie bump major    # 0.1.0 -> 1.0.0
+# Cut the next version.
+changie bump patch
+
+# Validate the finished changelog.
+changie changelog validate
 ```
 
-That's it. changie updates the changelog, commits the change, creates a git tag, and reminds you to push.
+By default, `changie bump <major|minor|patch>` expects a clean git working tree and runs on `main` or `master`. It updates the changelog, creates a release commit, and tags the new version. Add `--auto-push` if you want changie to push the commit and tags immediately.
 
-## Commands
+## Usage
 
-### `changie init`
-
-Creates a CHANGELOG.md following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. If you're in a git repo with no tags, it also creates an initial `v0.0.0` tag.
+### Initialize a changelog
 
 ```bash
 changie init
-changie init --file HISTORY.md         # Use a different filename
-changie init --use-v-prefix=false      # Tags without 'v' prefix (1.0.0 instead of v1.0.0)
+changie init --file HISTORY.md
+changie init --use-v-prefix=false
 ```
 
-If existing git tags are found, changie adopts their naming convention automatically.
+If git tags already exist, changie adopts the tag style it finds. In a fresh repository, it can set up the initial convention for you.
 
-### `changie changelog <section> <content>`
-
-Adds an entry to a section in the `[Unreleased]` area of your changelog.
-
-Valid sections: `added`, `changed`, `deprecated`, `removed`, `fixed`, `security`
+### Add changelog entries
 
 ```bash
-changie changelog added "New REST API endpoints"
-changie changelog changed "Upgraded database driver to v3"
-changie changelog deprecated "Legacy XML export format"
-changie changelog removed "Python 2 support"
-changie changelog fixed "Memory leak in connection pool"
-changie changelog security "Patched XSS vulnerability in search"
+changie changelog added "Introduce release notes diffing"
+changie changelog changed "Improve release commit messaging"
+changie changelog fixed "Handle malformed version headers gracefully"
+changie changelog security "Document token handling for release automation"
 ```
 
-Duplicate entries are detected and skipped.
+Entries are added under `## [Unreleased]` and changie avoids inserting the same bullet twice in the same section.
 
-### `changie bump <major|minor|patch>`
-
-Performs a complete version release:
-
-1. Verifies you're on main/master (configurable)
-2. Checks for uncommitted changes
-3. Reads the current version from git tags
-4. Calculates the new version
-5. Updates the changelog (moves `[Unreleased]` content to the new version)
-6. Commits the changelog update
-7. Creates a git tag
-8. Optionally pushes to remote
+### Validate a changelog
 
 ```bash
-changie bump patch                     # Bug fix release
-changie bump minor                     # Feature release
-changie bump major                     # Breaking change release
-
-changie bump patch --auto-push         # Push automatically after bumping
-changie bump minor --allow-any-branch  # Bump from any branch, not just main/master
-changie bump patch --use-v-prefix=false  # Tag as 1.2.4 instead of v1.2.4
-changie bump major --rrp gitlab        # Use GitLab-style comparison links
+changie changelog validate
+changie changelog validate --file HISTORY.md
 ```
 
-### `changie config validate`
+Validation checks five common problems:
 
-Validates the configuration file for correctness, security, and completeness.
+- invalid version headers
+- duplicate entries within a section
+- broken reference links
+- released versions without dates
+- versions that are out of semver order
+
+This command is most useful once your changelog has release sections and comparison links in place.
+
+### Compare two versions
 
 ```bash
-changie config validate
-changie config validate --file /path/to/config.yaml
+changie diff 1.2.0 1.3.0
+changie diff v1.2.0 v2.0.0
 ```
 
-### `changie completion`
+This prints the changelog entries between two versions so you can review what changed across a release range.
 
-Generates shell completion scripts.
+### Release a new version
 
 ```bash
-changie completion bash   # Bash completion
-changie completion zsh    # Zsh completion
-changie completion fish   # Fish completion
+changie bump patch
+changie bump minor --auto-push
+changie bump major --allow-any-branch
 ```
+
+Release bumps follow this workflow:
+
+1. confirm git is available
+2. confirm the branch is allowed
+3. confirm the working tree is clean
+4. determine the current version from the latest git tag
+5. update `CHANGELOG.md`
+6. create a release commit
+7. create a git tag
+8. optionally push the commit and tags
+
+changie also updates changelog comparison links using your git remote when it can detect repository information.
 
 ## Configuration
 
-changie uses [Viper](https://github.com/spf13/viper) for configuration. Precedence (highest to lowest):
+changie reads configuration with the following precedence:
 
-1. Command-line flags
-2. Environment variables
-3. Config file
-4. Defaults
+1. command-line flags
+2. environment variables prefixed with `CHANGIE_`
+3. configuration file
+4. built-in defaults
 
-### Config file
+### Config file locations
 
-Place a `config.yaml` in one of these locations:
+By default, changie looks for configuration in these locations:
 
-- `./config.yaml` (project directory)
-- `~/.config/changie/config.yaml` (XDG config directory)
+- `./config.yaml`
+- `~/.config/changie/config.yaml`
+
+You can override this with `--config`, or change lookup behavior with `--config-path-mode xdg|native|both`.
+
+### Example configuration
 
 ```yaml
 app:
-  log_level: info
   changelog:
     file: CHANGELOG.md
-    repository_provider: github     # github, gitlab, bitbucket
+    repository_provider: github
   version:
     use_v_prefix: true
-    auto_push: false
+  output_format: text
 ```
 
-### Environment variables
-
-All config keys map to environment variables with a `CHANGIE_` prefix:
+### Example environment variables
 
 ```bash
-export CHANGIE_APP_LOG_LEVEL=debug
-export CHANGIE_APP_CHANGELOG_FILE=HISTORY.md
-export CHANGIE_APP_VERSION_USE_V_PREFIX=false
-export CHANGIE_APP_VERSION_AUTO_PUSH=true
+export CHANGIE_APP_CHANGELOG_FILE=CHANGELOG.md
+export CHANGIE_APP_CHANGELOG_REPOSITORY_PROVIDER=github
+export CHANGIE_APP_VERSION_USE_V_PREFIX=true
+export CHANGIE_APP_OUTPUT_FORMAT=text
 ```
 
-### JSON output
-
-For CI/CD pipelines and automation, use `--output json` to get machine-readable output:
+### Helpful config-related commands
 
 ```bash
-changie bump patch --output json
+# Validate a config file
+changie config validate
+changie config validate --file ./config.yaml
 ```
 
-## Changelog format
+## Contributing
 
-changie follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and generates files like:
-
-```markdown
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-## [Unreleased]
-
-### Added
-
-- New feature description
-
-## [1.1.0] - 2025-03-15
-
-### Added
-
-- OAuth2 authentication
-- Rate limiting
-
-### Fixed
-
-- Memory leak in connection pool
-
-## [1.0.0] - 2025-01-10
-
-### Added
-
-- Initial release
-
-[Unreleased]: https://github.com/user/repo/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/user/repo/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/user/repo/releases/tag/v1.0.0
-```
-
-Comparison links are generated automatically based on your git remote (supports GitHub, GitLab, and Bitbucket).
-
-## Development
+Contributions are welcome. If you want to work on changie:
 
 ```bash
-task setup     # Install development tools
-task test      # Run tests with coverage
-task check     # Run all quality checks (lint, vet, security, architecture)
-task build     # Build the binary
-task format    # Format code
+git clone https://github.com/peiman/changie.git
+cd changie
+task setup
+task test
+task check
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+Before opening a pull request, make sure the full quality gate passes with `task check`. Please also follow the project's [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+changie is released under the [MIT License](LICENSE).
