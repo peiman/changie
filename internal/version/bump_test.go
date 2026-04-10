@@ -32,7 +32,7 @@ func setupTestGitRepo(t *testing.T, initialTag, branch string, addUncommitted bo
 	require.NoError(t, err, "Failed to change to temp dir")
 
 	// Initialize git repository
-	cmd := exec.Command("git", "init")
+	cmd := exec.Command("git", "init", "-b", "main")
 	cmd.Dir = tempDir
 	err = cmd.Run()
 	require.NoError(t, err, "Failed to init git repo")
