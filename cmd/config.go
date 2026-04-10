@@ -35,11 +35,6 @@ This command checks:
 Exit codes:
   0 - Configuration is valid (no warnings)
   1 - Configuration has errors or warnings`,
-	Example: `  # Validate default config file
-  ckeletin-go config validate
-
-  # Validate specific config file
-  ckeletin-go config validate --file /path/to/config.yaml`,
 	RunE: runConfigValidate,
 }
 

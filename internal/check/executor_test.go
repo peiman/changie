@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/peiman/changie/.ckeletin/pkg/output"
+	"github.com/peiman/changie/pkg/checkmate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -850,6 +852,71 @@ func TestExecute_JSONMode_AllPass(t *testing.T) {
 	assert.Equal(t, "success", envelope.Status)
 	assert.Equal(t, "check", envelope.Command)
 	assert.Nil(t, envelope.Error)
+}
+
+func TestExecutorCheckTest_CancelledContext(t *testing.T) {
+	var buf bytes.Buffer
+	executor := &Executor{
+		cfg:     Config{},
+		writer:  &buf,
+		runner:  NewRunner(&timingHistory{Checks: make(map[string]*checkTiming)}),
+		timings: &timingHistory{Checks: make(map[string]*checkTiming)},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := executor.checkTest(ctx)
+	assert.Error(t, err, "cancelled context should cause checkTest to fail")
+}
+
+func TestAnimateProgress_StopsOnDone(t *testing.T) {
+	var buf bytes.Buffer
+	timings := &timingHistory{Checks: make(map[string]*checkTiming)}
+	timings.Checks["test-check"] = &checkTiming{AvgDuration: 500 * time.Millisecond}
+
+	executor := &Executor{
+		cfg:     Config{},
+		writer:  &buf,
+		timings: timings,
+	}
+
+	model := checkmate.NewProgressModel("Test", []string{"test-check"}, checkmate.WithSkipSummary())
+	p := tea.NewProgram(model, tea.WithOutput(&buf), tea.WithInput(nil))
+
+	// Run the program in the background so it can drain messages from animateProgress.
+	programDone := make(chan struct{})
+	go func() {
+		defer close(programDone)
+		_, _ = p.Run()
+	}()
+
+	done := make(chan struct{})
+
+	finished := make(chan struct{})
+	go func() {
+		executor.animateProgress(p, 0, "test-check", done)
+		close(finished)
+	}()
+
+	// Let it tick once or twice then signal done
+	time.Sleep(150 * time.Millisecond)
+	close(done)
+
+	select {
+	case <-finished:
+		// animateProgress returned after done was closed — good
+	case <-time.After(2 * time.Second):
+		t.Fatal("animateProgress did not stop after done was closed")
+	}
+
+	// Shut down the tea program
+	p.Quit()
+	select {
+	case <-programDone:
+	case <-time.After(2 * time.Second):
+		// best-effort cleanup
+	}
 }
 
 func TestExecute_JSONMode_NoStdoutContamination(t *testing.T) {

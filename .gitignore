@@ -60,6 +60,7 @@ changie.yaml
 
 # Test coverage
 coverage.txt
+coverage.tmp
 test-output.json
 coverage.html
 

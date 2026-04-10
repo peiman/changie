@@ -3,7 +3,9 @@
 package ui
 
 import (
+	"bytes"
 	"errors"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,6 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// autoQuitModel is a tea.Model that immediately quits on Init.
+// Used in tests to exercise the programFactory code path without blocking on TTY.
+type autoQuitModel struct{}
+
+func (a autoQuitModel) Init() tea.Cmd                       { return tea.Quit }
+func (a autoQuitModel) Update(tea.Msg) (tea.Model, tea.Cmd) { return a, nil }
+func (a autoQuitModel) View() string                        { return "" }
 
 func TestGetLipglossColor(t *testing.T) {
 	tests := []struct {
@@ -131,6 +141,11 @@ func TestModelUpdate(t *testing.T) {
 			wantCmd: true,
 		},
 		{
+			name:    "Esc quits",
+			msg:     tea.KeyMsg{Type: tea.KeyEsc},
+			wantCmd: true,
+		},
+		{
 			name:    "Unhandled key",
 			msg:     tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			wantCmd: false,
@@ -216,4 +231,46 @@ func TestNewTestUIRunner(t *testing.T) {
 	runner := NewTestUIRunner()
 	require.NotNil(t, runner, "NewTestUIRunner() returned nil")
 	assert.Nil(t, runner.newProgram, "NewTestUIRunner() returned a runner with non-nil newProgram")
+}
+
+// TestColorMap verifies that ColorMap contains the expected color names.
+func TestColorMap(t *testing.T) {
+	expectedColors := []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"}
+	assert.Len(t, ColorMap, len(expectedColors))
+	for _, name := range expectedColors {
+		_, ok := ColorMap[name]
+		assert.True(t, ok, "ColorMap should contain %s", name)
+	}
+}
+
+// TestRunUI_SuccessPathWithAutoQuitProgram tests the RunUI success path by
+// injecting a programFactory that creates a headless, auto-quitting program.
+// This exercises the d.newProgram != nil branch and the p.Run() success path.
+func TestRunUI_SuccessPathWithAutoQuitProgram(t *testing.T) {
+	var outBuf bytes.Buffer
+	runner := &DefaultUIRunner{
+		newProgram: func(_ tea.Model) *tea.Program {
+			// autoQuitModel.Init() returns tea.Quit so the program exits immediately.
+			return tea.NewProgram(
+				autoQuitModel{},
+				tea.WithOutput(&outBuf),
+				tea.WithInput(strings.NewReader("")),
+			)
+		},
+	}
+	err := runner.RunUI("Test Message", "blue")
+	assert.NoError(t, err)
+}
+
+// TestNewDefaultUIRunner_LambdaIsCallable verifies that the newProgram lambda
+// in NewDefaultUIRunner is callable and returns a non-nil *tea.Program.
+// This exercises the lambda body that is otherwise unreachable in tests using
+// NewTestUIRunner or direct DefaultUIRunner struct literals.
+func TestNewDefaultUIRunner_LambdaIsCallable(t *testing.T) {
+	runner := NewDefaultUIRunner()
+	require.NotNil(t, runner)
+	require.NotNil(t, runner.newProgram)
+	m := model{message: "test", colorStyle: lipgloss.NewStyle()}
+	p := runner.newProgram(m)
+	assert.NotNil(t, p, "newProgram lambda should return a non-nil *tea.Program")
 }

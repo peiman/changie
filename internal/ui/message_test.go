@@ -71,3 +71,11 @@ func TestPrintColoredMessage(t *testing.T) {
 		})
 	}
 }
+
+// TestPrintColoredMessage_WriteError tests the write-failure path (line 29-36 in message.go).
+// The errorWriter type is defined in renderer_test.go (same package).
+func TestPrintColoredMessage_WriteError(t *testing.T) {
+	err := PrintColoredMessage(&errorWriter{}, "test message", "blue")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write message")
+}

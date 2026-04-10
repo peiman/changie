@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/peiman/changie/.ckeletin/pkg/output"
+	"github.com/peiman/changie/internal/xdg"
 	"github.com/peiman/changie/pkg/checkmate"
 )
 
@@ -57,7 +58,7 @@ type categoryDef struct {
 // NewExecutor creates a new executor with TUI or simple output based on environment.
 func NewExecutor(cfg Config, writer io.Writer) *Executor {
 	if cfg.BinaryName == "" {
-		cfg.BinaryName = "ckeletin-go"
+		cfg.BinaryName = xdg.GetAppName()
 	}
 	timings := loadTimingHistory()
 	e := &Executor{

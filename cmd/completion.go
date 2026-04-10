@@ -4,26 +4,15 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
 // completionCmd generates shell completion scripts.
+// Note: Long is set in root.go's init() after binaryName is resolved,
+// because Go evaluates var declarations before init() runs.
 var completionCmd = &cobra.Command{
-	Use:   "completion",
-	Short: "Generate the autocompletion script for the specified shell",
-	Long: fmt.Sprintf(`To load completions:
-
-Bash:
-  source <(%s completion bash)
-Zsh:
-  source <(%s completion zsh)
-Fish:
-  %s completion fish | source
-PowerShell:
-  %s completion powershell | Out-String | Invoke-Expression
-`, binaryName, binaryName, binaryName, binaryName),
+	Use:                   "completion",
+	Short:                 "Generate the autocompletion script for the specified shell",
 	DisableFlagsInUseLine: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Default to bash if no args provided:
