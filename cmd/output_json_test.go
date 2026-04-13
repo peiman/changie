@@ -5,6 +5,8 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/peiman/changie/.ckeletin/pkg/logger"
@@ -14,6 +16,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// validChangelogFixture is minimal valid changelog content used by output_json tests.
+const validChangelogFixture = `# Changelog
+
+## [Unreleased]
+
+## [1.0.0] - 2024-01-01
+
+### Added
+
+- Initial release
+
+[Unreleased]: https://example.com/compare/v1.0.0...HEAD
+[1.0.0]: https://example.com/releases/tag/v1.0.0
+`
+
+// createTempChangelog writes validChangelogFixture to a temp file and returns its path.
+func createTempChangelog(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "CHANGELOG.md")
+	require.NoError(t, os.WriteFile(path, []byte(validChangelogFixture), 0o644))
+	return path
+}
 
 func findSubcommand(root *cobra.Command, name string) *cobra.Command {
 	for _, cmd := range root.Commands() {
@@ -47,16 +73,9 @@ func resetOutputJSONTestState(origCfgFile string, origStatus string, origUsed st
 			f.Changed = false
 		}
 	}
-	// Reset subcommand flags that tests may have set
-	if pingCmd := findSubcommand(RootCmd, "ping"); pingCmd != nil {
-		if f := pingCmd.Flags().Lookup("color"); f != nil {
-			f.Value.Set("white") //nolint:errcheck // reset to default
-			f.Changed = false
-		}
-	}
 }
 
-func TestOutputJSON_PingCommand(t *testing.T) {
+func TestOutputJSON_ValidateCommand(t *testing.T) {
 	savedLogger, savedLevel := logger.SaveLoggerState()
 	defer logger.RestoreLoggerState(savedLogger, savedLevel)
 
@@ -65,10 +84,12 @@ func TestOutputJSON_PingCommand(t *testing.T) {
 	origUsed := configFileUsed
 	defer resetOutputJSONTestState(origCfgFile, origStatus, origUsed)
 
+	tempFile := createTempChangelog(t)
+
 	var stdout bytes.Buffer
 	RootCmd.SetOut(&stdout)
 	RootCmd.SetErr(&bytes.Buffer{})
-	RootCmd.SetArgs([]string{"ping", "--output", "json"})
+	RootCmd.SetArgs([]string{"changelog", "validate", "--file", tempFile, "--output", "json"})
 
 	err := RootCmd.Execute()
 	require.NoError(t, err)
@@ -78,7 +99,7 @@ func TestOutputJSON_PingCommand(t *testing.T) {
 	require.NoError(t, err, "stdout should contain valid JSON, got: %s", stdout.String())
 
 	assert.Equal(t, "success", envelope.Status)
-	assert.Equal(t, "ping", envelope.Command)
+	assert.Equal(t, "validate", envelope.Command)
 	assert.Nil(t, envelope.Error)
 	assert.NotNil(t, envelope.Data)
 }
@@ -92,16 +113,18 @@ func TestOutputJSON_DefaultIsText(t *testing.T) {
 	origUsed := configFileUsed
 	defer resetOutputJSONTestState(origCfgFile, origStatus, origUsed)
 
+	tempFile := createTempChangelog(t)
+
 	var stdout bytes.Buffer
 	RootCmd.SetOut(&stdout)
 	RootCmd.SetErr(&bytes.Buffer{})
-	RootCmd.SetArgs([]string{"ping"})
+	RootCmd.SetArgs([]string{"changelog", "validate", "--file", tempFile})
 
 	err := RootCmd.Execute()
 	require.NoError(t, err)
 
 	textOutput := stdout.String()
-	assert.Contains(t, textOutput, "Pong", "text mode should contain default ping message")
+	assert.Contains(t, textOutput, "✔", "text mode should contain checkmark")
 
 	var envelope output.JSONEnvelope
 	err = json.Unmarshal(stdout.Bytes(), &envelope)
@@ -117,10 +140,12 @@ func TestOutputJSON_InvalidFormat(t *testing.T) {
 	origUsed := configFileUsed
 	defer resetOutputJSONTestState(origCfgFile, origStatus, origUsed)
 
+	tempFile := createTempChangelog(t)
+
 	var stdout, stderr bytes.Buffer
 	RootCmd.SetOut(&stdout)
 	RootCmd.SetErr(&stderr)
-	RootCmd.SetArgs([]string{"ping", "--output", "xml"})
+	RootCmd.SetArgs([]string{"changelog", "validate", "--file", tempFile, "--output", "xml"})
 
 	err := RootCmd.Execute()
 	assert.Error(t, err, "invalid output format should cause an error")
@@ -135,10 +160,12 @@ func TestOutputJSON_StderrSilent(t *testing.T) {
 	origUsed := configFileUsed
 	defer resetOutputJSONTestState(origCfgFile, origStatus, origUsed)
 
+	tempFile := createTempChangelog(t)
+
 	var stdout, stderr bytes.Buffer
 	RootCmd.SetOut(&stdout)
 	RootCmd.SetErr(&stderr)
-	RootCmd.SetArgs([]string{"ping", "--output", "json"})
+	RootCmd.SetArgs([]string{"changelog", "validate", "--file", tempFile, "--output", "json"})
 
 	err := RootCmd.Execute()
 	require.NoError(t, err)
@@ -164,17 +191,16 @@ func TestOutputJSON_ErrorCommand(t *testing.T) {
 	var stdout bytes.Buffer
 	RootCmd.SetOut(&stdout)
 	RootCmd.SetErr(&bytes.Buffer{})
-	// Use an invalid color to trigger a config validation error through Cobra
-	RootCmd.SetArgs([]string{"ping", "--output", "json", "--color", "purple"})
+	// Use a nonexistent file path to trigger an error from the validate command
+	RootCmd.SetArgs([]string{"changelog", "validate", "--file", "/nonexistent/path/CHANGELOG.md", "--output", "json"})
 
 	err := RootCmd.Execute()
-	assert.Error(t, err, "invalid color should cause an error")
-	assert.Contains(t, err.Error(), "purple")
+	assert.Error(t, err, "nonexistent file should cause an error")
 
 	// JSON mode should have been activated early (before config validation),
 	// so main.go's error handler will emit the JSON error envelope.
 	// The actual JSON envelope emission is tested in main_test.go (TestRun_JSONMode_Error).
-	assert.True(t, output.IsJSONMode(), "JSON mode should be active even when config validation fails")
+	assert.True(t, output.IsJSONMode(), "JSON mode should be active even when command fails")
 }
 
 func TestOutputJSON_EnvelopeStructure(t *testing.T) {
@@ -186,10 +212,12 @@ func TestOutputJSON_EnvelopeStructure(t *testing.T) {
 	origUsed := configFileUsed
 	defer resetOutputJSONTestState(origCfgFile, origStatus, origUsed)
 
+	tempFile := createTempChangelog(t)
+
 	var stdout bytes.Buffer
 	RootCmd.SetOut(&stdout)
 	RootCmd.SetErr(&bytes.Buffer{})
-	RootCmd.SetArgs([]string{"ping", "--output", "json"})
+	RootCmd.SetArgs([]string{"changelog", "validate", "--file", tempFile, "--output", "json"})
 
 	err := RootCmd.Execute()
 	require.NoError(t, err)

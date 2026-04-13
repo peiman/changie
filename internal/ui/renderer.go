@@ -26,8 +26,9 @@ func RenderSuccess(out io.Writer, message string, data interface{}) error {
 
 	// Text mode: existing behavior
 	// 1. Shadow Log (Audit Stream)
-	// We log the raw data so the log file has the full context of what was returned
-	event := log.Info().Str("user_message", message)
+	// Debug level so it only goes to the log file, not the console.
+	// Console defaults to info, file defaults to debug.
+	event := log.Debug().Str("user_message", message)
 
 	if data != nil {
 		event.Interface("data", data)

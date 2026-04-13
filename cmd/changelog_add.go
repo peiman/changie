@@ -42,7 +42,7 @@ func runAddChangelogSection(cmd *cobra.Command, args []string, section string) e
 	file := getConfigValueWithFlags[string](cmd, "file", "app.changelog.file")
 
 	content := args[0]
-	log.Info().
+	log.Debug().
 		Str("file", file).
 		Str("section", section).
 		Str("content", content).

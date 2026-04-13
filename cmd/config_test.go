@@ -29,8 +29,6 @@ func TestRunConfigValidate(t *testing.T) {
 			name: "Valid config file",
 			configContent: `app:
   log_level: info
-  ping:
-    output_message: "Test"
 `,
 			configPerms:       0600,
 			setValidateFile:   true,

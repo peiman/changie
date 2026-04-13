@@ -96,7 +96,6 @@ components:
   # Example: Adding 'internal/baseline/**' for a new baseline command
   business:
     in:
-      - internal/ping/**
       - internal/docs/**
       - internal/dev/**
       - internal/progress/**

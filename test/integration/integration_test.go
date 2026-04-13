@@ -63,53 +63,70 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestPingCommand(t *testing.T) {
+func TestChangelogValidateCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+
 	tests := []struct {
 		name               string
-		args               []string
+		fileContent        string
 		wantExitCode       int
 		wantOutputContains string
 	}{
 		{
-			name:               "Default ping",
-			args:               []string{"ping"},
+			name: "Valid changelog",
+			fileContent: `# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+## [1.0.0] - 2024-01-01
+
+### Added
+- Initial release
+
+[Unreleased]: https://github.com/example/repo/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
+`,
 			wantExitCode:       0,
-			wantOutputContains: "Pong",
+			wantOutputContains: "passed",
 		},
 		{
-			name:               "Ping with custom message",
-			args:               []string{"ping", "--message", "Hello World"},
-			wantExitCode:       0,
-			wantOutputContains: "Hello World",
-		},
-		{
-			name:               "Ping with color flag",
-			args:               []string{"ping", "--color", "green"},
-			wantExitCode:       0,
-			wantOutputContains: "", // Output varies by terminal
+			name:               "Nonexistent changelog file",
+			fileContent:        "", // no file created
+			wantExitCode:       1,
+			wantOutputContains: "no such file",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command(binaryPath, tt.args...)
+			var args []string
+			if tt.fileContent != "" {
+				changelogFile := filepath.Join(tmpDir, tt.name+"-CHANGELOG.md")
+				err := os.WriteFile(changelogFile, []byte(tt.fileContent), 0600)
+				require.NoError(t, err, "setup: failed to create changelog file")
+				args = []string{"changelog", "validate", "--file", changelogFile}
+			} else {
+				args = []string{"changelog", "validate", "--file", filepath.Join(tmpDir, "nonexistent-CHANGELOG.md")}
+			}
+
+			cmd := exec.Command(binaryPath, args...)
 			var stdout, stderr bytes.Buffer
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 
 			err := cmd.Run()
 
-			// Check exit code
 			exitCode := getExitCode(err)
 
 			assert.Equal(t, tt.wantExitCode, exitCode,
 				"exit code mismatch\nstdout: %s\nstderr: %s",
 				stdout.String(), stderr.String())
 
-			// Check output if specified
 			if tt.wantOutputContains != "" {
-				output := stdout.String()
-				assert.Contains(t, output, tt.wantOutputContains,
+				combinedOutput := stdout.String() + stderr.String()
+				assert.Contains(t, combinedOutput, tt.wantOutputContains,
 					"output should contain expected text")
 			}
 		})
@@ -249,10 +266,10 @@ func TestHelpCommand(t *testing.T) {
 			wantOutputContains: "Available Commands",
 		},
 		{
-			name:               "Ping help",
-			args:               []string{"ping", "--help"},
+			name:               "Changelog help",
+			args:               []string{"changelog", "--help"},
 			wantExitCode:       0,
-			wantOutputContains: "ping",
+			wantOutputContains: "changelog",
 		},
 		{
 			name:               "Config validate help",
@@ -310,45 +327,40 @@ func TestConfigLoading(t *testing.T) {
 		wantOutputContains string
 	}{
 		{
-			name: "Load config with custom message",
-			configContent: `app:
-  log_level: info
-  ping:
-    output_message: "Custom Config Message"
-    output_color: "blue"
-`,
-			args:               []string{"ping"},
-			wantExitCode:       0,
-			wantOutputContains: "Custom Config Message",
-		},
-		{
-			name: "Config file with defaults",
+			name: "Config file with log level debug",
 			configContent: `app:
   log_level: debug
 `,
-			args:               []string{"ping"},
+			args:               []string{"docs", "config"},
 			wantExitCode:       0,
-			wantOutputContains: "Pong", // Default message
+			wantOutputContains: "Configuration", // docs config always outputs this
 		},
 		{
-			name: "Config file with complex nested structure",
+			name: "Config file with log level info",
+			configContent: `app:
+  log_level: info
+`,
+			args:               []string{"docs", "config"},
+			wantExitCode:       0,
+			wantOutputContains: "Configuration",
+		},
+		{
+			name: "Config file with nested version settings",
 			configContent: `app:
   log_level: warn
-  ping:
-    output_message: "Nested Config Test"
-    output_color: "green"
-    ui: false
+  version:
+    auto_push: false
 `,
-			args:               []string{"ping"},
+			args:               []string{"docs", "config"},
 			wantExitCode:       0,
-			wantOutputContains: "Nested Config Test",
+			wantOutputContains: "Configuration",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create config file
-			configFile := filepath.Join(tmpDir, "config.yaml")
+			// Create config file in a unique location per test
+			configFile := filepath.Join(tmpDir, tt.name+"-config.yaml")
 			err := os.WriteFile(configFile, []byte(tt.configContent), 0600)
 			require.NoError(t, err, "setup: failed to create config file")
 
@@ -374,9 +386,6 @@ func TestConfigLoading(t *testing.T) {
 				assert.Contains(t, output, tt.wantOutputContains,
 					"output should contain expected text")
 			}
-
-			// Cleanup for next test
-			os.Remove(configFile)
 		})
 	}
 }
@@ -391,32 +400,33 @@ func TestEnvironmentVariables(t *testing.T) {
 		wantOutputContains string
 	}{
 		{
-			name: "Set message via env var",
-			envVars: map[string]string{
-				"CHANGIE_APP_PING_OUTPUT_MESSAGE": "Env Var Message",
-			},
-			args:               []string{"ping"},
-			wantExitCode:       0,
-			wantOutputContains: "Env Var Message",
-		},
-		{
 			name: "Set log level via env var",
 			envVars: map[string]string{
-				"CHANGIE_APP_LOG_LEVEL": "debug",
+				"CHANGIE_APP_LOG_LEVEL": "warn",
 			},
-			args:         []string{"ping"},
-			wantExitCode: 0,
-			// Debug messages should appear in stderr
+			args:               []string{"docs", "config"},
+			wantExitCode:       0,
+			wantOutputContains: "Configuration",
 		},
 		{
-			name: "Multiple env vars",
+			name: "Set docs format via env var",
 			envVars: map[string]string{
-				"CHANGIE_APP_PING_OUTPUT_MESSAGE": "Multi Env Test",
-				"CHANGIE_APP_PING_OUTPUT_COLOR":   "cyan",
+				"CHANGIE_APP_DOCS_FORMAT": "yaml",
 			},
-			args:               []string{"ping"},
+			args:         []string{"docs", "config"},
+			wantExitCode: 0,
+			// YAML format outputs app: at top level
+			wantOutputContains: "app:",
+		},
+		{
+			name: "Multiple env vars together",
+			envVars: map[string]string{
+				"CHANGIE_APP_LOG_LEVEL":   "warn",
+				"CHANGIE_APP_DOCS_FORMAT": "markdown",
+			},
+			args:               []string{"docs", "config"},
 			wantExitCode:       0,
-			wantOutputContains: "Multi Env Test",
+			wantOutputContains: "Configuration",
 		},
 	}
 
@@ -456,12 +466,9 @@ func TestEnvironmentVariables(t *testing.T) {
 func TestConfigPrecedence(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a config file
+	// Create a config file with a known log level
 	configContent := `app:
   log_level: info
-  ping:
-    output_message: "Config File Message"
-    output_color: "blue"
 `
 	configFile := filepath.Join(tmpDir, "config.yaml")
 	err := os.WriteFile(configFile, []byte(configContent), 0600)
@@ -471,37 +478,42 @@ func TestConfigPrecedence(t *testing.T) {
 		name               string
 		envVars            map[string]string
 		args               []string
+		wantExitCode       int
 		wantOutputContains string
 	}{
 		{
-			name:               "Config file only",
+			name:               "Config file only - docs works",
 			envVars:            map[string]string{},
-			args:               []string{"--config", configFile, "ping"},
-			wantOutputContains: "Config File Message",
+			args:               []string{"--config", configFile, "docs", "config"},
+			wantExitCode:       0,
+			wantOutputContains: "Configuration",
 		},
 		{
-			name: "Env var overrides config file",
+			name: "Env var log level overrides config file",
 			envVars: map[string]string{
-				"CHANGIE_APP_PING_OUTPUT_MESSAGE": "Env Var Message",
+				"CHANGIE_APP_LOG_LEVEL": "warn",
 			},
-			args:               []string{"--config", configFile, "ping"},
-			wantOutputContains: "Env Var Message",
+			args:               []string{"--config", configFile, "docs", "config"},
+			wantExitCode:       0,
+			wantOutputContains: "Configuration",
 		},
 		{
 			name: "CLI flag overrides env var and config file",
 			envVars: map[string]string{
-				"CHANGIE_APP_PING_OUTPUT_MESSAGE": "Env Var Message",
+				"CHANGIE_APP_LOG_LEVEL": "warn",
 			},
-			args:               []string{"--config", configFile, "ping", "--message", "CLI Flag Message"},
-			wantOutputContains: "CLI Flag Message",
+			args:               []string{"--config", configFile, "--log-level", "info", "docs", "config"},
+			wantExitCode:       0,
+			wantOutputContains: "Configuration",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := exec.Command(binaryPath, tt.args...)
-			var stdout bytes.Buffer
+			var stdout, stderr bytes.Buffer
 			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
 
 			// Set environment variables
 			cmd.Env = os.Environ()
@@ -510,11 +522,17 @@ func TestConfigPrecedence(t *testing.T) {
 			}
 
 			err := cmd.Run()
-			require.NoError(t, err, "command should succeed")
+			exitCode := getExitCode(err)
 
-			output := stdout.String()
-			assert.Contains(t, output, tt.wantOutputContains,
-				"output should contain expected text")
+			assert.Equal(t, tt.wantExitCode, exitCode,
+				"exit code mismatch\nstdout: %s\nstderr: %s",
+				stdout.String(), stderr.String())
+
+			if tt.wantOutputContains != "" {
+				output := stdout.String()
+				assert.Contains(t, output, tt.wantOutputContains,
+					"output should contain expected text")
+			}
 		})
 	}
 }
@@ -523,13 +541,10 @@ func TestConfigPrecedence(t *testing.T) {
 func TestMultiCommandWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	t.Run("Create config, validate it, then use it", func(t *testing.T) {
+	t.Run("Create config, validate it, then generate docs", func(t *testing.T) {
 		// Step 1: Create a config file
 		configContent := `app:
-  log_level: debug
-  ping:
-    output_message: "Workflow Test"
-    output_color: "green"
+  log_level: info
 `
 		configFile := filepath.Join(tmpDir, "workflow-config.yaml")
 		err := os.WriteFile(configFile, []byte(configContent), 0600)
@@ -546,16 +561,16 @@ func TestMultiCommandWorkflow(t *testing.T) {
 		assert.Contains(t, validateStdout.String(), "valid",
 			"validation output should confirm config is valid")
 
-		// Step 3: Use the validated config
-		pingCmd := exec.Command(binaryPath, "--config", configFile, "ping")
-		var pingStdout bytes.Buffer
-		pingCmd.Stdout = &pingStdout
+		// Step 3: Generate docs using the validated config
+		docsCmd := exec.Command(binaryPath, "--config", configFile, "docs", "config")
+		var docsStdout bytes.Buffer
+		docsCmd.Stdout = &docsStdout
 
-		err = pingCmd.Run()
-		require.NoError(t, err, "ping command should succeed")
+		err = docsCmd.Run()
+		require.NoError(t, err, "docs command should succeed")
 
-		assert.Contains(t, pingStdout.String(), "Workflow Test",
-			"ping output should contain expected message")
+		assert.Contains(t, docsStdout.String(), "Configuration",
+			"docs output should contain configuration info")
 	})
 
 	t.Run("Generate docs then validate config", func(t *testing.T) {

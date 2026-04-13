@@ -18,12 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary signing with cosign and SBOM vulnerability scanning for releases
 - Codecov configuration for test coverage reporting
 - Examples directory with workflow, CI integration, and release scripts
+- `changie changelog validate` now checks for excessive blank lines
 
 ### Changed
 
 - Enhanced bump command help text with examples and common use cases
 - Configuration search now includes current directory with higher priority than home directory
 - Go version updated to 1.26.1
+
+### Removed
+
+- Removed scaffold ping command — not relevant to changelog management
+
+### Fixed
+
+- Shadow log noise leaking to console in text mode (INF lines from RenderSuccess)
+- `changie changelog` commands creating excessive blank lines when adding new sections
 
 ## [v1.1.0] - 2025-10-06
 

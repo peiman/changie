@@ -15,10 +15,10 @@ import (
 func BenchmarkGetConfigValueWithFlags(b *testing.B) {
 	// Setup
 	viper.Reset()
-	viper.Set(config.KeyAppPingOutputMessage, "test message")
+	viper.Set(config.KeyAppLogLevel, "info")
 
 	cmd := &cobra.Command{Use: "test"}
-	cmd.Flags().String("message", "default", "message flag")
+	cmd.Flags().String("log-level", "info", "log level flag")
 
 	tests := []struct {
 		name string
@@ -27,13 +27,13 @@ func BenchmarkGetConfigValueWithFlags(b *testing.B) {
 		{
 			"String",
 			func() interface{} {
-				return getConfigValueWithFlags[string](cmd, "message", config.KeyAppPingOutputMessage)
+				return getConfigValueWithFlags[string](cmd, "log-level", config.KeyAppLogLevel)
 			},
 		},
 		{
 			"Bool",
 			func() interface{} {
-				return getConfigValueWithFlags[bool](cmd, "ui", "app.ping.ui")
+				return getConfigValueWithFlags[bool](cmd, "auto-push", "app.changelog.auto_push")
 			},
 		},
 		{

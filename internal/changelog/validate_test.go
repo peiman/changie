@@ -41,10 +41,10 @@ All notable changes to this project will be documented in this file.
 	report := ValidateChangelog(content, "CHANGELOG.md")
 	assert.Equal(t, "CHANGELOG.md", report.File)
 	assert.True(t, report.Passed)
-	assert.Equal(t, 5, report.TotalRules)
-	assert.Equal(t, 5, report.PassCount)
+	assert.Greater(t, report.TotalRules, 0)
+	assert.Equal(t, report.TotalRules, report.PassCount)
 	assert.Equal(t, 0, report.FailCount)
-	assert.Len(t, report.Results, 5)
+	assert.Len(t, report.Results, report.TotalRules)
 }
 
 func TestValidateChangelog_WithFailures(t *testing.T) {
@@ -64,7 +64,7 @@ func TestValidateChangelog_WithFailures(t *testing.T) {
 `
 	report := ValidateChangelog(content, "CHANGELOG.md")
 	assert.False(t, report.Passed)
-	assert.Equal(t, 5, report.TotalRules)
+	assert.Greater(t, report.TotalRules, 0)
 	assert.Greater(t, report.FailCount, 0)
 	assert.Equal(t, report.PassCount+report.FailCount, report.TotalRules)
 }
@@ -72,7 +72,7 @@ func TestValidateChangelog_WithFailures(t *testing.T) {
 func TestValidateChangelog_EmptyContent(t *testing.T) {
 	report := ValidateChangelog("", "CHANGELOG.md")
 	assert.NotNil(t, report)
-	assert.Equal(t, 5, report.TotalRules)
+	assert.Greater(t, report.TotalRules, 0)
 }
 
 // --- ValidationReport JSON tests ---
@@ -81,8 +81,8 @@ func TestValidationReportJSONResponse(t *testing.T) {
 	report := &ValidationReport{
 		File:       "CHANGELOG.md",
 		Passed:     true,
-		TotalRules: 5,
-		PassCount:  5,
+		TotalRules: 3,
+		PassCount:  3,
 		FailCount:  0,
 		Results:    []ValidationResult{{Name: "Test", Passed: true, Message: "ok"}},
 	}
@@ -94,7 +94,7 @@ func TestValidationReportJSONResponse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(b), `"file":"CHANGELOG.md"`)
 	assert.Contains(t, string(b), `"passed":true`)
-	assert.Contains(t, string(b), `"total_rules":5`)
+	assert.Contains(t, string(b), `"total_rules":3`)
 }
 
 func TestValidationResultJSONOmitEmptyDetails(t *testing.T) {

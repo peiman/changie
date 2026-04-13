@@ -57,6 +57,7 @@ func ValidateChangelog(content string, filePath string) *ValidationReport {
 		checkBrokenLinks(lines),
 		checkEntriesWithoutDates(lines),
 		checkSemverOrder(lines),
+		checkExcessiveBlankLines(content),
 	}
 
 	passCount := 0
@@ -335,6 +336,40 @@ func checkSemverOrder(lines []string) ValidationResult {
 		Name:    name,
 		Passed:  false,
 		Message: fmt.Sprintf("%d ordering violation(s) found", len(details)),
+		Details: details,
+	}
+}
+
+// checkExcessiveBlankLines flags runs of 2+ consecutive blank lines.
+// Keep a Changelog format uses single blank lines between sections.
+func checkExcessiveBlankLines(content string) ValidationResult {
+	name := "Excessive blank lines"
+	var details []string
+
+	lines := strings.Split(content, "\n")
+	consecutiveBlanks := 0
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			consecutiveBlanks++
+			if consecutiveBlanks >= 2 {
+				details = append(details, fmt.Sprintf("Line %d: consecutive blank lines", i+1))
+			}
+		} else {
+			consecutiveBlanks = 0
+		}
+	}
+
+	if len(details) == 0 {
+		return ValidationResult{
+			Name:    name,
+			Passed:  true,
+			Message: "No excessive blank lines found",
+		}
+	}
+	return ValidationResult{
+		Name:    name,
+		Passed:  false,
+		Message: fmt.Sprintf("%d excessive blank line(s) found", len(details)),
 		Details: details,
 	}
 }

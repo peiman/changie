@@ -172,20 +172,14 @@ func TestInvalidFlagValues(t *testing.T) {
 		wantStderrContains string
 	}{
 		{
-			name:               "Invalid color name",
-			args:               []string{"ping", "--color", "invalid-color"},
-			wantExitCode:       1,
-			wantStderrContains: "invalid value \"invalid-color\"",
-		},
-		{
 			name:               "Invalid log level",
-			args:               []string{"--log-level", "invalid-level", "ping"},
-			wantExitCode:       1, // Now caught at config-time validation
+			args:               []string{"--log-level", "invalid-level", "docs", "config"},
+			wantExitCode:       1, // Caught at config-time validation
 			wantStderrContains: "invalid value \"invalid-level\"",
 		},
 		{
-			name:               "Unknown flag",
-			args:               []string{"ping", "--unknown-flag", "value"},
+			name:               "Unknown flag on changelog validate",
+			args:               []string{"changelog", "validate", "--unknown-flag", "value"},
 			wantExitCode:       1,
 			wantStderrContains: "unknown flag",
 		},
@@ -194,6 +188,12 @@ func TestInvalidFlagValues(t *testing.T) {
 			args:               []string{"docs", "config", "--format", "invalid"},
 			wantExitCode:       1,
 			wantStderrContains: "unsupported format",
+		},
+		{
+			name:               "Unknown flag on docs",
+			args:               []string{"docs", "config", "--nonexistent-flag"},
+			wantExitCode:       1,
+			wantStderrContains: "unknown flag",
 		},
 	}
 
@@ -330,20 +330,17 @@ func TestDocumentationOutputErrors(t *testing.T) {
 func TestConfigPrecedenceWithErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	t.Run("Invalid config file with valid env var - env var wins", func(t *testing.T) {
+	t.Run("Invalid config file causes failure", func(t *testing.T) {
 		// Create invalid config file
 		invalidConfig := filepath.Join(tmpDir, "invalid.yaml")
 		if err := os.WriteFile(invalidConfig, []byte("invalid: [yaml"), 0600); err != nil {
 			t.Fatalf("Failed to create invalid config: %v", err)
 		}
 
-		cmd := exec.Command(binaryPath, "--config", invalidConfig, "ping")
+		cmd := exec.Command(binaryPath, "--config", invalidConfig, "docs", "config")
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
-
-		// Set env var
-		cmd.Env = append(os.Environ(), "CHANGIE_APP_PING_OUTPUT_MESSAGE=Env Var Works")
 
 		err := cmd.Run()
 
@@ -354,9 +351,9 @@ func TestConfigPrecedenceWithErrors(t *testing.T) {
 		assert.Equal(t, 1, exitCode, "exit code should be 1")
 	})
 
-	t.Run("Flag overrides everything even with config errors", func(t *testing.T) {
-		// Even with a missing config file, flags should work
-		cmd := exec.Command(binaryPath, "--config", "/nonexistent/config.yaml", "ping", "--message", "Flag Message")
+	t.Run("Nonexistent config file causes failure", func(t *testing.T) {
+		// Even with a valid command, a missing --config file should fail
+		cmd := exec.Command(binaryPath, "--config", "/nonexistent/config.yaml", "docs", "config")
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
@@ -370,29 +367,51 @@ func TestConfigPrecedenceWithErrors(t *testing.T) {
 
 // TestEdgeCaseInputs tests handling of edge case inputs
 func TestEdgeCaseInputs(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a valid changelog for use in edge case tests
+	validChangelog := `# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+## [1.0.0] - 2024-01-01
+
+### Added
+- Initial release
+
+[Unreleased]: https://github.com/example/repo/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/example/repo/releases/tag/v1.0.0
+`
+	changelogFile := filepath.Join(tmpDir, "CHANGELOG.md")
+	if err := os.WriteFile(changelogFile, []byte(validChangelog), 0600); err != nil {
+		t.Fatalf("setup: failed to create changelog file: %v", err)
+	}
+
 	tests := []struct {
 		name         string
 		args         []string
 		wantExitCode int
 	}{
 		{
-			name:         "Empty message flag",
-			args:         []string{"ping", "--message", ""},
-			wantExitCode: 0, // Empty string is valid
-		},
-		{
-			name:         "Very long message flag",
-			args:         []string{"ping", "--message", strings.Repeat("x", 1000)},
-			wantExitCode: 0, // Long string is valid
-		},
-		{
-			name:         "Special characters in message",
-			args:         []string{"ping", "--message", "Hello\nWorld\t!@#$%^&*()"},
+			name:         "Changelog validate with explicit file flag",
+			args:         []string{"changelog", "validate", "--file", changelogFile},
 			wantExitCode: 0,
 		},
 		{
-			name:         "Unicode in message",
-			args:         []string{"ping", "--message", "Hello 世界 🌍"},
+			name:         "Docs config with default format",
+			args:         []string{"docs", "config"},
+			wantExitCode: 0,
+		},
+		{
+			name:         "Docs config with markdown format",
+			args:         []string{"docs", "config", "--format", "markdown"},
+			wantExitCode: 0,
+		},
+		{
+			name:         "Docs config with yaml format",
+			args:         []string{"docs", "config", "--format", "yaml"},
 			wantExitCode: 0,
 		},
 	}
@@ -424,7 +443,7 @@ func TestConcurrentCommandExecution(t *testing.T) {
 
 	for i := 0; i < numConcurrent; i++ {
 		go func(id int) {
-			cmd := exec.Command(binaryPath, "ping", "--message", "Concurrent test")
+			cmd := exec.Command(binaryPath, "docs", "config")
 			var stdout bytes.Buffer
 			cmd.Stdout = &stdout
 
@@ -434,7 +453,7 @@ func TestConcurrentCommandExecution(t *testing.T) {
 				return
 			}
 
-			if !strings.Contains(stdout.String(), "Concurrent test") {
+			if !strings.Contains(stdout.String(), "Configuration") {
 				errChan <- os.ErrInvalid
 				return
 			}

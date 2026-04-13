@@ -176,11 +176,12 @@ func createNewSection(filePath string, lines []string, unreleasedIndex, nextMajo
 	result = append(result, "", fmt.Sprintf("- %s", content))
 
 	if nextMajorIndex < len(lines) {
-		result = append(result, "", "")
+		result = append(result, "")
 		result = append(result, lines[nextMajorIndex:]...)
 	}
 
-	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
+	output := normalizeBlankLines(strings.Join(result, "\n"))
+	err := os.WriteFile(filePath, []byte(output), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
 	if err != nil {
 		return fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 	}
@@ -220,7 +221,8 @@ func addToExistingSection(filePath string, lines []string, sectionIndex, nextMaj
 		result = append(result, lines[nextSectionIndex:]...)
 	}
 
-	err := os.WriteFile(filePath, []byte(strings.Join(result, "\n")), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
+	output := normalizeBlankLines(strings.Join(result, "\n"))
+	err := os.WriteFile(filePath, []byte(output), 0o644) //nolint:gosec // G306: changelog files need 0644 for version control
 	if err != nil {
 		return false, fmt.Errorf("failed to write updated changelog: %w (verify you have write permissions for the file)", err)
 	}
@@ -255,6 +257,14 @@ func findLastContentLine(lines []string, sectionIndex, nextSectionIndex int) int
 		}
 	}
 	return lastContentLine
+}
+
+// normalizeBlankLines collapses runs of 2+ consecutive blank lines into
+// exactly one blank line and trims trailing whitespace from the file.
+func normalizeBlankLines(content string) string {
+	re := regexp.MustCompile(`\n{3,}`)
+	content = re.ReplaceAllString(content, "\n\n")
+	return strings.TrimRight(content, "\n") + "\n"
 }
 
 // GetLatestChangelogVersion finds the latest version in the changelog.
