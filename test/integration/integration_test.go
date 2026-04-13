@@ -95,7 +95,7 @@ All notable changes to this project will be documented in this file.
 			name:               "Nonexistent changelog file",
 			fileContent:        "", // no file created
 			wantExitCode:       1,
-			wantOutputContains: "no such file",
+			wantOutputContains: "failed to read changelog",
 		},
 	}
 
