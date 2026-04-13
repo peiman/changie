@@ -53,7 +53,7 @@ generate_spdx() {
     echo "Generating SPDX SBOM..."
 
     # SPDX JSON format (machine-readable, most common)
-    syft dir:. \
+    syft file:./changie \
         --output spdx-json="${OUTPUT_DIR}/${PROJECT_NAME}-${VERSION}.spdx.json" \
         --source-name "${PROJECT_NAME}" \
         --source-version "${VERSION}" \
@@ -62,7 +62,7 @@ generate_spdx() {
     echo "  Created: ${OUTPUT_DIR}/${PROJECT_NAME}-${VERSION}.spdx.json"
 
     # Also generate human-readable tag-value format
-    syft dir:. \
+    syft file:./changie \
         --output spdx="${OUTPUT_DIR}/${PROJECT_NAME}-${VERSION}.spdx" \
         --source-name "${PROJECT_NAME}" \
         --source-version "${VERSION}" \
@@ -75,7 +75,7 @@ generate_cyclonedx() {
     echo "Generating CycloneDX SBOM..."
 
     # CycloneDX JSON format
-    syft dir:. \
+    syft file:./changie \
         --output cyclonedx-json="${OUTPUT_DIR}/${PROJECT_NAME}-${VERSION}.cdx.json" \
         --source-name "${PROJECT_NAME}" \
         --source-version "${VERSION}" \
@@ -84,7 +84,7 @@ generate_cyclonedx() {
     echo "  Created: ${OUTPUT_DIR}/${PROJECT_NAME}-${VERSION}.cdx.json"
 
     # CycloneDX XML format (some tools prefer XML)
-    syft dir:. \
+    syft file:./changie \
         --output cyclonedx-xml="${OUTPUT_DIR}/${PROJECT_NAME}-${VERSION}.cdx.xml" \
         --source-name "${PROJECT_NAME}" \
         --source-version "${VERSION}" \

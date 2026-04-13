@@ -110,7 +110,7 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	_, _ = fmt.Fprintf(output, "New version: %s\n", newVersion)
 
 	// Save changelog content for rollback
-	originalChangelog, err := os.ReadFile(cfg.ChangelogFile) //nolint:gosec // G304: user-specified changelog path
+	originalChangelog, err := os.ReadFile(cfg.ChangelogFile) //nolint:gosec // G304: user-specified changelog path // nosemgrep: go-path-traversal
 	if err != nil {
 		return fmt.Errorf("failed to read changelog for backup: %w", err)
 	}
