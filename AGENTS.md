@@ -1,29 +1,24 @@
-# ckeletin-go — Project Guide for AI Agents
-
-> **This file is a reference implementation.** The pattern — structured project
-> guide, behavioral rules, automated hooks, machine-checkable enforcement — works
-> in any codebase. See the README for how the pieces fit together.
+# changie — Project Guide for AI Agents
 
 ## About This Project
 
-**ckeletin-go** is a production-ready Go CLI scaffold powered by an updatable framework layer — built for humans and AI agents alike.
+**changie** is a CLI tool for managing semantic versioning and Keep a Changelog format changelogs. Built on the [ckeletin-go](https://github.com/peiman/ckeletin-go) scaffold.
 
-The `.ckeletin/` directory contains the **framework** — config registry, logging, validation scripts, task definitions, and ADRs (000-099). Your code lives in `cmd/`, `internal/`, `pkg/`. Framework updates via `task ckeletin:update` without touching your code.
+The `.ckeletin/` directory contains the **framework** — config registry, logging, validation scripts, task definitions, and ADRs. Project code lives in `cmd/`, `internal/`, `pkg/`. Framework updates via `task ckeletin:update` without touching project code.
 
-Every architectural rule in this project is machine-checkable. `task check` is the single gateway — run it before every commit. If it passes, the code is correct regardless of who wrote it.
+`task check` is the single quality gateway — run it before every commit. If it passes, the code is correct.
 
 Key characteristics:
 - Ultra-thin command pattern (commands ≤30 lines, logic in `internal/`)
+- Atomic version bumping with rollback on failure
+- Changelog validation (6 rules: headers, duplicates, links, dates, ordering, blank lines)
+- `--output json` flag for machine-readable output
 - Centralized configuration registry with auto-generated constants
 - Structured logging with Zerolog (dual console + file output)
-- Framework-level `--output json` flag for machine-readable output
-- Bubble Tea for interactive UIs
 - Test-driven development (TDD) — tests first, always
-- Dependency injection over mocking
 - 85% minimum test coverage, enforced by CI
-- Public reusable packages in `pkg/` (e.g., `checkmate` for beautiful CLI output)
 
-**Platform:** macOS and Linux (primary). Windows is supported for core functionality; interactive features (TUI, colored output) may have limitations.
+**Platform:** macOS and Linux (primary). Windows supported for core functionality.
 
 ## Commands
 
@@ -69,29 +64,36 @@ Tests               → test:full (unit + integration + race detection)
 ## Code Organization
 
 ```
-ckeletin-go/
-├── .ckeletin/             # Framework layer (upstream template)
+changie/
+├── .ckeletin/             # Framework layer (upstream ckeletin-go scaffold)
 │   ├── docs/adr/          # Framework ADRs (000-014)
 │   ├── pkg/config/        # Config registry, constants, validation
-│   │   ├── registry.go    # Config option definitions
-│   │   └── keys_generated.go  # Auto-generated constants
 │   ├── pkg/logger/        # Logging infrastructure (Zerolog)
 │   ├── scripts/           # Build, validation, and utility scripts
 │   └── Taskfile.yml       # Framework task definitions
 ├── cmd/                   # Commands (ultra-thin, ≤30 lines each)
 │   ├── root.go            # Root command setup
-│   └── *.go               # Feature commands
+│   ├── bump.go            # Version bump commands (major/minor/patch)
+│   ├── changelog.go       # Changelog command group
+│   ├── changelog_add.go   # Changelog entry commands (added/fixed/etc.)
+│   ├── changelog_validate.go  # Changelog validation
+│   ├── diff.go            # Version diff command
+│   ├── init.go            # Project initialization
+│   └── docs.go            # Documentation generation
 ├── internal/              # Private application code
-│   ├── check/             # Check command (executor, timing, checks)
-│   ├── dev/               # Dev command logic
-│   ├── ping/              # Ping command logic
-│   └── */                 # Other internal packages
-├── pkg/                   # Public reusable libraries (importable by others)
+│   ├── changelog/         # Changelog parsing, validation, formatting
+│   ├── git/               # Git operations (commit, tag, push, rollback)
+│   ├── semver/            # Semantic versioning operations
+│   ├── version/           # Atomic version bump orchestration
+│   ├── ui/                # User interface and rendering
+│   ├── docs/              # Documentation generation
+│   └── config/            # Project-specific configuration
+├── pkg/                   # Public reusable libraries
 │   └── checkmate/         # Beautiful terminal output for check results
+├── examples/              # Workflow, CI, and release example scripts
 ├── test/integration/      # Integration tests
-├── docs/adr/              # Project-specific ADRs
 ├── Taskfile.yml           # Project tasks (includes .ckeletin/Taskfile.yml)
-├── AGENTS.md              # This file (universal project guide)
+├── AGENTS.md              # This file (project guide for AI agents)
 └── CLAUDE.md              # Claude Code-specific behavioral rules
 ```
 
@@ -103,13 +105,15 @@ ckeletin-go/
 
 **30-line guidance:** Target ≤30. 31-35 acceptable if refactoring reduces clarity. Beyond 35 requires refactoring. Example:
 ```go
-// cmd/ping.go — wiring only, no business logic
-func runPing(cmd *cobra.Command, args []string) error {
-    cfg := ping.Config{
-        Message: getConfigValueWithFlags[string](cmd, "message", config.KeyAppPingOutputMessage),
-        Color:   getConfigValueWithFlags[string](cmd, "color", config.KeyAppPingOutputColor),
+// cmd/bump.go — wiring only, no business logic
+func runVersionBump(cmd *cobra.Command, bumpType string) error {
+    cfg := version.BumpConfig{
+        BumpType:       bumpType,
+        AllowAnyBranch: getConfigValueWithFlags[bool](cmd, "allow-any-branch", "app.version.allow_any_branch"),
+        AutoPush:       getConfigValueWithFlags[bool](cmd, "auto-push", "app.changelog.auto_push"),
+        ChangelogFile:  getConfigValueWithFlags[string](cmd, "file", "app.changelog.file"),
     }
-    return ping.NewExecutor(cfg, cmd.OutOrStdout()).Execute()
+    return version.Bump(cfg, cmd.OutOrStdout())
 }
 ```
 
@@ -188,8 +192,8 @@ Every command supports `--output json` for machine-readable output. When active:
 ```json
 {
   "status": "success",
-  "command": "ping",
-  "data": { "message": "Hello", "color": "white", "timestamp": "now" },
+  "command": "validate",
+  "data": { "file": "CHANGELOG.md", "passed": true, "total_rules": 6 },
   "error": null
 }
 ```
@@ -198,14 +202,14 @@ On error:
 ```json
 {
   "status": "error",
-  "command": "ping",
+  "command": "validate",
   "data": null,
-  "error": { "message": "invalid color value", "code": "CONFIG_VALIDATION" }
+  "error": { "message": "changelog validation failed", "code": "VALIDATION" }
 }
 ```
 
 **Config:** `app.output_format` (default: `"text"`, valid: `"text"` or `"json"`)
-**Env var:** `CKELETINGO_APP_OUTPUT_FORMAT=json`
+**Env var:** `CHANGIE_APP_OUTPUT_FORMAT=json`
 **Constant:** `config.KeyAppOutputFormat`
 
 **How it works for command authors:**

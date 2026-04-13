@@ -1,4 +1,4 @@
-# Claude Code Guidelines for ckeletin-go
+# Claude Code Guidelines for changie
 
 **Read [AGENTS.md](AGENTS.md) first** — it contains all project knowledge (architecture, commands, conventions, testing, licensing). This file contains Claude-specific behavioral rules only.
 
