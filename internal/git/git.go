@@ -117,7 +117,7 @@ func CommitChangelog(file, version string) error {
 	}
 
 	// Commit the changes
-	commitMsg := fmt.Sprintf("Release %s", version)
+	commitMsg := fmt.Sprintf("chore(release): %s", version)
 	cmd = exec.Command("git", "commit", "-m", commitMsg) //nolint:gosec // G204: commitMsg is an internally constructed version string
 	err = cmd.Run()
 	if err != nil {
@@ -151,6 +151,31 @@ func TagVersion(version string) error {
 		return fmt.Errorf("failed to create tag: %w (check if tag '%s' already exists, you can delete it with 'git tag -d %s')", err, tagName, tagName)
 	}
 
+	return nil
+}
+
+// DeleteTag deletes a local git tag.
+// Used during rollback to undo a tag created by a failed bump.
+func DeleteTag(tag string) error {
+	cmd := exec.Command("git", "tag", "-d", tag) //nolint:gosec // G204: tag is an internally constructed version string
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to delete tag %s: %w", tag, err)
+	}
+	return nil
+}
+
+// UndoLastCommit resets the last commit, keeping changes in the working directory.
+// Used during rollback to undo a commit created by a failed bump.
+func UndoLastCommit() error {
+	cmd := exec.Command("git", "reset", "--soft", "HEAD~1")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to undo last commit: %w", err)
+	}
+	// Unstage the changes too so the working directory is clean
+	cmd = exec.Command("git", "reset", "HEAD", ".")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to unstage changes: %w", err)
+	}
 	return nil
 }
 

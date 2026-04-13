@@ -2,6 +2,8 @@ package git
 
 import (
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -237,6 +239,137 @@ func TestGetCurrentBranchErrorHandling(t *testing.T) {
 	_, err = GetCurrentBranch()
 	if err == nil {
 		t.Error("Expected error from GetCurrentBranch in non-git dir, but got nil")
+	}
+}
+
+// setupTestRepo creates a temporary git repo with an initial commit and returns
+// the path and a cleanup function. The caller is responsible for chdir.
+func setupTestRepo(t *testing.T) (string, func()) {
+	t.Helper()
+
+	tmpDir, err := os.MkdirTemp("", "git-test-repo-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get cwd: %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to chdir: %v", err)
+	}
+
+	// Init repo and create initial commit
+	for _, args := range [][]string{
+		{"init", "--initial-branch=main"},
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "Test"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = tmpDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %s %v", args, out, err)
+		}
+	}
+
+	// Create a file and initial commit
+	if err := os.WriteFile("README.md", []byte("init"), 0o644); err != nil {
+		t.Fatalf("Failed to write file: %v", err)
+	}
+	exec.Command("git", "add", ".").Run()             //nolint:errcheck
+	exec.Command("git", "commit", "-m", "init").Run() //nolint:errcheck
+
+	cleanup := func() {
+		os.Chdir(origDir) //nolint:errcheck
+		os.RemoveAll(tmpDir)
+	}
+
+	return tmpDir, cleanup
+}
+
+func TestDeleteTag(t *testing.T) {
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create a tag to delete
+	exec.Command("git", "tag", "-a", "v1.0.0", "-m", "v1.0.0").Run() //nolint:errcheck
+
+	// Verify tag exists
+	out, _ := exec.Command("git", "tag", "-l", "v1.0.0").Output()
+	if !strings.Contains(string(out), "v1.0.0") {
+		t.Fatal("Tag should exist before deletion")
+	}
+
+	// Delete it
+	err := DeleteTag("v1.0.0")
+	if err != nil {
+		t.Fatalf("DeleteTag failed: %v", err)
+	}
+
+	// Verify tag is gone
+	out, _ = exec.Command("git", "tag", "-l", "v1.0.0").Output()
+	if strings.Contains(string(out), "v1.0.0") {
+		t.Error("Tag should not exist after deletion")
+	}
+}
+
+func TestDeleteTag_NonExistent(t *testing.T) {
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	err := DeleteTag("v99.99.99")
+	if err == nil {
+		t.Error("Expected error when deleting non-existent tag")
+	}
+}
+
+func TestUndoLastCommit(t *testing.T) {
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Get commit count before
+	out, _ := exec.Command("git", "rev-list", "--count", "HEAD").Output()
+	countBefore := strings.TrimSpace(string(out))
+
+	// Create another commit
+	os.WriteFile("extra.txt", []byte("extra"), 0o644)  //nolint:errcheck,gosec
+	exec.Command("git", "add", ".").Run()              //nolint:errcheck
+	exec.Command("git", "commit", "-m", "extra").Run() //nolint:errcheck
+
+	// Undo it
+	err := UndoLastCommit()
+	if err != nil {
+		t.Fatalf("UndoLastCommit failed: %v", err)
+	}
+
+	// Verify commit count is back
+	out, _ = exec.Command("git", "rev-list", "--count", "HEAD").Output()
+	countAfter := strings.TrimSpace(string(out))
+	if countAfter != countBefore {
+		t.Errorf("Expected %s commits after undo, got %s", countBefore, countAfter)
+	}
+}
+
+func TestCommitChangelog_ConventionalFormat(t *testing.T) {
+	_, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create a changelog file
+	os.WriteFile("CHANGELOG.md", []byte("# Changelog"), 0o644) //nolint:errcheck,gosec
+
+	err := CommitChangelog("CHANGELOG.md", "v1.2.0")
+	if err != nil {
+		t.Fatalf("CommitChangelog failed: %v", err)
+	}
+
+	// Verify commit message uses conventional format
+	out, _ := exec.Command("git", "log", "-1", "--format=%s").Output()
+	msg := strings.TrimSpace(string(out))
+	expected := "chore(release): v1.2.0"
+	if msg != expected {
+		t.Errorf("Commit message = %q, want %q", msg, expected)
 	}
 }
 

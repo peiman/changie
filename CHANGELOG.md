@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced bump command help text with examples and common use cases
 - Configuration search now includes current directory with higher priority than home directory
 - Go version updated to 1.26.1
+- `changie bump` is now atomic — rolls back changelog, commit, and tag on failure
 
 ### Removed
 
@@ -34,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Shadow log noise leaking to console in text mode (INF lines from RenderSuccess)
 - `changie changelog` commands creating excessive blank lines when adding new sections
+- `changie bump` commit message now uses conventional commits format
 
 ## [v1.1.0] - 2025-10-06
 

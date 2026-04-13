@@ -90,7 +90,7 @@ func TestValidateCommand_ValidFile(t *testing.T) {
 	err = cmd.RunE(cmd, []string{})
 
 	assert.NoError(t, err, "valid changelog should succeed")
-	assert.Contains(t, buf.String(), "5")
+	assert.Contains(t, buf.String(), "checks passed")
 }
 
 func TestValidateCommand_InvalidFile(t *testing.T) {

@@ -7,6 +7,7 @@ package version
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/peiman/changie/internal/changelog"
 	"github.com/peiman/changie/internal/git"
@@ -37,79 +38,60 @@ type BumpConfig struct {
 
 // Bump performs a complete version bump workflow.
 //
-// The workflow includes:
-// 1. Verifying git is installed and repository state
-// 2. Optionally checking branch name (main/master)
-// 3. Checking for uncommitted changes
-// 4. Getting current version from git tags
-// 5. Calculating new version based on bump type
-// 6. Updating the changelog file
-// 7. Committing changes and creating git tag
-// 8. Optionally pushing changes to remote
+// The workflow is atomic: if any step fails after mutations begin,
+// all changes are rolled back (changelog restored, commit reverted, tag deleted).
 //
-// Parameters:
-//   - cfg: Configuration for the bump operation
-//   - output: Writer for user-facing output messages
+// Phase 1 — Preflight (no mutations):
+//  1. Verify git is installed
+//  2. Check branch (main/master unless bypassed)
+//  3. Check for uncommitted changes
+//  4. Get current version from git tags
+//  5. Calculate new version
+//  6. Read current changelog content (for rollback)
 //
-// Returns:
-//   - error: Any error encountered during the workflow
+// Phase 2 — Mutate (with rollback on failure):
+//  7. Update changelog file
+//  8. Commit changelog
+//  9. Create git tag
+//  10. Optionally push
 func Bump(cfg BumpConfig, output io.Writer) error {
+	// ── Phase 1: Preflight ──────────────────────────────────────────────
 	logger.Version.Debug().Str("type", cfg.BumpType).Msg("Starting version bump")
 
-	// Check if git is installed
 	if !git.IsInstalled() {
-		err := fmt.Errorf("git is not installed or not available in PATH - please install Git (https://git-scm.com/downloads) and ensure it's in your system PATH")
-		logger.Version.Error().Err(err).Msg("Failed to run git")
-		return err
+		return fmt.Errorf("git is not installed or not available in PATH - please install Git (https://git-scm.com/downloads) and ensure it's in your system PATH")
 	}
 
-	// Check if we're on main/master branch (unless bypassed)
 	if !cfg.AllowAnyBranch {
 		currentBranch, err := git.GetCurrentBranch()
 		if err != nil {
-			logger.Version.Error().Err(err).Msg("Failed to get current branch")
 			return fmt.Errorf("failed to get current branch: %w", err)
 		}
-
 		if currentBranch != "main" && currentBranch != "master" {
-			err := fmt.Errorf("not on main/master branch (current: %s) - version bumps should typically be done on the main branch to maintain a clean release history. Use --allow-any-branch to bypass this check if you're working with release branches or have a different workflow", currentBranch)
-			logger.Version.Error().Err(err).Str("branch", currentBranch).Msg("Branch check failed")
-			return err
+			return fmt.Errorf("not on main/master branch (current: %s) - use --allow-any-branch to bypass", currentBranch)
 		}
 		logger.Version.Debug().Str("branch", currentBranch).Msg("Branch check passed")
-	} else {
-		logger.Version.Debug().Msg("Branch check bypassed with --allow-any-branch flag")
 	}
 
-	// Check for uncommitted changes
-	hasUncommittedChanges, err := git.HasUncommittedChanges()
+	hasUncommitted, err := git.HasUncommittedChanges()
 	if err != nil {
-		logger.Version.Error().Err(err).Msg("Failed to check for uncommitted changes")
 		return fmt.Errorf("failed to check for uncommitted changes: %w", err)
 	}
-
-	if hasUncommittedChanges {
-		err := fmt.Errorf("uncommitted changes found - run 'git status' to see changed files, then either commit changes with 'git commit' or stash them with 'git stash' before bumping version")
-		logger.Version.Error().Err(err).Msg("Failed to bump version")
-		return err
+	if hasUncommitted {
+		return fmt.Errorf("uncommitted changes found - commit or stash them before bumping version")
 	}
 
-	// Get current version from git
 	currentVersion, err := git.GetVersion()
 	if err != nil {
-		logger.Version.Error().Err(err).Msg("Failed to get current version from git")
-		return fmt.Errorf("failed to get current version: %w - ensure you're in a git repository with at least one tag, or initialize with 'git tag v0.0.0'", err)
+		return fmt.Errorf("failed to get current version: %w - ensure you have at least one tag, or run 'git tag v0.0.0'", err)
 	}
-
-	// Log current version
 	if currentVersion == "" {
-		currentVersion = "0.0.0" // Default if no tag exists
+		currentVersion = "0.0.0"
 		_, _ = fmt.Fprintf(output, "No version tag found, starting from %s\n", currentVersion)
 	} else {
 		_, _ = fmt.Fprintf(output, "Current version: %s\n", currentVersion)
 	}
 
-	// Bump version according to type
 	var newVersion string
 	switch cfg.BumpType {
 	case "major":
@@ -121,52 +103,92 @@ func Bump(cfg BumpConfig, output io.Writer) error {
 	default:
 		err = fmt.Errorf("invalid bump type: %s - must be one of: major, minor, patch", cfg.BumpType)
 	}
-
 	if err != nil {
-		logger.Version.Error().Err(err).Str("type", cfg.BumpType).Str("current_version", currentVersion).Msg("Failed to bump version")
-		return fmt.Errorf("failed to bump version: %w - check if the current version (%s) is a valid semantic version in the format X.Y.Z", err, currentVersion)
+		return fmt.Errorf("failed to bump version: %w", err)
 	}
 
 	_, _ = fmt.Fprintf(output, "New version: %s\n", newVersion)
 
-	// Update changelog
+	// Save changelog content for rollback
+	originalChangelog, err := os.ReadFile(cfg.ChangelogFile) //nolint:gosec // G304: user-specified changelog path
+	if err != nil {
+		return fmt.Errorf("failed to read changelog for backup: %w", err)
+	}
+
+	// ── Phase 2: Mutate (with rollback) ─────────────────────────────────
+	rollback := &rollbackState{
+		changelogFile:   cfg.ChangelogFile,
+		originalContent: originalChangelog,
+		committed:       false,
+		tagged:          false,
+		tagName:         newVersion,
+	}
+
 	_, _ = fmt.Fprintf(output, "Updating changelog file: %s\n", cfg.ChangelogFile)
-	err = changelog.UpdateChangelog(cfg.ChangelogFile, newVersion, cfg.RepositoryProvider)
-	if err != nil {
-		logger.Version.Error().Err(err).Str("file", cfg.ChangelogFile).Str("version", newVersion).Msg("Failed to update changelog")
-		return fmt.Errorf("failed to update changelog: %w - verify that '%s' exists and follows the Keep a Changelog format", err, cfg.ChangelogFile)
+	if err := changelog.UpdateChangelog(cfg.ChangelogFile, newVersion, cfg.RepositoryProvider); err != nil {
+		rollback.execute(output)
+		return fmt.Errorf("failed to update changelog: %w", err)
 	}
 
-	// Commit changes
-	err = git.CommitChangelog(cfg.ChangelogFile, newVersion)
-	if err != nil {
-		logger.Version.Error().Err(err).Str("file", cfg.ChangelogFile).Str("version", newVersion).Msg("Failed to commit changelog")
-		return fmt.Errorf("failed to commit changelog: %w - ensure git is properly configured and you have permissions to commit changes", err)
+	if err := git.CommitChangelog(cfg.ChangelogFile, newVersion); err != nil {
+		rollback.execute(output)
+		return fmt.Errorf("failed to commit changelog: %w", err)
 	}
+	rollback.committed = true
 
-	// Tag version
 	_, _ = fmt.Fprintf(output, "Tagging version: %s\n", newVersion)
-	err = git.TagVersion(newVersion)
-	if err != nil {
-		logger.Version.Error().Err(err).Str("version", newVersion).Msg("Failed to tag version")
-		return fmt.Errorf("failed to tag version: %w - check if the tag already exists (use 'git tag' to list existing tags)", err)
+	if err := git.TagVersion(newVersion); err != nil {
+		rollback.execute(output)
+		return fmt.Errorf("failed to tag version: %w", err)
 	}
+	rollback.tagged = true
 
 	_, _ = fmt.Fprintf(output, "%s release %s done.\n", cfg.BumpType, newVersion)
 
-	// Auto-push if enabled
 	if cfg.AutoPush {
 		_, _ = fmt.Fprintf(output, "Pushing changes and tags...\n")
-		err = git.PushChanges()
-		if err != nil {
-			logger.Version.Error().Err(err).Msg("Failed to push changes")
-			return fmt.Errorf("failed to push changes: %w - check network connection and remote repository permissions", err)
+		if err := git.PushChanges(); err != nil {
+			rollback.execute(output)
+			return fmt.Errorf("failed to push changes: %w", err)
 		}
-		_, _ = fmt.Fprintf(output, "Automatically pushed changes and tags to remote repository.\n")
+		_, _ = fmt.Fprintf(output, "Pushed changes and tags to remote.\n")
 	} else {
 		_, _ = fmt.Fprintf(output, "Don't forget to git push and git push --tags.\n")
 	}
 
-	logger.Version.Debug().Str("type", cfg.BumpType).Str("version", newVersion).Msg("Version bump completed successfully")
+	logger.Version.Debug().Str("type", cfg.BumpType).Str("version", newVersion).Msg("Version bump completed")
 	return nil
+}
+
+// rollbackState tracks which mutations have been applied so they can be undone.
+type rollbackState struct {
+	changelogFile   string
+	originalContent []byte
+	committed       bool
+	tagged          bool
+	tagName         string
+}
+
+// execute undoes all completed mutations in reverse order.
+func (r *rollbackState) execute(output io.Writer) {
+	_, _ = fmt.Fprintf(output, "Rolling back changes...\n")
+
+	if r.tagged {
+		if err := git.DeleteTag(r.tagName); err != nil {
+			logger.Version.Error().Err(err).Str("tag", r.tagName).Msg("Rollback: failed to delete tag")
+		}
+	}
+
+	if r.committed {
+		if err := git.UndoLastCommit(); err != nil {
+			logger.Version.Error().Err(err).Msg("Rollback: failed to undo commit")
+		}
+	}
+
+	// Always restore the changelog file to its original content
+	if err := os.WriteFile(r.changelogFile, r.originalContent, 0o644); err != nil { //nolint:gosec // G306: changelog needs 0644
+		logger.Version.Error().Err(err).Str("file", r.changelogFile).Msg("Rollback: failed to restore changelog")
+	}
+
+	_, _ = fmt.Fprintf(output, "Rollback complete.\n")
 }

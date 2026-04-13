@@ -456,8 +456,8 @@ func TestBump_InvalidChangelogFile(t *testing.T) {
 
 	err := Bump(cfg, &output)
 	require.Error(t, err, "Expected error with nonexistent changelog file")
-	assert.Contains(t, err.Error(), "failed to update changelog",
-		"Error should mention changelog update failure")
+	assert.Contains(t, err.Error(), "failed to read changelog",
+		"Error should mention changelog read failure")
 }
 
 func TestBumpConfig(t *testing.T) {
@@ -571,7 +571,7 @@ func TestBump_AutoPush(t *testing.T) {
 
 	outputStr := output.String()
 	assert.Contains(t, outputStr, "Pushing changes and tags")
-	assert.Contains(t, outputStr, "Automatically pushed")
+	assert.Contains(t, outputStr, "Pushed changes and tags")
 	assert.Contains(t, outputStr, "v1.0.1")
 
 	// Verify the tag exists on the remote
