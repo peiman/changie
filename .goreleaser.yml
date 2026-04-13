@@ -202,7 +202,7 @@ brews:
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
 
     # Description for Homebrew
-    description: "A professional Golang CLI scaffold for building beautiful, robust, and modular command-line applications"
+    description: "CLI tool for managing semantic versioning and Keep a Changelog format changelogs"
 
     homepage: "{{ .GitURL }}"
 
