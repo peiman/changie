@@ -185,9 +185,9 @@ brews:
     skip_upload: '{{ if index .Env "HOMEBREW_TAP_OWNER" }}false{{ else }}true{{ end }}'
 
     repository:
-      owner: '{{ if index .Env "HOMEBREW_TAP_OWNER" }}{{ .Env.HOMEBREW_TAP_OWNER }}{{ else }}SKIP{{ end }}'
+      owner: "{{ .Env.HOMEBREW_TAP_OWNER }}"
       name: homebrew-tap
-      token: '{{ if index .Env "HOMEBREW_TAP_GITHUB_TOKEN" }}{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}{{ else }}{{ end }}'
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
 
     # Folder inside the repository
     directory: Formula
