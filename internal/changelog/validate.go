@@ -216,8 +216,14 @@ func checkBrokenLinks(lines []string) ValidationResult {
 	}
 
 	// Find headers missing links
+	// Special case: [Unreleased] alone (fresh init) doesn't need a link
+	// because there's no previous version to compare against yet.
+	unreleasedOnly := len(headersSet) == 1 && headersSet["Unreleased"]
 	for v := range headersSet {
 		if !linksSet[v] {
+			if v == "Unreleased" && unreleasedOnly {
+				continue
+			}
 			details = append(details, fmt.Sprintf("Version [%s] has no matching reference link", v))
 		}
 	}

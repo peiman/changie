@@ -86,7 +86,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "No existing version tags found.\n")
 			result, err := ui.AskYesNo("Would you like to use 'v' prefix for version tags? (e.g., v1.0.0 vs 1.0.0)", true, cmd.OutOrStdout())
 			if err != nil {
-				log.Warn().Err(err).Msg("Error reading input, defaulting to use 'v' prefix")
+				log.Debug().Err(err).Msg("Error reading input, defaulting to use 'v' prefix")
 			}
 			useVPrefix = result
 		}
@@ -96,7 +96,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	viper.Set("app.version.use_v_prefix", useVPrefix)
 
 	// Log the decision
-	log.Info().Bool("use_v_prefix", useVPrefix).Msg("Version prefix configuration set")
+	log.Debug().Bool("use_v_prefix", useVPrefix).Msg("Version prefix configuration set")
 	prefixText := ""
 	if !useVPrefix {
 		prefixText = "not "
@@ -104,7 +104,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Version tags will %suse 'v' prefix.\n", prefixText)
 
 	// Initialize the changelog
-	log.Info().Str("file", file).Msg("Initializing project with changelog file")
+	log.Debug().Str("file", file).Msg("Initializing project with changelog file")
 
 	if err := changelog.InitProject(file); err != nil {
 		log.Debug().Err(err).Str("file", file).Msg("Failed to initialize project")
@@ -118,11 +118,11 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		currentVersion, err := git.GetVersion()
 		if err == nil && currentVersion == "" {
 			// No tags exist, create initial commit and tag
-			log.Info().Msg("No version tags found, creating initial commit and tag")
+			log.Debug().Msg("No version tags found, creating initial commit and tag")
 
 			// Add changelog file to git
 			if err := git.CommitChangelog(file, "0.0.0"); err != nil {
-				log.Warn().Err(err).Msg("Failed to create initial commit, continuing anyway")
+				log.Debug().Err(err).Msg("Failed to create initial commit, continuing anyway")
 			} else {
 				// Create initial tag
 				initialTag := "0.0.0"
@@ -131,10 +131,10 @@ func runInit(cmd *cobra.Command, _ []string) error {
 				}
 
 				if err := git.TagVersion(initialTag); err != nil {
-					log.Warn().Err(err).Str("tag", initialTag).Msg("Failed to create initial tag, continuing anyway")
+					log.Debug().Err(err).Str("tag", initialTag).Msg("Failed to create initial tag, continuing anyway")
 				} else {
 					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created initial git tag: %s\n", initialTag)
-					log.Info().Str("tag", initialTag).Msg("Created initial git tag")
+					log.Debug().Str("tag", initialTag).Msg("Created initial git tag")
 				}
 			}
 		}

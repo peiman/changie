@@ -69,6 +69,13 @@ func TestValidateChangelog_WithFailures(t *testing.T) {
 	assert.Equal(t, report.PassCount+report.FailCount, report.TotalRules)
 }
 
+func TestValidateChangelog_FreshInit(t *testing.T) {
+	// A freshly initialized changelog (from changie init) must pass validation
+	report := ValidateChangelog(changelogTemplate, "CHANGELOG.md")
+	assert.True(t, report.Passed, "freshly initialized changelog should pass validation, failures: %v", report.Results)
+	assert.Equal(t, report.TotalRules, report.PassCount)
+}
+
 func TestValidateChangelog_EmptyContent(t *testing.T) {
 	report := ValidateChangelog("", "CHANGELOG.md")
 	assert.NotNil(t, report)
@@ -362,6 +369,18 @@ func TestCheckBrokenLinks(t *testing.T) {
 - Some entry
 `,
 			wantPassed: false,
+		},
+		{
+			name: "Unreleased only without link passes (fresh init)",
+			content: `# Changelog
+
+## [Unreleased]
+
+### Added
+
+- First feature
+`,
+			wantPassed: true,
 		},
 		{
 			name: "no headers and no links passes",
