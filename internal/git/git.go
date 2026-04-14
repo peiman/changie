@@ -119,9 +119,9 @@ func CommitChangelog(file, version string) error {
 	// Commit the changes
 	commitMsg := fmt.Sprintf("chore(release): %s", version)
 	cmd = exec.Command("git", "commit", "-m", commitMsg) //nolint:gosec // G204: commitMsg is an internally constructed version string
-	err = cmd.Run()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to commit changelog: %w (ensure git user.name and user.email are configured correctly with 'git config')", err)
+		return fmt.Errorf("failed to commit changelog: %w\n%s", err, string(output))
 	}
 
 	return nil
