@@ -16,7 +16,7 @@ source "${SCRIPT_DIR}/lib/check-output.sh"
 ALLOWED_LICENSES="${LICENSE_ALLOWED:-MIT,Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,0BSD,Unlicense}"
 
 # Get module path to ignore self
-MODULE_PATH=$(go list -m 2>/dev/null || echo "github.com/peiman/changie")
+MODULE_PATH=$(go list -m 2>/dev/null || echo "github.com/peiman/ckeletin-go")
 
 check_header "Checking dependency licenses (source-based)"
 

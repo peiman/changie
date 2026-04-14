@@ -68,7 +68,7 @@ if os.Getenv("DEV_MODE") == "true" {
 **3. Submodule/Plugin System**
 ```go
 // Load dev commands from external module
-plugin.Load("github.com/peiman/changie-devtools")
+plugin.Load("github.com/peiman/ckeletin-go-devtools")
 ```
 - **Pros**: Complete modularity, extensible
 - **Cons**:

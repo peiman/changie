@@ -136,12 +136,12 @@ See [ADR-009](009-layered-architecture-pattern.md) for complete rationale and al
 ```go
 // ❌ VIOLATION: Business logic importing command layer
 // internal/ping/executor.go
-import "github.com/peiman/changie/cmd"
+import "github.com/peiman/ckeletin-go/cmd"
 // Error: Component business shouldn't depend on cmd
 
 // ❌ VIOLATION: Business logic importing other business logic
 // internal/ping/executor.go
-import "github.com/peiman/changie/internal/docs"
+import "github.com/peiman/ckeletin-go/internal/docs"
 // Error: Component business shouldn't depend on internal/docs
 ```
 
@@ -165,26 +165,26 @@ When you run `task validate:layering`, go-arch-lint checks all dependency rules 
 $ task validate:layering
 🔍 Validating layered architecture (ADR-009)...
 ✅ go-arch-lint installed successfully
-Component business shouldn't depend on github.com/peiman/changie/cmd in internal/ping/ping.go:9
+Component business shouldn't depend on github.com/peiman/ckeletin-go/cmd in internal/ping/ping.go:9
 ❌ Layered architecture validation failed
 ```
 
 This violation occurs when business logic tries to import from `cmd/`:
 ```go
 // ❌ internal/ping/ping.go:9
-import "github.com/peiman/changie/cmd"
+import "github.com/peiman/ckeletin-go/cmd"
 ```
 
 **Example 2: Business logic importing other business logic**
 
 ```bash
-Component business shouldn't depend on github.com/peiman/changie/internal/docs in internal/ping/ping.go:10
+Component business shouldn't depend on github.com/peiman/ckeletin-go/internal/docs in internal/ping/ping.go:10
 ```
 
 This violation occurs when business logic packages try to import each other:
 ```go
 // ❌ internal/ping/ping.go:10
-import "github.com/peiman/changie/internal/docs"
+import "github.com/peiman/ckeletin-go/internal/docs"
 ```
 
 **Fix:** Remove the forbidden import and refactor:

@@ -10,7 +10,7 @@ OUTPUT_FILE="$OUTPUT_DIR/licenses.csv"
 ERROR_LOG="$OUTPUT_DIR/license-errors.log"
 
 # Get module path to ignore self
-MODULE_PATH=$(go list -m 2>/dev/null || echo "github.com/peiman/changie")
+MODULE_PATH=$(go list -m 2>/dev/null || echo "github.com/peiman/ckeletin-go")
 
 echo "📊 Generating license report..."
 echo "   Tool: go-licenses"

@@ -50,7 +50,7 @@ func CoreOptions() []ConfigOption {
 			Description:  "Path to the log file (created with secure 0600 permissions)",
 			Type:         "string",
 			Required:     false,
-			Example:      "/var/log/ckeletin-go/app.log",
+			Example:      "/var/log/changie/app.log",
 		},
 		{
 			Key:          "app.log.file_level",

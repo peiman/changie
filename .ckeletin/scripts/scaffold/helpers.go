@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,7 @@ import (
 // replaceModulePreservingPkg replaces oldModule with newModule in content,
 // but preserves lines that reference oldModule/pkg/ (external library imports).
 // This allows derived projects to keep pkg/ packages as external dependencies
-// from the original ckeletin-go module.
+// from the original changie module.
 func replaceModulePreservingPkg(content, oldModule, newModule string) string {
 	pkgPrefix := oldModule + "/pkg/"
 	lines := strings.Split(content, "\n")
@@ -24,13 +25,45 @@ func replaceModulePreservingPkg(content, oldModule, newModule string) string {
 
 // removePkgDirectory removes the pkg/ directory from the project root.
 // After scaffold init, pkg/ packages (like checkmate) are consumed as external
-// dependencies from the original ckeletin-go module, not local copies.
+// dependencies from the original changie module, not local copies.
 func removePkgDirectory(projectRoot string) error {
 	pkgDir := filepath.Join(projectRoot, "pkg")
 	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
 		return nil // Nothing to remove
 	}
 	return os.RemoveAll(pkgDir)
+}
+
+// removeFrameworkOnlyArtifacts removes files and directories that are specific
+// to the changie framework development and should not be in downstream projects.
+// This includes conformance testing (spec compliance), scaffold integration tests,
+// and the conformance mapping.
+func removeFrameworkOnlyArtifacts(projectRoot string) error {
+	artifacts := []string{
+		"test/conformance",
+		"conformance-mapping.yaml",
+	}
+	for _, artifact := range artifacts {
+		path := filepath.Join(projectRoot, artifact)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			continue
+		}
+		if err := os.RemoveAll(path); err != nil {
+			return fmt.Errorf("removing %s: %w", artifact, err)
+		}
+	}
+
+	// Remove scaffold build tag from integration tests — downstream projects
+	// keep the integration tests but don't need the scaffold tag since they
+	// won't run scaffold init on themselves.
+	scaffoldTest := filepath.Join(projectRoot, "test", "integration", "scaffold_init_test.go")
+	if _, err := os.Stat(scaffoldTest); err == nil {
+		if err := os.Remove(scaffoldTest); err != nil {
+			return fmt.Errorf("removing scaffold_init_test.go: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // parseModuleParts extracts the second and third path segments from a Go module path.
@@ -41,7 +74,7 @@ func removePkgDirectory(projectRoot string) error {
 // For "mymodule", returns ("", "mymodule").
 // toEnvPrefix converts a binary name to its environment variable prefix form.
 // Uppercases the name and replaces non-alphanumeric characters with underscores.
-// For "ckeletin-go" returns "CKELETIN_GO", for "myapp" returns "MYAPP".
+// For "changie" returns "CHANGIE", for "myapp" returns "MYAPP".
 func toEnvPrefix(name string) string {
 	upper := strings.ToUpper(name)
 	var result strings.Builder
@@ -248,10 +281,12 @@ func replaceNameInGoFiles(root, oldName, newName string) (int, error) {
 	return count, err
 }
 
-// cleanArchLintConfig removes the public component from .go-arch-lint.yml.
+// cleanArchLintConfig removes the public component from .go-arch-lint.yml
+// and registers the upstream module's pkg/ as a vendor dependency.
 // Called after pkg/ is removed during scaffold init, since the public component
-// references pkg/** which no longer exists.
-func cleanArchLintConfig(projectRoot string) error {
+// references pkg/** which no longer exists. The upstream pkg/ is now consumed
+// as an external dependency via replace directive.
+func cleanArchLintConfig(projectRoot, oldModule string) error {
 	configPath := filepath.Join(projectRoot, ".go-arch-lint.yml")
 
 	content, err := os.ReadFile(configPath)
@@ -321,7 +356,80 @@ func cleanArchLintConfig(projectRoot string) error {
 	}
 
 	updated := strings.Join(result, "\n")
+
 	if updated == original {
+		return nil
+	}
+
+	return os.WriteFile(configPath, []byte(updated), 0600)
+}
+
+// registerUpstreamVendor adds the upstream module's pkg/ as a vendor dependency
+// in .go-arch-lint.yml. Called AFTER text replacement so the upstream module
+// path isn't rewritten to the new module path.
+func registerUpstreamVendor(projectRoot, oldModule string) error {
+	configPath := filepath.Join(projectRoot, ".go-arch-lint.yml")
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	updated := string(content)
+
+	// Check if depOnAnyVendor is false (vendor registration only needed then)
+	if !strings.Contains(updated, "depOnAnyVendor: false") {
+		return nil
+	}
+
+	pkgVendor := oldModule + "/pkg/**"
+
+	// Add vendor entry before commonComponents
+	vendorBlock := fmt.Sprintf(
+		"\n  # Upstream framework public packages\n  ckeletin-pkg:\n    in: %s\n",
+		pkgVendor)
+
+	if idx := strings.Index(updated, "commonComponents:"); idx != -1 {
+		insertAt := strings.LastIndex(updated[:idx], "\n")
+		if insertAt != -1 {
+			updated = updated[:insertAt] + vendorBlock + updated[insertAt:]
+		}
+	}
+
+	// Add ckeletin-pkg to canUse for business and infrastructure
+	lines := strings.Split(updated, "\n")
+	var finalLines []string
+	inDepsSection := false
+	currentComponent := ""
+
+	for i, line := range lines {
+		finalLines = append(finalLines, line)
+		trimmed := strings.TrimSpace(line)
+
+		if trimmed == "deps:" {
+			inDepsSection = true
+		}
+
+		if inDepsSection {
+			// Component names are at 2-space indent (direct children of deps:)
+			if strings.HasSuffix(line, ":") && len(line) > 2 && line[:2] == "  " && line[2] != ' ' {
+				currentComponent = strings.TrimSuffix(strings.TrimSpace(line), ":")
+			}
+
+			if trimmed == "canUse:" && (currentComponent == "business" || currentComponent == "infrastructure") {
+				if i+1 < len(lines) && !strings.Contains(lines[i+1], "ckeletin-pkg") {
+					finalLines = append(finalLines, "      - ckeletin-pkg")
+				}
+			}
+		}
+	}
+
+	updated = strings.Join(finalLines, "\n")
+
+	if updated == string(content) {
 		return nil
 	}
 

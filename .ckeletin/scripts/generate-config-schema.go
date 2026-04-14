@@ -45,8 +45,8 @@ func main() {
 	schema := &schemaBuilder{
 		root: map[string]interface{}{
 			"$schema":     "https://json-schema.org/draft/2020-12/schema",
-			"title":       "ckeletin-go configuration",
-			"description": "Configuration schema for ckeletin-go CLI applications. Generated from the config registry.",
+			"title":       "changie configuration",
+			"description": "Configuration schema for changie CLI applications. Generated from the config registry.",
 			"type":        "object",
 			"properties":  map[string]interface{}{},
 		},

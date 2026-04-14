@@ -1,4 +1,4 @@
-// Scaffold initialization script for ckeletin-go
+// Scaffold initialization script for changie
 //
 // This script automates the process of customizing the scaffold by:
 // - Updating module path in go.mod
@@ -13,7 +13,7 @@
 //
 // Example:
 //
-//	go run ./.ckeletin/scripts/scaffold/ github.com/peiman/changie github.com/myuser/myapp ckeletin-go myapp
+//	go run ./.ckeletin/scripts/scaffold/ github.com/peiman/changie github.com/myuser/myapp changie myapp
 package main
 
 import (
@@ -29,7 +29,7 @@ func main() {
 	// Parse arguments
 	if len(os.Args) != 5 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <old_module> <new_module> <old_name> <new_name>\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Example: %s github.com/peiman/changie github.com/myuser/myapp ckeletin-go myapp\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Example: %s github.com/peiman/changie github.com/myuser/myapp changie myapp\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -112,8 +112,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Println("  ✓ Removing framework-only artifacts (conformance tests, scaffold tests)")
+	if err := removeFrameworkOnlyArtifacts("."); err != nil {
+		fmt.Fprintf(os.Stderr, "Error removing framework artifacts: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Println("  ✓ Updating .go-arch-lint.yml (removing pkg/ references)")
-	if err := cleanArchLintConfig("."); err != nil {
+	// Note: vendor registration for upstream pkg/ happens after text replacement
+	// to avoid replaceInTextFiles rewriting the upstream module path.
+	if err := cleanArchLintConfig(".", ""); err != nil {
 		fmt.Fprintf(os.Stderr, "Error updating .go-arch-lint.yml: %v\n", err)
 		os.Exit(1)
 	}
@@ -169,7 +177,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error updating Go files: %v\n", err)
 		os.Exit(1)
 	}
-	// Also replace the env var prefix form (CKELETIN_GO → TESTAPP)
+	// Also replace the env var prefix form (CHANGIE → TESTAPP)
 	oldEnvPrefix := toEnvPrefix(oldName)
 	newEnvPrefix := toEnvPrefix(newName)
 	if oldEnvPrefix != newEnvPrefix {
@@ -182,6 +190,14 @@ func main() {
 	}
 	if goCount > 0 {
 		fmt.Printf("    Updated %d Go files\n", goCount)
+	}
+
+	// Register upstream pkg/ as vendor AFTER text replacement
+	// (replaceInTextFiles would rewrite oldModule to newModule in the vendor entry)
+	fmt.Println("  ✓ Registering upstream pkg/ as vendor dependency")
+	if err := registerUpstreamVendor(".", oldModule); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering upstream vendor: %v\n", err)
+		os.Exit(1)
 	}
 
 	fmt.Println("  ✓ Running go mod tidy")

@@ -1,4 +1,4 @@
-// Command generator for ckeletin-go
+// Command generator for changie
 //
 // Generates the full command pattern:
 //   - cmd/<name>.go             — ultra-thin wrapper using MustNewCommand/MustAddToRoot

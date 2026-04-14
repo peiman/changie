@@ -10,7 +10,7 @@ import (
 )
 
 func TestReplaceModulePreservingPkg(t *testing.T) {
-	const oldModule = "github.com/peiman/changie"
+	const oldModule = "github.com/peiman/ckeletin-go"
 	const newModule = "github.com/user/myapp"
 
 	tests := []struct {
@@ -20,53 +20,53 @@ func TestReplaceModulePreservingPkg(t *testing.T) {
 	}{
 		{
 			name:     "replaces standard internal import",
-			input:    `import "github.com/peiman/changie/internal/check"`,
+			input:    `import "github.com/peiman/ckeletin-go/internal/check"`,
 			expected: `import "github.com/user/myapp/internal/check"`,
 		},
 		{
 			name:     "replaces .ckeletin import",
-			input:    `import "github.com/peiman/changie/.ckeletin/pkg/config"`,
+			input:    `import "github.com/peiman/ckeletin-go/.ckeletin/pkg/config"`,
 			expected: `import "github.com/user/myapp/.ckeletin/pkg/config"`,
 		},
 		{
 			name:     "preserves pkg/checkmate import",
-			input:    `	"github.com/peiman/changie/pkg/checkmate"`,
-			expected: `	"github.com/peiman/changie/pkg/checkmate"`,
+			input:    `	"github.com/peiman/ckeletin-go/pkg/checkmate"`,
+			expected: `	"github.com/peiman/ckeletin-go/pkg/checkmate"`,
 		},
 		{
 			name:     "preserves any pkg/ import",
-			input:    `	"github.com/peiman/changie/pkg/somefuture"`,
-			expected: `	"github.com/peiman/changie/pkg/somefuture"`,
+			input:    `	"github.com/peiman/ckeletin-go/pkg/somefuture"`,
+			expected: `	"github.com/peiman/ckeletin-go/pkg/somefuture"`,
 		},
 		{
 			name: "handles mixed import block",
 			input: `import (
 	"fmt"
-	"github.com/peiman/changie/internal/ping"
-	"github.com/peiman/changie/pkg/checkmate"
-	"github.com/peiman/changie/.ckeletin/pkg/config"
+	"github.com/peiman/ckeletin-go/internal/ping"
+	"github.com/peiman/ckeletin-go/pkg/checkmate"
+	"github.com/peiman/ckeletin-go/.ckeletin/pkg/config"
 )`,
 			expected: `import (
 	"fmt"
 	"github.com/user/myapp/internal/ping"
-	"github.com/peiman/changie/pkg/checkmate"
+	"github.com/peiman/ckeletin-go/pkg/checkmate"
 	"github.com/user/myapp/.ckeletin/pkg/config"
 )`,
 		},
 		{
 			name:     "replaces module in go.mod line",
-			input:    `module github.com/peiman/changie`,
+			input:    `module github.com/peiman/ckeletin-go`,
 			expected: `module github.com/user/myapp`,
 		},
 		{
 			name:     "replaces module reference in comments",
-			input:    `// See github.com/peiman/changie/internal/check for details`,
+			input:    `// See github.com/peiman/ckeletin-go/internal/check for details`,
 			expected: `// See github.com/user/myapp/internal/check for details`,
 		},
 		{
 			name:     "preserves pkg/ reference in comments",
-			input:    `// Uses github.com/peiman/changie/pkg/checkmate for output`,
-			expected: `// Uses github.com/peiman/changie/pkg/checkmate for output`,
+			input:    `// Uses github.com/peiman/ckeletin-go/pkg/checkmate for output`,
+			expected: `// Uses github.com/peiman/ckeletin-go/pkg/checkmate for output`,
 		},
 		{
 			name:     "no changes when no module reference",
@@ -241,11 +241,11 @@ func TestReplaceInTextFiles(t *testing.T) {
 
 		readme := filepath.Join(tmpDir, "README.md")
 		require.NoError(t, os.WriteFile(readme, []byte(
-			"[![Build](https://github.com/peiman/changie/actions)]\nProject: ckeletin-go\n",
+			"[![Build](https://github.com/peiman/ckeletin-go/actions)]\nProject: ckeletin-go\n",
 		), 0600))
 
 		replacements := []StringReplacement{
-			{Old: "github.com/peiman/changie", New: "github.com/me/myapp"},
+			{Old: "github.com/peiman/ckeletin-go", New: "github.com/me/myapp"},
 			{Old: "peiman/ckeletin-go", New: "me/myapp"},
 			{Old: "ckeletin-go", New: "myapp"},
 		}
@@ -351,11 +351,11 @@ func TestReplaceInTextFiles(t *testing.T) {
 
 		mdFile := filepath.Join(tmpDir, "test.md")
 		require.NoError(t, os.WriteFile(mdFile, []byte(
-			"url: github.com/peiman/changie\nowner: peiman/ckeletin-go\nname: ckeletin-go\n",
+			"url: github.com/peiman/ckeletin-go\nowner: peiman/ckeletin-go\nname: ckeletin-go\n",
 		), 0600))
 
 		replacements := []StringReplacement{
-			{Old: "github.com/peiman/changie", New: "github.com/me/myapp"},
+			{Old: "github.com/peiman/ckeletin-go", New: "github.com/me/myapp"},
 			{Old: "peiman/ckeletin-go", New: "me/myapp"},
 			{Old: "ckeletin-go", New: "myapp"},
 		}
@@ -391,7 +391,7 @@ func TestReplaceInTextFiles(t *testing.T) {
 		require.NoError(t, os.MkdirAll(nestedDir, 0750))
 		require.NoError(t, os.WriteFile(
 			filepath.Join(nestedDir, "config.yml"),
-			[]byte("url: https://github.com/peiman/changie/discussions"),
+			[]byte("url: https://github.com/peiman/ckeletin-go/discussions"),
 			0600,
 		))
 
@@ -452,6 +452,57 @@ func TestRemovePkgDirectory(t *testing.T) {
 	})
 }
 
+func TestRemoveFrameworkOnlyArtifacts(t *testing.T) {
+	t.Run("removes conformance tests and mapping", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create framework-only artifacts
+		conformDir := filepath.Join(tmpDir, "test", "conformance")
+		require.NoError(t, os.MkdirAll(conformDir, 0750))
+		require.NoError(t, os.WriteFile(
+			filepath.Join(conformDir, "violation_test.go"),
+			[]byte("package conformance"), 0600))
+
+		require.NoError(t, os.WriteFile(
+			filepath.Join(tmpDir, "conformance-mapping.yaml"),
+			[]byte("spec_version: 0.3.0"), 0600))
+
+		scaffoldTest := filepath.Join(tmpDir, "test", "integration")
+		require.NoError(t, os.MkdirAll(scaffoldTest, 0750))
+		require.NoError(t, os.WriteFile(
+			filepath.Join(scaffoldTest, "scaffold_init_test.go"),
+			[]byte("package integration"), 0600))
+
+		// Create a file that should survive
+		require.NoError(t, os.WriteFile(
+			filepath.Join(scaffoldTest, "other_test.go"),
+			[]byte("package integration"), 0600))
+
+		err := removeFrameworkOnlyArtifacts(tmpDir)
+		assert.NoError(t, err)
+
+		// Framework artifacts removed
+		_, err = os.Stat(filepath.Join(tmpDir, "test", "conformance"))
+		assert.True(t, os.IsNotExist(err), "test/conformance/ should be removed")
+
+		_, err = os.Stat(filepath.Join(tmpDir, "conformance-mapping.yaml"))
+		assert.True(t, os.IsNotExist(err), "conformance-mapping.yaml should be removed")
+
+		_, err = os.Stat(filepath.Join(scaffoldTest, "scaffold_init_test.go"))
+		assert.True(t, os.IsNotExist(err), "scaffold_init_test.go should be removed")
+
+		// Other files preserved
+		_, err = os.Stat(filepath.Join(scaffoldTest, "other_test.go"))
+		assert.NoError(t, err, "other integration tests should be preserved")
+	})
+
+	t.Run("no error when artifacts do not exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		err := removeFrameworkOnlyArtifacts(tmpDir)
+		assert.NoError(t, err)
+	})
+}
+
 func TestCleanArchLintConfig(t *testing.T) {
 	t.Run("removes public component section", func(t *testing.T) {
 		tmpDir := t.TempDir()
@@ -493,7 +544,7 @@ deps:
 `
 		require.NoError(t, os.WriteFile(configPath, []byte(content), 0600))
 
-		err := cleanArchLintConfig(tmpDir)
+		err := cleanArchLintConfig(tmpDir, "")
 		require.NoError(t, err)
 
 		result, err := os.ReadFile(configPath)
@@ -523,7 +574,7 @@ deps:
 
 	t.Run("no error when file does not exist", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		err := cleanArchLintConfig(tmpDir)
+		err := cleanArchLintConfig(tmpDir, "")
 		assert.NoError(t, err)
 	})
 
@@ -533,7 +584,7 @@ deps:
 		content := "components:\n  business:\n    in:\n      - internal/ping/**\n"
 		require.NoError(t, os.WriteFile(configPath, []byte(content), 0600))
 
-		err := cleanArchLintConfig(tmpDir)
+		err := cleanArchLintConfig(tmpDir, "")
 		assert.NoError(t, err)
 
 		result, err := os.ReadFile(configPath)
@@ -597,7 +648,7 @@ func TestReplaceNameInGoFiles(t *testing.T) {
 		require.NoError(t, os.WriteFile(goFile, []byte(`package check
 
 import (
-	"github.com/peiman/changie/pkg/checkmate"
+	"github.com/peiman/ckeletin-go/pkg/checkmate"
 )
 
 var fallback = "ckeletin-go"
@@ -611,7 +662,7 @@ var fallback = "ckeletin-go"
 		require.NoError(t, err)
 		got := string(content)
 		// Import line preserved (pkg/ import should NOT be modified)
-		assert.Contains(t, got, "github.com/peiman/changie/pkg/checkmate")
+		assert.Contains(t, got, "github.com/peiman/ckeletin-go/pkg/checkmate")
 		// String literal replaced
 		assert.Contains(t, got, `"myapp"`)
 		assert.NotContains(t, got, `"ckeletin-go"`)
@@ -623,7 +674,7 @@ var fallback = "ckeletin-go"
 		goFile := filepath.Join(tmpDir, "simple.go")
 		require.NoError(t, os.WriteFile(goFile, []byte(`package main
 
-import "github.com/peiman/changie/pkg/checkmate"
+import "github.com/peiman/ckeletin-go/pkg/checkmate"
 
 var name = "ckeletin-go"
 `), 0600))
@@ -634,7 +685,7 @@ var name = "ckeletin-go"
 		content, err := os.ReadFile(goFile)
 		require.NoError(t, err)
 		got := string(content)
-		assert.Contains(t, got, "github.com/peiman/changie/pkg/checkmate")
+		assert.Contains(t, got, "github.com/peiman/ckeletin-go/pkg/checkmate")
 		assert.Contains(t, got, `"myapp"`)
 	})
 

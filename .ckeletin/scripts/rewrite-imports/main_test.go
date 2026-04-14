@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	oldModule = "github.com/peiman/changie"
+	oldModule = "github.com/peiman/ckeletin-go"
 	newModule = "github.com/user/myapp"
 )
 
@@ -26,7 +26,7 @@ func TestRewriteFile(t *testing.T) {
 			name: "basic import rewrite",
 			input: `package cmd
 
-import "github.com/peiman/changie/internal/check"
+import "github.com/peiman/ckeletin-go/internal/check"
 
 func init() {}
 `,
@@ -45,9 +45,9 @@ func init() {}
 import (
 	"fmt"
 
-	"github.com/peiman/changie/cmd"
-	"github.com/peiman/changie/internal/check"
-	"github.com/peiman/changie/internal/ping"
+	"github.com/peiman/ckeletin-go/cmd"
+	"github.com/peiman/ckeletin-go/internal/check"
+	"github.com/peiman/ckeletin-go/internal/ping"
 )
 
 func main() { fmt.Println("hi") }
@@ -73,8 +73,8 @@ func main() { fmt.Println("hi") }
 import (
 	"fmt"
 
-	"github.com/peiman/changie/internal/check"
-	"github.com/peiman/changie/pkg/checkmate"
+	"github.com/peiman/ckeletin-go/internal/check"
+	"github.com/peiman/ckeletin-go/pkg/checkmate"
 )
 
 func main() { fmt.Println("hi") }
@@ -84,7 +84,7 @@ func main() { fmt.Println("hi") }
 import (
 	"fmt"
 
-	"github.com/peiman/changie/pkg/checkmate"
+	"github.com/peiman/ckeletin-go/pkg/checkmate"
 	"github.com/user/myapp/internal/check"
 )
 
@@ -100,7 +100,7 @@ func main() { fmt.Println("hi") }
 import (
 	"fmt"
 
-	"github.com/peiman/changie/pkg/checkmate"
+	"github.com/peiman/ckeletin-go/pkg/checkmate"
 )
 
 func main() { fmt.Println("hi") }
@@ -124,7 +124,7 @@ func main() { fmt.Println("hi") }
 
 import "fmt"
 
-const upstream = "github.com/peiman/changie"
+const upstream = "github.com/peiman/ckeletin-go"
 
 func main() { fmt.Println(upstream) }
 `,
@@ -132,7 +132,7 @@ func main() { fmt.Println(upstream) }
 
 import "fmt"
 
-const upstream = "github.com/peiman/changie"
+const upstream = "github.com/peiman/ckeletin-go"
 
 func main() { fmt.Println(upstream) }
 `,
@@ -142,14 +142,14 @@ func main() { fmt.Println(upstream) }
 			name: "comments with module path are NOT affected",
 			input: `package cmd
 
-// See github.com/peiman/changie/internal/check for details
+// See github.com/peiman/ckeletin-go/internal/check for details
 import "fmt"
 
 func main() { fmt.Println("hi") }
 `,
 			expected: `package cmd
 
-// See github.com/peiman/changie/internal/check for details
+// See github.com/peiman/ckeletin-go/internal/check for details
 import "fmt"
 
 func main() { fmt.Println("hi") }
@@ -183,7 +183,7 @@ func main() { fmt.Println(os.Args) }
 			input: `package cmd
 
 import (
-	mycheck "github.com/peiman/changie/internal/check"
+	mycheck "github.com/peiman/ckeletin-go/internal/check"
 )
 
 func main() { mycheck.Run() }
@@ -203,7 +203,7 @@ func main() { mycheck.Run() }
 			input: `package cmd
 
 import (
-	. "github.com/peiman/changie/internal/check"
+	. "github.com/peiman/ckeletin-go/internal/check"
 )
 
 func main() { Run() }
@@ -222,7 +222,7 @@ func main() { Run() }
 			name: "bare module import (no subpackage)",
 			input: `package cmd
 
-import "github.com/peiman/changie"
+import "github.com/peiman/ckeletin-go"
 
 func main() {}
 `,
@@ -238,13 +238,13 @@ func main() {}
 			name: "does not match partial module prefix",
 			input: `package cmd
 
-import "github.com/peiman/changie-extra/pkg/foo"
+import "github.com/peiman/ckeletin-go-extra/pkg/foo"
 
 func main() {}
 `,
 			expected: `package cmd
 
-import "github.com/peiman/changie-extra/pkg/foo"
+import "github.com/peiman/ckeletin-go-extra/pkg/foo"
 
 func main() {}
 `,
@@ -254,9 +254,9 @@ func main() {}
 			name: "string constant AND import together",
 			input: `package cmd
 
-import "github.com/peiman/changie/internal/check"
+import "github.com/peiman/ckeletin-go/internal/check"
 
-const upstream = "github.com/peiman/changie"
+const upstream = "github.com/peiman/ckeletin-go"
 
 func main() { check.Run() }
 `,
@@ -264,7 +264,7 @@ func main() { check.Run() }
 
 import "github.com/user/myapp/internal/check"
 
-const upstream = "github.com/peiman/changie"
+const upstream = "github.com/peiman/ckeletin-go"
 
 func main() { check.Run() }
 `,
@@ -300,7 +300,7 @@ func TestRewriteDir(t *testing.T) {
 		goFile1 := filepath.Join(tmpDir, "cmd", "root.go")
 		require.NoError(t, os.WriteFile(goFile1, []byte(`package cmd
 
-import "github.com/peiman/changie/internal/check"
+import "github.com/peiman/ckeletin-go/internal/check"
 
 func init() { check.Run() }
 `), 0600))
@@ -325,7 +325,7 @@ func Run() {}
 		tmpDir := t.TempDir()
 
 		txtFile := filepath.Join(tmpDir, "README.md")
-		content := "See github.com/peiman/changie for details"
+		content := "See github.com/peiman/ckeletin-go for details"
 		require.NoError(t, os.WriteFile(txtFile, []byte(content), 0600))
 
 		count, err := rewriteDir(tmpDir, oldModule, newModule, false)
@@ -346,7 +346,7 @@ func Run() {}
 		vendorFile := filepath.Join(vendorDir, "main.go")
 		require.NoError(t, os.WriteFile(vendorFile, []byte(`package main
 
-import "github.com/peiman/changie/internal/check"
+import "github.com/peiman/ckeletin-go/internal/check"
 
 func main() {}
 `), 0600))
@@ -370,7 +370,7 @@ func main() {}
 		gitFile := filepath.Join(gitDir, "pre-commit.go")
 		require.NoError(t, os.WriteFile(gitFile, []byte(`package main
 
-import "github.com/peiman/changie/internal/check"
+import "github.com/peiman/ckeletin-go/internal/check"
 
 func main() {}
 `), 0600))
@@ -387,8 +387,8 @@ func main() {}
 		require.NoError(t, os.WriteFile(goFile, []byte(`package main
 
 import (
-	"github.com/peiman/changie/internal/check"
-	"github.com/peiman/changie/pkg/checkmate"
+	"github.com/peiman/ckeletin-go/internal/check"
+	"github.com/peiman/ckeletin-go/pkg/checkmate"
 )
 
 func main() {

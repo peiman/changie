@@ -1,4 +1,4 @@
-// AST-based Go import rewriter for ckeletin-go framework.
+// AST-based Go import rewriter for changie framework.
 //
 // Replaces module paths in import statements using go/ast, ensuring that only
 // actual import paths are modified — never comments, string constants, or

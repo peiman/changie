@@ -33,7 +33,7 @@ When ckeletin releases updates, pull them in:
 task ckeletin:update
 
 # Manual way (if you need more control)
-git subtree pull --prefix=.ckeletin https://github.com/peiman/changie.git main --squash
+git subtree pull --prefix=.ckeletin https://github.com/peiman/ckeletin-go.git main --squash
 ```
 
 Your project files (cmd/, internal/, configs in root) are never touched by framework updates.

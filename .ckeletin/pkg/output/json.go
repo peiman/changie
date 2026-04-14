@@ -1,7 +1,7 @@
 // .ckeletin/pkg/output/json.go
 //
 // Framework-level JSON output types and mode state.
-// This file is managed by ckeletin-go and auto-updates via `task ckeletin:update`.
+// This file is managed by changie and auto-updates via `task ckeletin:update`.
 
 package output
 

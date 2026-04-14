@@ -6,8 +6,8 @@ version: '3'
 
 vars:
   # Fallback defaults - parent Taskfile should override these via includes.vars
-  _BINARY_NAME_DEFAULT: changie
-  _MODULE_PATH_DEFAULT: github.com/peiman/changie
+  _BINARY_NAME_DEFAULT: ckeletin-go
+  _MODULE_PATH_DEFAULT: github.com/peiman/ckeletin-go
 
   # Computed vars
   VERSION:
@@ -58,8 +58,8 @@ tasks:
   # --- Setup & Environment ---
 
   setup:
-    desc: Install all development tools
-    deps: [setup:pinned, setup:latest]
+    desc: Install core development tools (pinned versions only)
+    deps: [setup:pinned]
     cmds:
     - |
       if command -v semgrep &> /dev/null; then
@@ -72,7 +72,14 @@ tasks:
         echo "  Warning: semgrep requires pip/pipx. Install manually: pip install semgrep"
       fi
     - lefthook install
-    - echo "✅ All tools installed successfully"
+    - echo "✅ Core tools installed. Run 'task setup:all' for security/audit tools too."
+    silent: false
+
+  setup:all:
+    desc: Install all development tools (core + security/audit)
+    deps: [setup, setup:latest]
+    cmds:
+    - echo "✅ All tools installed (core + security/audit)"
     silent: false
 
   setup:pinned:
@@ -123,7 +130,7 @@ tasks:
         # Get current module path from go.mod
         CURRENT_MODULE=$(head -1 go.mod | awk '{print $2}')
         # NOTE: String split prevents scaffold-init from replacing this upstream reference
-        UPSTREAM_MODULE="github.com/peiman""/changie"
+        UPSTREAM_MODULE="github.com/peiman/ckeleti""n-go"
 
         if [ "$CURRENT_MODULE" = "$UPSTREAM_MODULE" ]; then
           echo "❌ Cannot update: this appears to be the upstream repo itself"
@@ -136,7 +143,7 @@ tasks:
         else
           echo "   Adding remote 'ckeletin-upstream'..."
           # NOTE: String split prevents scaffold-init from replacing this upstream URL
-          git remote add ckeletin-upstream https://github.com/peiman"/changie.git"
+          git remote add ckeletin-upstream https://github.com/peiman/ckeleti""n-go.git
         fi
 
         # Determine update target: pinned version or latest main
@@ -169,13 +176,13 @@ tasks:
         go run ./.ckeletin/scripts/rewrite-imports/ -old "$UPSTREAM_MODULE" -new "$CURRENT_MODULE" -dir .ckeletin
 
         # Replace upstream binary name in .ckeletin/ Go string literals
-        # (e.g., "./logs/changie.log" → "./logs/myapp.log")
+        # (e.g., "./logs/ckeletin-go.log" → "./logs/myapp.log")
         # NOTE: String split prevents scaffold-init from replacing this name
         UPSTREAM_NAME="ckeletin""-go"
         CURRENT_NAME=$(grep 'BINARY_NAME:' Taskfile.yml | head -1 | awk '{print $2}')
         if [ -n "$CURRENT_NAME" ] && [ "$CURRENT_NAME" != "$UPSTREAM_NAME" ]; then
           echo "   Updating binary name references ($UPSTREAM_NAME → $CURRENT_NAME)..."
-          find .ckeletin -name "*.go" ! -name "*_test.go" -print0 | while IFS= read -r -d '' f; do
+          find .ckeletin -name "*.go" ! -name "*_test.go" | while IFS= read -r f; do
             # Skip import lines, only replace in non-import content
             awk -v old="$UPSTREAM_NAME" -v new="$CURRENT_NAME" '
               /^import \(/ { in_import=1; print; next }
@@ -189,7 +196,7 @@ tasks:
           UPSTREAM_ENV=$(echo "$UPSTREAM_NAME" | tr '[:lower:]-' '[:upper:]_')
           CURRENT_ENV=$(echo "$CURRENT_NAME" | tr '[:lower:]-' '[:upper:]_')
           if [ "$UPSTREAM_ENV" != "$CURRENT_ENV" ]; then
-            find .ckeletin -name "*.go" ! -name "*_test.go" -print0 | while IFS= read -r -d '' f; do
+            find .ckeletin -name "*.go" ! -name "*_test.go" | while IFS= read -r f; do
               awk -v old="$UPSTREAM_ENV" -v new="$CURRENT_ENV" '
                 /^import \(/ { in_import=1; print; next }
                 in_import && /^\)/ { in_import=0; print; next }
@@ -283,7 +290,7 @@ tasks:
       - |
         set -e
         CURRENT_MODULE=$(head -1 go.mod | awk '{print $2}')
-        UPSTREAM_MODULE="github.com/peiman""/changie"
+        UPSTREAM_MODULE="github.com/peiman/ckeleti""n-go"
         if [ "$CURRENT_MODULE" = "$UPSTREAM_MODULE" ]; then
           echo "❌ Cannot run dry-run on the upstream repository itself"
           exit 1
@@ -291,7 +298,7 @@ tasks:
 
         # Set up remote if needed
         if ! git remote get-url ckeletin-upstream >/dev/null 2>&1; then
-          git remote add ckeletin-upstream "https://github.com/peiman""/changie.git"
+          git remote add ckeletin-upstream "https://github.com/peiman/ckeleti""n-go.git"
         fi
 
         # Determine update target
@@ -328,7 +335,7 @@ tasks:
       - |
         set -e
         CURRENT_MODULE=$(head -1 go.mod | awk '{print $2}')
-        UPSTREAM_MODULE="github.com/peiman""/changie"
+        UPSTREAM_MODULE="github.com/peiman/ckeleti""n-go"
 
         if [ "$CURRENT_MODULE" = "$UPSTREAM_MODULE" ]; then
           echo "ℹ️  This is the upstream repository — compatibility check not applicable"
@@ -337,7 +344,7 @@ tasks:
 
         # Set up remote if needed
         if ! git remote get-url ckeletin-upstream >/dev/null 2>&1; then
-          git remote add ckeletin-upstream "https://github.com/peiman""/changie.git"
+          git remote add ckeletin-upstream "https://github.com/peiman/ckeleti""n-go.git"
         fi
 
         # Determine update target
@@ -487,7 +494,7 @@ tasks:
 
         # Update check
         CURRENT_MODULE=$(head -1 go.mod | awk '{print $2}')
-        UPSTREAM_MODULE="github.com/peiman""/changie"
+        UPSTREAM_MODULE="github.com/peiman/ckeleti""n-go"
         if [ "$CURRENT_MODULE" = "$UPSTREAM_MODULE" ]; then
           echo "ℹ️  This is the upstream repository"
         else
@@ -509,7 +516,7 @@ tasks:
         echo ""
         echo "🔗 Import consistency:"
         CURRENT_MODULE=$(head -1 go.mod | awk '{print $2}')
-        UPSTREAM_MODULE="github.com/peiman""/changie"
+        UPSTREAM_MODULE="github.com/peiman/ckeleti""n-go"
         if [ "$CURRENT_MODULE" != "$UPSTREAM_MODULE" ]; then
           INCONSISTENT=$(grep -rn "$UPSTREAM_MODULE" --include="*.go" cmd/ internal/ 2>/dev/null | grep -v "_test.go" || true)
           if [ -z "$INCONSISTENT" ]; then
@@ -808,6 +815,12 @@ tasks:
     cmd: |
       gotestsum --format short --jsonfile {{.TEST_OUTPUT_JSON}} --hide-summary=skipped -- -v -short $(go list ./... | grep -v /test/integration)
 
+  test:scaffold:
+    desc: Run scaffold integration tests (slow — copies project, runs task check)
+    silent: true
+    cmd: |
+      gotestsum --format short -- -v -tags "dev scaffold" -count=1 ./test/integration/...
+
   test:race:
     desc: Run tests with race detection
     cmd: |
@@ -1070,7 +1083,17 @@ tasks:
     cmds:
       - task: build:dev
         vars: { CLI_ARGS: "" }
-      - cmd: ./{{._BINARY_NAME}} check {{.CLI_ARGS}}
+      - cmd: |
+          # Check if binary has the 'check' subcommand (requires dev build tag).
+          # Fall back to bash-based checks if not available.
+          if ./{{._BINARY_NAME}} help check >/dev/null 2>&1; then
+            ./{{._BINARY_NAME}} check {{.CLI_ARGS}}
+          else
+            echo "ℹ️  Binary does not have 'check' subcommand (dev build tag required)"
+            echo "   Falling back to bash-based checks..."
+            echo ""
+            task ckeletin:check:bash
+          fi
     vars:
       CLI_ARGS: ""
 
