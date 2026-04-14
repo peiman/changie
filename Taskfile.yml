@@ -36,6 +36,10 @@ tasks:
     desc: Install @latest tools (security tools, always fresh)
     cmds: [task: ckeletin:setup:latest]
 
+  setup:all:
+    desc: Install all development tools (core + security/audit)
+    cmds: [task: ckeletin:setup:all]
+
   doctor:
     desc: Check development environment
     cmds: [task: ckeletin:doctor]
@@ -246,6 +250,10 @@ tasks:
   test:release:
     desc: Test GoReleaser configuration (snapshot build, no release)
     cmds: [task: ckeletin:test:release]
+
+  test:scaffold:
+    desc: Run scaffold integration tests
+    cmds: [task: ckeletin:test:scaffold]
 
   test:coverage:html:
     desc: Generate HTML coverage report and open in browser
