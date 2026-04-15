@@ -1,0 +1,73 @@
+# Check if HOMEBREW_TAP_GITHUB_TOKEN is still valid
+# Runs weekly and opens an issue if the token is expired or expiring soon
+name: Token Expiry Check
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 9am UTC
+  workflow_dispatch:       # Manual trigger
+
+permissions:
+  issues: write
+
+jobs:
+  check-token:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Homebrew tap token
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::error::HOMEBREW_TAP_GITHUB_TOKEN is not set"
+            echo "TOKEN_STATUS=missing" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          # Test the token against the tap repo
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TAP_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/peiman/homebrew-tap")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Token is valid"
+            echo "TOKEN_STATUS=valid" >> "$GITHUB_ENV"
+          elif [ "$HTTP_CODE" = "401" ]; then
+            echo "::error::Token is expired or invalid (HTTP 401)"
+            echo "TOKEN_STATUS=expired" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Unexpected response: HTTP $HTTP_CODE"
+            echo "TOKEN_STATUS=unknown" >> "$GITHUB_ENV"
+          fi
+
+      - name: Open issue if token is broken
+        if: env.TOKEN_STATUS != 'valid'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN_STATUS: ${{ env.TOKEN_STATUS }}
+        run: |
+          # Check if an issue already exists
+          EXISTING=$(gh issue list --repo peiman/changie \
+            --label "token-expiry" --state open --json number --jq 'length')
+
+          if [ "$EXISTING" != "0" ]; then
+            echo "Issue already open, skipping"
+            exit 0
+          fi
+
+          gh issue create --repo peiman/changie \
+            --title "HOMEBREW_TAP_GITHUB_TOKEN is ${TOKEN_STATUS}" \
+            --label "token-expiry" \
+            --body "The weekly token check found that HOMEBREW_TAP_GITHUB_TOKEN is **${TOKEN_STATUS}**.
+
+          Releases will fail at the Homebrew formula push step until this is fixed.
+
+          ## Fix
+
+          1. Create a new fine-grained PAT at https://github.com/settings/personal-access-tokens/new
+             - Scope: peiman/homebrew-tap only
+             - Permissions: Contents (read/write), Metadata (read)
+             - Expiration: 90 days
+          2. Update the secret: gh secret set HOMEBREW_TAP_GITHUB_TOKEN
+          3. Close this issue"
